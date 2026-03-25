@@ -1,0 +1,1 @@
+ALTER TABLE public.business_cards ADD COLUMN home_service boolean NOT NULL DEFAULT false;
