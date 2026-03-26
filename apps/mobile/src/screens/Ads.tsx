@@ -1,0 +1,223 @@
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { BarChart3, Lock, Megaphone, Plus, TrendingUp } from "lucide-react-native";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Skeleton } from "../components/ui/skeleton";
+import { useAdCampaigns } from "../hooks/useAds";
+import { useAuth } from "../hooks/useAuth";
+
+const statusColors: Record<string, string> = {
+  active: "bg-green-500/10 text-green-600",
+  paused: "bg-yellow-500/10 text-yellow-600",
+  completed: "bg-muted text-muted-foreground",
+};
+
+const typeEmoji: Record<string, string> = {
+  banner: "🖼️",
+  featured: "⭐",
+  sponsored: "💳",
+};
+
+const demoAds = [
+  { id: "demo-1", emoji: "🖼️", title: "Summer Sale Campaign", type: "Banner Ad", impressions: "12.5K", clicks: "342", status: "active" },
+  { id: "demo-2", emoji: "⭐", title: "Featured Business Listing", type: "Featured", impressions: "8.2K", clicks: "189", status: "active" },
+  { id: "demo-3", emoji: "💳", title: "Diwali Special Promo", type: "Sponsored Card", impressions: "25.1K", clicks: "567", status: "completed" },
+];
+
+const Ads = () => {
+  const navigation = useNavigation<any>();
+  const { user } = useAuth();
+  const { data: campaigns = [], isLoading } = useAdCampaigns();
+
+  const activeAds = campaigns.filter((a) => a.status === "active");
+  const totalImpressions = campaigns.reduce((s, a) => s + a.impressions, 0);
+  const totalClicks = campaigns.reduce((s, a) => s + a.clicks, 0);
+
+  return (
+    <View className="flex-1 bg-background">
+      <View className="bg-primary px-4 py-4">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center gap-2">
+            <Text className="text-xl">📣</Text>
+            <Text className="text-xl font-bold text-primary-foreground">Ads Manager</Text>
+          </View>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="text-xs gap-1"
+            onPress={() => navigation.navigate("AdDashboard")}
+          >
+            <BarChart3 size={14} color="#111827" /> Dashboard
+          </Button>
+        </View>
+        <Text className="mt-1 text-xs text-primary-foreground/70">
+          Promote your business to thousands
+        </Text>
+      </View>
+
+      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="flex-1 px-4 py-4">
+        {!user && (
+          <View className="rounded-2xl border border-primary/20 bg-primary/5 p-4 items-center">
+            <Lock size={32} color="#2563eb" />
+            <Text className="text-base font-bold text-foreground mt-2">
+              Sign in to manage your ads
+            </Text>
+            <Text className="text-xs text-muted-foreground mt-1 text-center">
+              Create targeted campaigns and track performance
+            </Text>
+            <Button className="mt-3 rounded-xl" onPress={() => navigation.navigate("Auth")}>
+              Sign In
+            </Button>
+          </View>
+        )}
+
+        {!user && (
+          <View className="mt-4">
+            <Text className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              📊 Preview: Sample Campaigns
+            </Text>
+            <View className="flex-row flex-wrap gap-3 mb-4">
+              {[
+                { value: "3", label: "Active Ads" },
+                { value: "45.8K", label: "Impressions" },
+                { value: "1,098", label: "Clicks" },
+              ].map((s) => (
+                <View key={s.label} className="w-[31%] rounded-xl border border-border bg-card p-3 items-center">
+                  <Text className="text-lg font-bold text-foreground">{s.value}</Text>
+                  <Text className="text-[10px] text-muted-foreground">{s.label}</Text>
+                </View>
+              ))}
+            </View>
+            <View className="space-y-3 opacity-80">
+              {demoAds.map((ad) => (
+                <View key={ad.id} className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3">
+                  <Text className="text-2xl">{ad.emoji}</Text>
+                  <View className="flex-1">
+                    <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                      {ad.title}
+                    </Text>
+                    <Text className="text-xs text-muted-foreground">
+                      {ad.impressions} views • {ad.clicks} clicks
+                    </Text>
+                  </View>
+                  <Badge className={`border-none text-[10px] ${statusColors[ad.status] || statusColors.active}`}>
+                    {ad.status}
+                  </Badge>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {user && (
+          <View className="mt-2 flex-row flex-wrap gap-3">
+            <View className="w-[31%] rounded-xl border border-border bg-card p-3 items-center">
+              <Text className="text-lg font-bold text-foreground">{activeAds.length}</Text>
+              <Text className="text-[10px] text-muted-foreground">Active Ads</Text>
+            </View>
+            <View className="w-[31%] rounded-xl border border-border bg-card p-3 items-center">
+              <Text className="text-lg font-bold text-foreground">
+                {totalImpressions > 1000 ? `${(totalImpressions / 1000).toFixed(1)}K` : totalImpressions}
+              </Text>
+              <Text className="text-[10px] text-muted-foreground">Impressions</Text>
+            </View>
+            <View className="w-[31%] rounded-xl border border-border bg-card p-3 items-center">
+              <Text className="text-lg font-bold text-foreground">{totalClicks.toLocaleString()}</Text>
+              <Text className="text-[10px] text-muted-foreground">Clicks</Text>
+            </View>
+          </View>
+        )}
+
+        <View className="mt-4 rounded-2xl border border-border p-5 items-center overflow-hidden">
+          <View className="absolute inset-0 bg-primary/10" />
+          <View className="absolute right-0 top-0 bottom-0 w-1/2 bg-accent/10" />
+          <Megaphone size={32} color="#2563eb" />
+          <Text className="text-lg font-bold text-foreground mt-2">Reach More Customers</Text>
+          <Text className="text-sm text-muted-foreground text-center mt-1">
+            Create targeted ads that appear across the platform
+          </Text>
+          <View className="flex-row gap-2 mt-4 w-full">
+            <Button className="flex-1 gap-2 rounded-xl" onPress={() => navigation.navigate("AdCreate")}>
+              <Plus size={16} color="#ffffff" /> Create Ad
+            </Button>
+            <Button variant="outline" className="flex-1 gap-2 rounded-xl" onPress={() => navigation.navigate("AdDashboard")}>
+              <TrendingUp size={16} color="#111827" /> View Stats
+            </Button>
+          </View>
+        </View>
+
+        <View className="mt-4">
+          <Text className="text-lg font-semibold text-foreground mb-3">Ad Formats</Text>
+          <View className="space-y-3">
+            {[
+              { emoji: "🖼️", name: "Banner Ads", desc: "Eye-catching banners across Home, Events & Vouchers", price: "From ₹100/day" },
+              { emoji: "⭐", name: "Featured Listing", desc: "Top placement in category and search results", price: "From ₹200/day" },
+              { emoji: "💳", name: "Sponsored Card", desc: "Promoted business card in the directory", price: "From ₹150/day" },
+            ].map((t) => (
+              <Pressable
+                key={t.name}
+                onPress={() => navigation.navigate("AdCreate")}
+                className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-4"
+              >
+                <Text className="text-3xl">{t.emoji}</Text>
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-foreground">{t.name}</Text>
+                  <Text className="text-xs text-muted-foreground">{t.desc}</Text>
+                </View>
+                <Text className="text-xs font-medium text-primary">{t.price}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {user && (
+          <View className="mt-5">
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-lg font-semibold text-foreground">Recent Campaigns</Text>
+              <Pressable onPress={() => navigation.navigate("AdDashboard")}>
+                <Text className="text-sm text-primary font-medium">See All</Text>
+              </Pressable>
+            </View>
+            {isLoading ? (
+              <View className="space-y-3">
+                {[1, 2].map((i) => (
+                  <Skeleton key={i} className="h-16 w-full rounded-xl" />
+                ))}
+              </View>
+            ) : campaigns.length === 0 ? (
+              <View className="items-center py-8">
+                <Megaphone size={32} color="#c0c4cc" />
+                <Text className="text-xs text-muted-foreground mt-2">
+                  No campaigns yet. Create your first ad!
+                </Text>
+              </View>
+            ) : (
+              <View className="space-y-3">
+                {campaigns.slice(0, 3).map((ad) => (
+                  <View key={ad.id} className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3">
+                    <Text className="text-2xl">{typeEmoji[ad.ad_type] || "📣"}</Text>
+                    <View className="flex-1">
+                      <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                        {ad.title}
+                      </Text>
+                      <Text className="text-xs text-muted-foreground">
+                        {ad.impressions.toLocaleString()} views • {ad.clicks} clicks
+                      </Text>
+                    </View>
+                    <Badge className={`border-none text-[10px] ${statusColors[ad.status] || statusColors.active}`}>
+                      {ad.status}
+                    </Badge>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+};
+
+export default Ads;
+
