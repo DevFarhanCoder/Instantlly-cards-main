@@ -12,6 +12,7 @@ import {
 import AppNavigator from "./src/navigation/AppNavigator";
 import { colors } from "./src/theme/colors";
 import AppProviders from "./src/AppProviders";
+import { SUPABASE_CONFIG_OK } from "./src/integrations/supabase/client";
 
 const DEBUG_MINIMAL = false;
 const DEBUG_PROVIDERS_ONLY = false;
@@ -29,6 +30,18 @@ export default function App() {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!SUPABASE_CONFIG_OK) {
+    return (
+      <View style={styles.loading}>
+        <Text style={styles.debugText}>Missing Supabase config</Text>
+        <Text style={styles.debugSubText}>
+          Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY in EAS secrets.
+        </Text>
+        <StatusBar style="auto" />
       </View>
     );
   }
@@ -69,10 +82,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.background,
+    paddingHorizontal: 24,
   },
   debugText: {
     fontSize: 16,
     fontWeight: "600",
     color: colors.foreground,
+    textAlign: "center",
+  },
+  debugSubText: {
+    marginTop: 8,
+    fontSize: 13,
+    color: colors.mutedForeground,
+    textAlign: "center",
   },
 });
