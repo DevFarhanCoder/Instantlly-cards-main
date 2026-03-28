@@ -3,6 +3,8 @@ import { View, ScrollView, Pressable, Text, Modal, StyleSheet, Image } from "rea
 import { useNavigation } from "@react-navigation/native";
 import { Users, Store, Shield, ChevronDown, Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "../hooks/useAuth";
+import { useAppDispatch } from "../store";
+import { setActiveRole } from "../store/authSlice";
 import { Input } from "../components/ui/input";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -18,7 +20,7 @@ type Props = NativeStackScreenProps<RootStackParamList, "Auth">;
 const COUNTRY_CODES = [
   { code: "+91", country: "India", flag: "🇮🇳" },
   { code: "+1", country: "United States", flag: "🇺🇸" },
-  { code: "+1", country: "Canada", flag: "🇨🇦" },
+  { code: "+1-CA", country: "Canada", flag: "🇨🇦" },
   { code: "+44", country: "United Kingdom", flag: "🇬🇧" },
   { code: "+61", country: "Australia", flag: "🇦🇺" },
   { code: "+971", country: "UAE", flag: "🇦🇪" },
@@ -83,6 +85,9 @@ const COUNTRY_CODES = [
   { code: "+40", country: "Romania", flag: "🇷🇴" },
 ];
 
+/** Strip the -XX suffix so "+1-CA" sends as "+1" */
+const dialCode = (code: string) => code.replace(/-[A-Z]+$/, '');
+
 const DEMO_ACCOUNTS: Record<string, { phone: string; password: string }> = {
   customer: { phone: "9000000001", password: "demo1234" },
   business: { phone: "9000000002", password: "demo1234" },
@@ -90,6 +95,7 @@ const DEMO_ACCOUNTS: Record<string, { phone: string; password: string }> = {
 };
 
 const Auth = ({ navigation }: Props) => {
+  const dispatch = useAppDispatch();
   const [isSignUp, setIsSignUp] = useState(false);
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
@@ -101,6 +107,9 @@ const Auth = ({ navigation }: Props) => {
   const [roleTab, setRoleTab] = useState<RoleTab>("customer");
   const [countryCode, setCountryCode] = useState("+91");
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [showRoleSelection, setShowRoleSelection] = useState(false);
+  /** Roles returned by the login response — used to populate the role selection modal. */
+  const [loginRoles, setLoginRoles] = useState<string[]>([]);
   const { signIn, signUp } = useAuth();
 
   const validatePhone = (phone: string): boolean => {
@@ -151,7 +160,8 @@ const Auth = ({ navigation }: Props) => {
 
     setLoading(true);
     try {
-      const fullPhone = `${countryCode}${phone}`.replace('+', '');
+      // Strip all '+' signs (handles country codes like "+91" and any user-pasted formatting)
+      const fullPhone = `${dialCode(countryCode)}${phone}`.replace(/\+/g, '');
 
       if (isSignUp) {
         console.log('[Auth Screen] Calling signUp...');
@@ -166,12 +176,17 @@ const Auth = ({ navigation }: Props) => {
         }
       } else {
         console.log('[Auth Screen] Calling signIn...');
-        const { error } = await signIn(fullPhone, password);
+        const { error, user: freshUser } = await signIn(fullPhone, password);
         if (error) {
           console.warn('[Auth Screen] signIn error:', error);
           toast.error(error);
+        } else if (freshUser && freshUser.roles.length > 1) {
+          // Fresh roles from login response — no stale-closure risk
+          console.log(`[Auth Screen] Multi-role detected: [${freshUser.roles.join(', ')}], showing role selection`);
+          setLoginRoles(freshUser.roles);
+          setShowRoleSelection(true);
         } else {
-          console.log('[Auth Screen] signIn success → navigating to MyPasses');
+          console.log('[Auth Screen] Single role login → navigating to MyPasses');
           navigation.navigate("MyPasses");
         }
       }
@@ -290,7 +305,7 @@ const Auth = ({ navigation }: Props) => {
                       style={styles.countryCodeButton}
                     >
                       <Text style={styles.countryCodeButtonText}>
-                        {COUNTRY_CODES.find(c => c.code === countryCode)?.flag} {countryCode}
+                        {COUNTRY_CODES.find(c => c.code === countryCode)?.flag} {dialCode(countryCode)}
                       </Text>
                       <ChevronDown size={14} color="#6b7280" />
                     </Pressable>
@@ -317,12 +332,12 @@ const Auth = ({ navigation }: Props) => {
                     <Pressable
                       onPress={() => setShowPassword(!showPassword)}
                       style={styles.eyeButton}
+                      accessibilityLabel={showPassword ? "Hide password" : "Show password"}
                     >
-                      {showPassword ? (
-                        <EyeOff size={18} color="#6b7280" />
-                      ) : (
-                        <Eye size={18} color="#6b7280" />
-                      )}
+                      {showPassword
+                        ? <EyeOff size={18} color="#6b7280" />
+                        : <Eye size={18} color="#6b7280" />
+                      }
                     </Pressable>
                   </View>
                   {password.length > 0 && !validatePassword(password) && (
@@ -348,12 +363,12 @@ const Auth = ({ navigation }: Props) => {
                       <Pressable
                         onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                         style={styles.eyeButton}
+                        accessibilityLabel={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                       >
-                        {showConfirmPassword ? (
-                          <EyeOff size={18} color="#6b7280" />
-                        ) : (
-                          <Eye size={18} color="#6b7280" />
-                        )}
+                        {showConfirmPassword
+                          ? <EyeOff size={18} color="#6b7280" />
+                          : <Eye size={18} color="#6b7280" />
+                        }
                       </Pressable>
                     </View>
                     {confirmPassword.length > 0 && password !== confirmPassword && (
@@ -433,6 +448,57 @@ const Auth = ({ navigation }: Props) => {
         </View>
       </ScrollView>
 
+      {/* Multi-Role Selection Modal */}
+      <Modal
+        visible={showRoleSelection && loginRoles.length > 1}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRoleSelection(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.roleSelectionModal}>
+            <Text style={styles.roleSelectionTitle}>Choose Your Role</Text>
+            <Text style={styles.roleSelectionSubtitle}>
+              You have access to multiple roles
+            </Text>
+
+            <View style={styles.roleSelectionButtonsContainer}>
+              {loginRoles.includes('customer') && (
+                <Pressable
+                  onPress={() => {
+                    console.log('[Auth Screen] Selected role: customer → navigating to MyPasses');
+                    dispatch(setActiveRole('customer'));
+                    setShowRoleSelection(false);
+                    navigation.navigate("MyPasses");
+                  }}
+                  style={styles.roleSelectionButton}
+                >
+                  <Users size={28} color="#2563eb" />
+                  <Text style={styles.roleSelectionButtonText}>Customer</Text>
+                  <Text style={styles.roleSelectionButtonDesc}>Browse & purchase</Text>
+                </Pressable>
+              )}
+
+              {loginRoles.includes('business') && (
+                <Pressable
+                  onPress={() => {
+                    console.log('[Auth Screen] Selected role: business → navigating to MyPasses');
+                    dispatch(setActiveRole('business'));
+                    setShowRoleSelection(false);
+                    navigation.navigate("MyPasses");
+                  }}
+                  style={styles.roleSelectionButton}
+                >
+                  <Store size={28} color="#16a34a" />
+                  <Text style={styles.roleSelectionButtonText}>Business</Text>
+                  <Text style={styles.roleSelectionButtonDesc}>Manage listings</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Country Code Picker Modal */}
       <Modal
         visible={showCountryPicker}
@@ -457,7 +523,7 @@ const Auth = ({ navigation }: Props) => {
                 >
                   <Text style={styles.countryFlag}>{country.flag}</Text>
                   <Text style={styles.countryName}>{country.country}</Text>
-                  <Text style={styles.countryCodeInList}>{country.code}</Text>
+                  <Text style={styles.countryCodeInList}>{dialCode(country.code)}</Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -519,6 +585,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#ffffff',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   demoButton: {
     flex: 1,
@@ -628,6 +702,53 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     fontWeight: '600',
+  },
+  roleSelectionModal: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 32,
+    maxHeight: '70%',
+  },
+  roleSelectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  roleSelectionSubtitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  roleSelectionButtonsContainer: {
+    flexDirection: 'column',
+    gap: 12,
+  },
+  roleSelectionButton: {
+    backgroundColor: '#f9fafb',
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  roleSelectionButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  roleSelectionButtonDesc: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '500',
   },
 });
 

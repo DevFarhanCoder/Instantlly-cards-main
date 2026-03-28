@@ -35,7 +35,7 @@ const customerNav = [
 const businessNav = [
   { route: "Home", icon: Home, label: "Home" },
   { route: "BusinessDashboard", icon: BarChart3, label: "Dashboard" },
-  { route: "BusinessAnalytics", icon: Shield, label: "Analytics" },
+  { route: "BusinessAnalytics", icon: TrendingUp, label: "Analytics" },
   { route: "Ads", icon: Megaphone, label: "Ads" },
 ];
 

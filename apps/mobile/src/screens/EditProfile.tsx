@@ -7,6 +7,14 @@ import * as ImagePicker from "expo-image-picker";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import { useAuth } from "../hooks/useAuth";
 import { useGetProfileQuery, useUpdateProfileMutation } from "../store/api/usersApi";
 import { supabase } from "../integrations/supabase/client";
@@ -17,6 +25,8 @@ const EditProfile = () => {
   const { user } = useAuth();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [about, setAbout] = useState("");
+  const [gender, setGender] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const { data: profile, isLoading } = useGetProfileQuery(undefined, { skip: !user });
@@ -26,6 +36,8 @@ const EditProfile = () => {
     if (profile) {
       setFullName(profile.name || profile.profile?.full_name || "");
       setPhone(profile.phone || profile.profile?.phone || "");
+      setAbout(profile.about || profile.profile?.bio || "");
+      setGender(profile.gender || "");
       setAvatarUrl(profile.profile_picture || profile.profile?.avatar_url || null);
     }
   }, [profile]);
@@ -35,6 +47,8 @@ const EditProfile = () => {
       await updateProfileMutation({
         name: fullName.trim(),
         phone: phone.trim(),
+        about: about.trim(),
+        gender: gender || undefined,
         profile_picture: avatarUrl ?? undefined,
       }).unwrap();
     },
@@ -152,6 +166,33 @@ const EditProfile = () => {
               keyboardType="phone-pad"
               className="rounded-xl"
             />
+          </View>
+
+          <View className="space-y-2">
+            <Label>About</Label>
+            <Textarea
+              placeholder="Tell others about yourself..."
+              value={about}
+              onChangeText={setAbout}
+              className="rounded-xl"
+              maxLength={500}
+            />
+            <Text className="text-[10px] text-muted-foreground text-right">{about.length}/500</Text>
+          </View>
+
+          <View className="space-y-2">
+            <Label>Gender</Label>
+            <Select value={gender} onValueChange={setGender}>
+              <SelectTrigger className="rounded-xl h-12">
+                <SelectValue placeholder="Select gender (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="non_binary">Non-binary</SelectItem>
+                <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+              </SelectContent>
+            </Select>
           </View>
 
           <View className="space-y-2">

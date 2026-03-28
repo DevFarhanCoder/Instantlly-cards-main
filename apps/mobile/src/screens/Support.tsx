@@ -38,6 +38,7 @@ const Support = () => {
       const { data, error } = await supabase
         .from("support_tickets")
         .select("*")
+        .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(10);
       if (error) throw error;

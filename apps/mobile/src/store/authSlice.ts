@@ -12,14 +12,15 @@ export interface AuthUser {
 interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
-  refreshToken: string | null;
+  /** The role the user chose when they have multiple roles (customer + business). */
+  activeRole: string | null;
   isAuthenticated: boolean;
 }
 
 const initialState: AuthState = {
   user: null,
   accessToken: null,
-  refreshToken: null,
+  activeRole: null,
   isAuthenticated: false,
 };
 
@@ -27,13 +28,16 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
+    /**
+     * Called after login / signup / session restore.
+     * refreshToken is intentionally NOT stored in Redux — it lives only in SecureStore.
+     */
     setCredentials(
       state,
       action: PayloadAction<{ user: AuthUser; accessToken: string; refreshToken: string }>
     ) {
       state.user = action.payload.user;
       state.accessToken = action.payload.accessToken;
-      state.refreshToken = action.payload.refreshToken;
       state.isAuthenticated = true;
     },
     updateTokens(
@@ -41,18 +45,21 @@ const authSlice = createSlice({
       action: PayloadAction<{ accessToken: string; refreshToken: string }>
     ) {
       state.accessToken = action.payload.accessToken;
-      state.refreshToken = action.payload.refreshToken;
+      // refreshToken is updated in SecureStore by baseApi's reauth interceptor
+    },
+    setActiveRole(state, action: PayloadAction<string | null>) {
+      state.activeRole = action.payload;
     },
     clearCredentials(state) {
       state.user = null;
       state.accessToken = null;
-      state.refreshToken = null;
+      state.activeRole = null;
       state.isAuthenticated = false;
     },
   },
 });
 
-export const { setCredentials, updateTokens, clearCredentials } = authSlice.actions;
+export const { setCredentials, updateTokens, setActiveRole, clearCredentials } = authSlice.actions;
 export default authSlice.reducer;
 
 const EMPTY_ROLES: string[] = [];
@@ -60,7 +67,7 @@ const EMPTY_ROLES: string[] = [];
 // Selectors
 export const selectCurrentUser = (state: { auth: AuthState }) => state.auth.user;
 export const selectAccessToken = (state: { auth: AuthState }) => state.auth.accessToken;
-export const selectRefreshToken = (state: { auth: AuthState }) => state.auth.refreshToken;
+export const selectActiveRole = (state: { auth: AuthState }) => state.auth.activeRole;
 export const selectIsAuthenticated = (state: { auth: AuthState }) => state.auth.isAuthenticated;
 export const selectUserRoles = (state: { auth: AuthState }) =>
   state.auth.user?.roles ?? EMPTY_ROLES;
