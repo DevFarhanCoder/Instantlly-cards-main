@@ -2,8 +2,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Image,
+  Modal,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -55,6 +57,16 @@ const errorInputClass = "rounded-xl bg-muted/50 border border-destructive text-b
 const textareaClass = "rounded-xl bg-muted/50 border-0 text-base px-4 py-3";
 const labelClass = "text-sm font-bold";
 
+const COUNTRY_CODES = [
+  { code: "+91", country: "India", flag: "🇮🇳" },
+  { code: "+1", country: "United States", flag: "🇺🇸" },
+  { code: "+1", country: "Canada", flag: "🇨🇦" },
+  { code: "+44", country: "United Kingdom", flag: "🇬🇧" },
+  { code: "+61", country: "Australia", flag: "🇦🇺" },
+  { code: "+971", country: "UAE", flag: "🇦🇪" },
+  { code: "+65", country: "Singapore", flag: "🇸🇬" },
+];
+
 const CardCreate = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -80,6 +92,12 @@ const CardCreate = () => {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [uploading, setUploading] = useState(false);
   const [logoAsset, setLogoAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [phoneCountry, setPhoneCountry] = useState("+91");
+  const [whatsappCountry, setWhatsappCountry] = useState("+91");
+  const [companyPhoneCountry, setCompanyPhoneCountry] = useState("+91");
+  const [showPhoneCountryPicker, setShowPhoneCountryPicker] = useState(false);
+  const [showWhatsappCountryPicker, setShowWhatsappCountryPicker] = useState(false);
+  const [showCompanyPhoneCountryPicker, setShowCompanyPhoneCountryPicker] = useState(false);
   const isEdit = !!cardId;
 
   const [form, setForm] = useState({
@@ -163,6 +181,23 @@ const CardCreate = () => {
 
   const updateField = (field: string, value: any) =>
     setForm((prev) => ({ ...prev, [field]: value }));
+  
+  const formatDateInput = (text: string): string => {
+    // Remove all non-numeric characters
+    const numericOnly = text.replace(/[^\d]/g, '');
+    
+    // Format with slashes: DD/MM/YYYY
+    let formatted = '';
+    for (let i = 0; i < numericOnly.length && i < 8; i++) {
+      if (i === 2 || i === 4) {
+        formatted += '/';
+      }
+      formatted += numericOnly[i];
+    }
+    
+    return formatted;
+  };
+
   const markTouched = (field: string) =>
     setTouched((prev) => ({ ...prev, [field]: true }));
   const toggleSection = (key: string) =>
@@ -520,7 +555,7 @@ const CardCreate = () => {
                 {form.logoPreview ? (
                   <Image source={{ uri: form.logoPreview }} style={{ height: "100%", width: "100%" }} />
                 ) : (
-                  <Text className="text-lg">??</Text>
+                  <Text className="text-lg">🏢</Text>
                 )}
               </View>
               <View className="flex-1">
@@ -537,7 +572,7 @@ const CardCreate = () => {
             </View>
             {form.offer ? (
               <View className="mt-2 rounded-lg bg-success/10 px-2 py-1.5">
-                <Text className="text-[10px] font-semibold text-success">?? {form.offer}</Text>
+                <Text className="text-[10px] font-semibold text-success">🎁 {form.offer}</Text>
               </View>
             ) : null}
           </View>
@@ -570,18 +605,22 @@ const CardCreate = () => {
           <View className="space-y-1.5">
             <Label className={labelClass}>Birthdate</Label>
             <Input
-              placeholder="YYYY-MM-DD"
+              placeholder="DD/MM/YYYY (e.g., 15/06/1990)"
               value={form.birthdate}
-              onChangeText={(v) => updateField("birthdate", v)}
+              onChangeText={(v) => updateField("birthdate", formatDateInput(v))}
+              keyboardType="numeric"
+              maxLength={10}
               className={inputClass}
             />
           </View>
           <View className="space-y-1.5">
             <Label className={labelClass}>Anniversary</Label>
             <Input
-              placeholder="YYYY-MM-DD"
+              placeholder="DD/MM/YYYY (e.g., 20/05/2015)"
               value={form.anniversary}
-              onChangeText={(v) => updateField("anniversary", v)}
+              onChangeText={(v) => updateField("anniversary", formatDateInput(v))}
+              keyboardType="numeric"
+              maxLength={10}
               className={inputClass}
             />
           </View>
@@ -607,7 +646,7 @@ const CardCreate = () => {
                         : "text-muted-foreground"
                     )}
                   >
-                    {g === "Male" ? "??" : "??"} {g}
+                    {g}
                   </Text>
                 </Pressable>
               ))}
@@ -616,15 +655,22 @@ const CardCreate = () => {
           <View className="space-y-1.5">
             <Label className={labelClass}>Mobile Number *</Label>
             <View className="flex-row gap-2 items-center">
-              <View className="h-12 items-center justify-center rounded-xl bg-muted/50 px-3">
-                <Text className="text-base text-muted-foreground">???? +91</Text>
-              </View>
+              <Pressable
+                onPress={() => setShowPhoneCountryPicker(true)}
+                className="h-12 flex-row items-center justify-center gap-1 rounded-xl bg-muted/50 px-3"
+              >
+                <Text className="text-base text-muted-foreground">
+                  {COUNTRY_CODES.find(c => c.code === phoneCountry)?.flag} {phoneCountry}
+                </Text>
+                <ChevronDown size={14} color="#6b7280" />
+              </Pressable>
               <Input
                 placeholder="Enter mobile number"
                 value={form.phone}
                 onChangeText={(v) => updateField("phone", v)}
                 onBlur={() => markTouched("phone")}
                 keyboardType="phone-pad"
+                maxLength={10}
                 className={cn(
                   "flex-1",
                   touched.phone && !form.phone ? errorInputClass : inputClass
@@ -638,31 +684,33 @@ const CardCreate = () => {
           <View className="space-y-1.5">
             <Label className={labelClass}>WhatsApp Number</Label>
             <View className="flex-row gap-2 items-center">
-              <View className="h-12 items-center justify-center rounded-xl bg-muted/50 px-3">
-                <Text className="text-base text-muted-foreground">?? +91</Text>
-              </View>
+              <Pressable
+                onPress={() => setShowWhatsappCountryPicker(true)}
+                className="h-12 flex-row items-center justify-center gap-1 rounded-xl bg-muted/50 px-3"
+              >
+                <Text className="text-base text-muted-foreground">
+                  {COUNTRY_CODES.find(c => c.code === whatsappCountry)?.flag} {whatsappCountry}
+                </Text>
+                <ChevronDown size={14} color="#6b7280" />
+              </Pressable>
               <Input
                 placeholder="WhatsApp number"
                 value={form.whatsapp}
                 onChangeText={(v) => updateField("whatsapp", v)}
                 keyboardType="phone-pad"
+                maxLength={10}
                 className={cn("flex-1", inputClass)}
               />
             </View>
           </View>
           <View className="space-y-1.5">
-            <Label className={labelClass}>Telegram Number / Username</Label>
-            <View className="flex-row gap-2 items-center">
-              <View className="h-12 items-center justify-center rounded-xl bg-muted/50 px-3">
-                <Text className="text-base text-muted-foreground">??</Text>
-              </View>
-              <Input
-                placeholder="@username or phone number"
-                value={form.telegram}
-                onChangeText={(v) => updateField("telegram", v)}
-                className={cn("flex-1", inputClass)}
-              />
-            </View>
+            <Label className={labelClass}>Telegram Username / Number</Label>
+            <Input
+              placeholder="@username or phone number"
+              value={form.telegram}
+              onChangeText={(v) => updateField("telegram", v)}
+              className={inputClass}
+            />
           </View>
           <View className="space-y-1.5">
             <Label className={labelClass}>Email Address</Label>
@@ -690,7 +738,7 @@ const CardCreate = () => {
                 className="shrink-0 rounded-xl"
                 onPress={handleAutoLocation}
               >
-                ?? Auto
+                📍 Auto
               </Button>
             </View>
           </View>
@@ -734,14 +782,21 @@ const CardCreate = () => {
           <View className="space-y-1.5">
             <Label className={labelClass}>Company Phone</Label>
             <View className="flex-row gap-2 items-center">
-              <View className="h-12 items-center justify-center rounded-xl bg-muted/50 px-3">
-                <Text className="text-base text-muted-foreground">???? +91</Text>
-              </View>
+              <Pressable
+                onPress={() => setShowCompanyPhoneCountryPicker(true)}
+                className="h-12 flex-row items-center justify-center gap-1 rounded-xl bg-muted/50 px-3"
+              >
+                <Text className="text-base text-muted-foreground">
+                  {COUNTRY_CODES.find(c => c.code === companyPhoneCountry)?.flag} {companyPhoneCountry}
+                </Text>
+                <ChevronDown size={14} color="#6b7280" />
+              </Pressable>
               <Input
                 placeholder="Company number"
                 value={form.companyPhone}
                 onChangeText={(v) => updateField("companyPhone", v)}
                 keyboardType="phone-pad"
+                maxLength={10}
                 className={cn("flex-1", inputClass)}
               />
             </View>
@@ -810,9 +865,9 @@ const CardCreate = () => {
             </Text>
             <View className="flex-row gap-2 mt-1">
               {[
-                { value: "home", label: "?? Home Service", desc: "We visit the customer" },
-                { value: "visit", label: "?? At Business", desc: "Customer visits us" },
-                { value: "both", label: "?? Both", desc: "Home & business" },
+                { value: "home", label: "🏠 Home Service", desc: "We visit the customer" },
+                { value: "visit", label: "🏢 At Business", desc: "Customer visits us" },
+                { value: "both", label: "🔄 Both", desc: "Home & business" },
               ].map((opt) => (
                 <Pressable
                   key={opt.value}
@@ -1033,9 +1088,152 @@ const CardCreate = () => {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Phone Country Picker Modal */}
+      <Modal visible={showPhoneCountryPicker} transparent animationType="slide">
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowPhoneCountryPicker(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1f2937' }}>Select Country</Text>
+            </View>
+            <ScrollView style={styles.countryList}>
+              {COUNTRY_CODES.map((country, index) => (
+                <Pressable
+                  key={`${country.code}-${index}`}
+                  style={[
+                    styles.countryItem,
+                    phoneCountry === country.code && styles.countryItemSelected
+                  ]}
+                  onPress={() => {
+                    setPhoneCountry(country.code);
+                    setShowPhoneCountryPicker(false);
+                  }}
+                >
+                  <Text style={styles.countryFlag}>{country.flag}</Text>
+                  <Text style={styles.countryName}>{country.country}</Text>
+                  <Text style={styles.countryCodeInList}>{country.code}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* WhatsApp Country Picker Modal */}
+      <Modal visible={showWhatsappCountryPicker} transparent animationType="slide">
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowWhatsappCountryPicker(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1f2937' }}>Select Country</Text>
+            </View>
+            <ScrollView style={styles.countryList}>
+              {COUNTRY_CODES.map((country, index) => (
+                <Pressable
+                  key={`${country.code}-${index}`}
+                  style={[
+                    styles.countryItem,
+                    whatsappCountry === country.code && styles.countryItemSelected
+                  ]}
+                  onPress={() => {
+                    setWhatsappCountry(country.code);
+                    setShowWhatsappCountryPicker(false);
+                  }}
+                >
+                  <Text style={styles.countryFlag}>{country.flag}</Text>
+                  <Text style={styles.countryName}>{country.country}</Text>
+                  <Text style={styles.countryCodeInList}>{country.code}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Company Phone Country Picker Modal */}
+      <Modal visible={showCompanyPhoneCountryPicker} transparent animationType="slide">
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowCompanyPhoneCountryPicker(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1f2937' }}>Select Country</Text>
+            </View>
+            <ScrollView style={styles.countryList}>
+              {COUNTRY_CODES.map((country, index) => (
+                <Pressable
+                  key={`${country.code}-${index}`}
+                  style={[
+                    styles.countryItem,
+                    companyPhoneCountry === country.code && styles.countryItemSelected
+                  ]}
+                  onPress={() => {
+                    setCompanyPhoneCountry(country.code);
+                    setShowCompanyPhoneCountryPicker(false);
+                  }}
+                >
+                  <Text style={styles.countryFlag}>{country.flag}</Text>
+                  <Text style={styles.countryName}>{country.country}</Text>
+                  <Text style={styles.countryCodeInList}>{country.code}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: '70%',
+    paddingBottom: 20,
+    paddingTop: 20,
+  },
+  countryList: {
+    flex: 1,
+  },
+  countryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  countryItemSelected: {
+    backgroundColor: '#eff6ff',
+  },
+  countryFlag: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  countryName: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1f2937',
+  },
+  countryCodeInList: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+});
 
 export default CardCreate;
 

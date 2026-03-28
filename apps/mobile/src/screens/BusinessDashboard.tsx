@@ -39,8 +39,13 @@ import { toast } from "../lib/toast";
 const BusinessDashboard = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { cards } = useBusinessCards();
+  const { cards, isLoading } = useBusinessCards();
   const queryClient = useQueryClient();
+
+  console.log('[BusinessDashboard] user:', user);
+  console.log('[BusinessDashboard] cards:', cards);
+  console.log('[BusinessDashboard] cards.length:', cards.length);
+  console.log('[BusinessDashboard] isLoading:', isLoading);
 
   const cardIds = cards.map((c) => c.id);
   const primaryCard = cards[0];
@@ -213,6 +218,23 @@ const BusinessDashboard = () => {
     );
   }
 
+  if (isLoading) {
+    return (
+      <View className="flex-1 bg-background">
+        <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
+          <Pressable onPress={() => navigation.goBack()}>
+            <ArrowLeft size={20} color="#111827" />
+          </Pressable>
+          <Text className="text-lg font-bold text-foreground">Business Dashboard</Text>
+        </View>
+        <View className="items-center justify-center px-6 pt-24">
+          <Text className="text-sm text-muted-foreground">Loading your business cards...</Text>
+          <Text className="text-xs text-muted-foreground mt-2">Please check console logs for details</Text>
+        </View>
+      </View>
+    );
+  }
+
   if (cards.length === 0) {
     return (
       <View className="flex-1 bg-background">
@@ -228,8 +250,18 @@ const BusinessDashboard = () => {
           <Text className="text-sm text-muted-foreground mt-1">
             Create a business card to access your dashboard
           </Text>
+          <Text className="text-xs text-muted-foreground mt-2 text-center">
+            Check console logs or try "My Cards" tab to see if cards exist
+          </Text>
           <Button className="mt-6 rounded-xl" onPress={() => navigation.navigate("CardCreate")}>
             Create Business Card
+          </Button>
+          <Button 
+            variant="outline" 
+            className="mt-3 rounded-xl" 
+            onPress={() => navigation.navigate("MyCards")}
+          >
+            View My Cards
           </Button>
         </View>
       </View>

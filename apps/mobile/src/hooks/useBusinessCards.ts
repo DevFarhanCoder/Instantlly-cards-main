@@ -43,10 +43,17 @@ export interface BusinessCardRow {
 }
 
 export const useBusinessCards = () => {
-  const { isAuthenticated } = useAuth();
-  const { data: rawCards = [], isLoading } = useGetMyCardsQuery(undefined, {
+  const { isAuthenticated, user } = useAuth();
+  const { data: rawCards = [], isLoading, error } = useGetMyCardsQuery(undefined, {
     skip: !isAuthenticated,
   });
+  
+  console.log('[useBusinessCards] isAuthenticated:', isAuthenticated);
+  console.log('[useBusinessCards] user:', user);
+  console.log('[useBusinessCards] rawCards:', rawCards);
+  console.log('[useBusinessCards] isLoading:', isLoading);
+  console.log('[useBusinessCards] error:', error);
+  
   const cards = (rawCards as any[]).map((c) => ({ ...c, id: String(c.id) })) as BusinessCardRow[];
 
   const [createCardTrigger, createState] = useCreateCardMutation();

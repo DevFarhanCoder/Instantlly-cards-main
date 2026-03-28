@@ -113,7 +113,7 @@ const Auth = ({ navigation }: Props) => {
   const { signIn, signUp } = useAuth();
 
   const validatePhone = (phone: string): boolean => {
-    return /^\d{7,15}$/.test(phone);
+    return /^\d{10}$/.test(phone);
   };
 
   const validatePassword = (pass: string): boolean => {
@@ -127,7 +127,7 @@ const Auth = ({ navigation }: Props) => {
     }
 
     if (!validatePhone(phone)) {
-      toast.error("Invalid phone number");
+      toast.error("Phone number must be exactly 10 digits");
       return;
     }
 
@@ -271,10 +271,12 @@ const Auth = ({ navigation }: Props) => {
                 {/* Name Field (Sign Up Only) */}
                 {isSignUp && (
                   <View className="space-y-1.5">
-                    <Text className="text-sm font-bold text-gray-900">Full Name</Text>
+                    <Text className="text-sm font-bold text-gray-900">
+                      {roleTab === 'business' ? 'Business Name' : 'Full Name'}
+                    </Text>
                     <View className="relative">
                       <Input
-                        placeholder="Enter your full name"
+                        placeholder={roleTab === 'business' ? 'Enter your business name' : 'Enter your full name'}
                         value={name}
                         onChangeText={setName}
                         autoCapitalize="words"
@@ -294,6 +296,7 @@ const Auth = ({ navigation }: Props) => {
                       value={phone}
                       onChangeText={setPhone}
                       keyboardType="phone-pad"
+                      maxLength={10}
                       className="pl-32 pr-4 h-12 rounded-2xl text-sm border-0 bg-gray-100"
                       placeholderTextColor="#9ca3af"
                     />
@@ -309,7 +312,7 @@ const Auth = ({ navigation }: Props) => {
                   </View>
                   {phone.length > 0 && !validatePhone(phone) && (
                     <Text className="text-xs text-red-600 font-semibold">
-                      ⚠️ Invalid phone number
+                      ⚠️ Phone number must be exactly 10 digits
                     </Text>
                   )}
                 </View>
@@ -648,6 +651,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#1f2937',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    bottom: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    zIndex: 10,
   },
   modalOverlay: {
     flex: 1,
