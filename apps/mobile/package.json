@@ -3,10 +3,37 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
+    "postinstall": "patch-package",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "maxWorkers": 1,
+    "setupFiles": ["./jest.setup.js"],
+    "testMatch": [
+      "**/src/__tests__/**/*.test.{ts,tsx}"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|lucide-react-native))"
+    ],
+    "moduleNameMapper": {
+      "\\.(jpg|jpeg|png|gif|webp|svg)$": "<rootDir>/src/__mocks__/fileMock.js",
+      "^expo/src/winter/(.*)$": "<rootDir>/src/__mocks__/expo-winter.js",
+      "^react-redux$": "<rootDir>/node_modules/react-redux/dist/cjs/react-redux.development.cjs",
+      "^immer$": "<rootDir>/node_modules/immer/dist/cjs/immer.cjs.development.js"
+    },
+    "collectCoverageFrom": [
+      "src/screens/Auth.tsx",
+      "src/hooks/useAuth.tsx",
+      "src/store/api/authApi.ts",
+      "src/store/authSlice.ts"
+    ]
   },
   "dependencies": {
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
@@ -45,9 +72,15 @@
     "tailwindcss": "^3.4.19"
   },
   "devDependencies": {
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^30.0.0",
     "@types/react": "~19.1.10",
     "babel-preset-expo": "~54.0.10",
+    "jest": "^30.3.0",
+    "jest-expo": "^55.0.12-canary-20260328-2049187",
     "patch-package": "^8.0.1",
+    "react-test-renderer": "^19.1.0",
     "typescript": "~5.9.2"
   },
   "private": true

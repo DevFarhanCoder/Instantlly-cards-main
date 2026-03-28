@@ -12,6 +12,7 @@ export interface SignupRequest {
   password: string;
   name?: string;
   email?: string;
+  role?: 'customer' | 'business';
 }
 
 export interface AuthResponse {
@@ -43,4 +44,5 @@ export const {
   useSignupMutation,
   useLogoutMutation,
   useGetMeQuery,
+  useLazyGetMeQuery,
 } = authApi;

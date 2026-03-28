@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   Text,
@@ -14,6 +15,7 @@ import {
   ChevronRight,
   CreditCard,
   Crown,
+  Gift,
   HelpCircle,
   LayoutDashboard,
   LifeBuoy,
@@ -305,6 +307,7 @@ const Profile = () => {
   const displayName = profileData?.name || profileData?.profile?.full_name || user?.name || user?.phone || "User";
   const displayEmail = profileData?.email || user?.email || "";
   const memberSince = profileData?.created_at || new Date().toISOString();
+  const avatarUrl = profileData?.profile?.avatar_url || profileData?.profile_picture || user?.profile_picture || null;
   const initials =
     displayName?.toString().substring(0, 2).toUpperCase() ||
     displayEmail?.toString().substring(0, 2).toUpperCase() ||
@@ -338,6 +341,7 @@ const Profile = () => {
     { icon: CreditCard, label: "Payment Methods", desc: "Manage cards & wallets", route: "PaymentMethods" },
     { icon: Bell, label: "Notifications", desc: "Push & email preferences", route: "Notifications" },
     { icon: Shield, label: "Privacy & Security", desc: "Password & account settings", route: "PrivacySecurity" },
+    { icon: Gift, label: "Refer & Earn", desc: "Invite friends, earn rewards", route: "ReferAndEarn" },
     { icon: HelpCircle, label: "Help & Support", desc: "FAQs and contact us", action: () => setShowTicketForm(true) },
   ];
 
@@ -352,8 +356,12 @@ const Profile = () => {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-5">
         <View className="flex-row items-center gap-4">
-          <View className="h-16 w-16 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
-            <Text className="text-xl font-bold text-primary-foreground">{initials}</Text>
+          <View className="h-16 w-16 items-center justify-center rounded-full bg-primary overflow-hidden">
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={{ height: "100%", width: "100%" }} />
+            ) : (
+              <Text className="text-xl font-bold text-primary-foreground">{initials}</Text>
+            )}
           </View>
           <View>
             <Text className="text-lg font-bold text-foreground">{displayName}</Text>

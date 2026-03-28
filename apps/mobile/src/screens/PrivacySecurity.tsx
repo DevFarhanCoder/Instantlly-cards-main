@@ -25,19 +25,20 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { useAuth } from "../hooks/useAuth";
-import { supabase } from "../integrations/supabase/client";
+import { useChangePasswordMutation, useDeleteAccountMutation } from "../store/api/usersApi";
 import { toast } from "../lib/toast";
 
 const SETTINGS_KEY = "privacy-settings";
 
 const PrivacySecurity = () => {
   const navigation = useNavigation<any>();
-  const { user } = useAuth();
-  const [showPassword, setShowPassword] = useState(false);
+  const { user, signOut } = useAuth();
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [changing, setChanging] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [settings, setSettings] = useState({
     profileVisible: true,
@@ -47,6 +48,9 @@ const PrivacySecurity = () => {
     readReceipts: true,
     marketingEmails: false,
   });
+
+  const [changePasswordMutation, { isLoading: changing }] = useChangePasswordMutation();
+  const [deleteAccountMutation, { isLoading: deleting }] = useDeleteAccountMutation();
 
   useEffect(() => {
     const load = async () => {
@@ -64,26 +68,43 @@ const PrivacySecurity = () => {
   };
 
   const handleChangePassword = async () => {
+    if (!currentPassword) {
+      toast.error("Enter your current password");
+      return;
+    }
     if (newPassword.length < 6) {
-      toast.error("Password must be at least 6 characters");
+      toast.error("New password must be at least 6 characters");
       return;
     }
     if (newPassword !== confirmPassword) {
       toast.error("Passwords don't match");
       return;
     }
-    setChanging(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      toast.success("Password updated!");
+      await changePasswordMutation({ currentPassword, newPassword }).unwrap();
+      toast.success("Password updated! Please sign in again.");
       setShowChangePassword(false);
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      // All refresh tokens were revoked server-side; force re-login
+      await signOut();
+      navigation.navigate("Auth");
     } catch (err: any) {
-      toast.error(err.message || "Failed to update password");
-    } finally {
-      setChanging(false);
+      toast.error(err?.data?.error || err?.message || "Failed to update password");
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteAccountMutation().unwrap();
+      setShowDeleteConfirm(false);
+      toast.success("Account deleted.");
+      await signOut();
+      navigation.navigate("Home");
+    } catch (err: any) {
+      toast.error(err?.data?.error || err?.message || "Failed to delete account");
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -121,7 +142,7 @@ const PrivacySecurity = () => {
               <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-border">
                 <View>
                   <Text className="text-sm font-medium text-foreground">Email Address</Text>
-                  <Text className="text-xs text-muted-foreground">{user.email}</Text>
+                  <Text className="text-xs text-muted-foreground">{user.email || "Not set"}</Text>
                 </View>
                 <Shield size={16} color="#16a34a" />
               </View>
@@ -230,6 +251,7 @@ const PrivacySecurity = () => {
         </View>
       </ScrollView>
 
+      {/* Change Password Dialog */}
       <Dialog open={showChangePassword} onOpenChange={setShowChangePassword}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -237,20 +259,20 @@ const PrivacySecurity = () => {
           </DialogHeader>
           <View className="space-y-4">
             <View className="space-y-2">
-              <Label>New Password</Label>
+              <Label>Current Password</Label>
               <View className="relative">
                 <Input
-                  secureTextEntry={!showPassword}
-                  placeholder="Enter new password"
-                  value={newPassword}
-                  onChangeText={setNewPassword}
+                  secureTextEntry={!showCurrentPassword}
+                  placeholder="Enter current password"
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
                   className="rounded-xl pr-10"
                 />
                 <Pressable
-                  onPress={() => setShowPassword(!showPassword)}
+                  onPress={() => setShowCurrentPassword(!showCurrentPassword)}
                   className="absolute right-3 top-3"
                 >
-                  {showPassword ? (
+                  {showCurrentPassword ? (
                     <EyeOff size={16} color="#6a7181" />
                   ) : (
                     <Eye size={16} color="#6a7181" />
@@ -259,7 +281,29 @@ const PrivacySecurity = () => {
               </View>
             </View>
             <View className="space-y-2">
-              <Label>Confirm Password</Label>
+              <Label>New Password</Label>
+              <View className="relative">
+                <Input
+                  secureTextEntry={!showNewPassword}
+                  placeholder="Enter new password (min 6 chars)"
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  className="rounded-xl pr-10"
+                />
+                <Pressable
+                  onPress={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-3"
+                >
+                  {showNewPassword ? (
+                    <EyeOff size={16} color="#6a7181" />
+                  ) : (
+                    <Eye size={16} color="#6a7181" />
+                  )}
+                </Pressable>
+              </View>
+            </View>
+            <View className="space-y-2">
+              <Label>Confirm New Password</Label>
               <Input
                 secureTextEntry
                 placeholder="Confirm new password"
@@ -270,13 +314,18 @@ const PrivacySecurity = () => {
             </View>
           </View>
           <DialogFooter>
-            <Button className="w-full rounded-xl" onPress={handleChangePassword} disabled={changing}>
+            <Button
+              className="w-full rounded-xl"
+              onPress={handleChangePassword}
+              disabled={changing}
+            >
               {changing ? "Updating..." : "Update Password"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Delete Account Confirmation Dialog */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -291,18 +340,17 @@ const PrivacySecurity = () => {
               variant="outline"
               className="flex-1 rounded-xl"
               onPress={() => setShowDeleteConfirm(false)}
+              disabled={deleting}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               className="flex-1 rounded-xl"
-              onPress={() => {
-                toast.error("Account deletion requires admin assistance. Please submit a support ticket.");
-                setShowDeleteConfirm(false);
-              }}
+              onPress={handleDeleteAccount}
+              disabled={deleting}
             >
-              Delete
+              {deleting ? "Deleting..." : "Delete"}
             </Button>
           </View>
         </DialogContent>
@@ -312,4 +360,3 @@ const PrivacySecurity = () => {
 };
 
 export default PrivacySecurity;
-

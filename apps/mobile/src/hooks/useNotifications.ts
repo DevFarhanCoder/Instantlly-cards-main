@@ -23,6 +23,7 @@ export function useNotifications() {
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
+        .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Notification[];
@@ -35,7 +36,8 @@ export function useNotifications() {
       const { error } = await supabase
         .from("notifications")
         .update({ read: true })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("user_id", user!.id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
@@ -46,6 +48,7 @@ export function useNotifications() {
       const { error } = await supabase
         .from("notifications")
         .update({ read: true })
+        .eq("user_id", user!.id)
         .eq("read", false);
       if (error) throw error;
     },
@@ -56,7 +59,11 @@ export function useNotifications() {
     mutationFn: async () => {
       const ids = notificationsQuery.data?.map((n) => n.id) ?? [];
       if (ids.length === 0) return;
-      const { error } = await supabase.from("notifications").delete().in("id", ids);
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .in("id", ids)
+        .eq("user_id", user!.id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
