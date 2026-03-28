@@ -68,16 +68,16 @@ const ReferAndEarn = () => {
 
   const handleShare = async () => {
     const shareText = isBusiness
-      ? `Join me on Instantly! Use my referral code ${referralCode} to list your business and get ₹100 ad credit!`
-      : `Use my referral code ${referralCode} to get ₹50 off your first booking!`;
+      ? `Join me on Instantly! Use my referral code ${referralCode} to list your business and get ₹100 ad credit!\n\nDownload Instantly and enter code: ${referralCode}`
+      : `Use my referral code ${referralCode} to get ₹50 off your first booking on Instantly!\n\nDownload the app and enter code: ${referralCode}`;
     try {
       await Share.share({
         title: "Join me on Instantly!",
-        message: `${shareText}\nhttps://instantlly.lovable.app/auth?ref=${referralCode}`,
+        message: shareText,
       });
     } catch {
-      await Clipboard.setStringAsync(`https://instantlly.lovable.app/auth?ref=${referralCode}`);
-      toast.success("Link copied to clipboard!");
+      await Clipboard.setStringAsync(referralCode);
+      toast.success("Referral code copied to clipboard!");
     }
   };
 

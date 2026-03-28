@@ -84,10 +84,9 @@ const LoyaltyPoints = () => {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4 space-y-5">
-        <View className="rounded-2xl overflow-hidden">
-          <View className="absolute inset-0 bg-amber-500" />
-          <View className="absolute inset-0 bg-orange-600 opacity-70" />
-          <View className="relative p-6">
+        {/* Points card — solid background; absolute inset-0 collapses in RN without explicit height */}
+        <View style={{ backgroundColor: '#d97706', borderRadius: 16, overflow: 'hidden' }}>
+          <View className="p-6">
             <View className="absolute top-2 right-2 opacity-20">
               <Sparkles size={96} color="#ffffff" />
             </View>
