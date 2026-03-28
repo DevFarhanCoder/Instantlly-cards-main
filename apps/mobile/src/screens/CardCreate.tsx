@@ -1,4 +1,4 @@
-
+ï»¿
 import { useEffect, useMemo, useState } from "react";
 import {
   Image,
@@ -32,7 +32,8 @@ import { Label } from "../components/ui/label";
 import { Progress } from "../components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
-import { categories } from "../data/categories";
+import { categories as fallbackCategories } from "../data/categories";
+import { useListMobileCategoriesQuery } from "../store/api/categoriesApi";
 import { useAuth } from "../hooks/useAuth";
 import { useBusinessCards } from "../hooks/useBusinessCards";
 import { supabase } from "../integrations/supabase/client";
@@ -58,6 +59,17 @@ const CardCreate = () => {
   const cardId = route?.params?.cardId as string | undefined;
   const { user } = useAuth();
   const { cards, createCard, updateCard } = useBusinessCards();
+  const { data: categoryData = [] } = useListMobileCategoriesQuery();
+  const categoryOptions = useMemo(() => {
+    if (categoryData.length > 0) {
+      return categoryData.map((cat) => ({
+        id: String(cat.id),
+        name: cat.name,
+        emoji: cat.icon || "\u{1F4C1}",
+      }));
+    }
+    return fallbackCategories;
+  }, [categoryData]);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     personal: true,
   });
@@ -266,7 +278,7 @@ const CardCreate = () => {
     });
     const addr = places[0];
     const loc = [
-      addr?.subregion || addr?.neighborhood,
+      addr?.subregion || (addr as any)?.neighborhood,
       addr?.city || addr?.region,
       addr?.region,
       addr?.country,
@@ -853,9 +865,9 @@ const CardCreate = () => {
                 <SelectValue placeholder="Set business hours" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="9am-6pm">9:00 AM – 6:00 PM</SelectItem>
-                <SelectItem value="9am-9pm">9:00 AM – 9:00 PM</SelectItem>
-                <SelectItem value="10am-8pm">10:00 AM – 8:00 PM</SelectItem>
+                <SelectItem value="9am-6pm">9:00 AM ï¿½ 6:00 PM</SelectItem>
+                <SelectItem value="9am-9pm">9:00 AM ï¿½ 9:00 PM</SelectItem>
+                <SelectItem value="10am-8pm">10:00 AM ï¿½ 8:00 PM</SelectItem>
                 <SelectItem value="24x7">24 x 7</SelectItem>
               </SelectContent>
             </Select>
@@ -867,7 +879,7 @@ const CardCreate = () => {
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {categories.map((cat) => (
+                {categoryOptions.map((cat) => (
                   <SelectItem key={cat.id} value={cat.name}>
                     {cat.emoji} {cat.name}
                   </SelectItem>
@@ -1026,4 +1038,5 @@ const CardCreate = () => {
 };
 
 export default CardCreate;
+
 

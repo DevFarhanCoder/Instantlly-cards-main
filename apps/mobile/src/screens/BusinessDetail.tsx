@@ -63,8 +63,9 @@ const BusinessDetail = () => {
   const { user } = useAuth();
   const createConversation = useCreateConversation();
   const { data: card, isLoading } = useDirectoryCard(id || "");
-  const { reviews, createReview, uploadReviewPhoto } = useReviews(id || "");
-  const { followersCount, isFollowing, toggleFollow } = useBusinessFollows(id);
+  const businessId = card?.business_card_id ?? card?.id ?? "";
+  const { reviews, createReview, uploadReviewPhoto } = useReviews(businessId);
+  const { followersCount, isFollowing, toggleFollow } = useBusinessFollows(businessId);
   const reportBusiness = useReportBusiness();
   const { createDispute } = useDisputes();
   const [showReportDialog, setShowReportDialog] = useState(false);
@@ -75,10 +76,10 @@ const BusinessDetail = () => {
   const [disputeDescription, setDisputeDescription] = useState("");
 
   useEffect(() => {
-    if (id && card) {
-      trackCardEvent(id, "view");
+    if (businessId && card) {
+      trackCardEvent(businessId, "view");
     }
-  }, [id, card]);
+  }, [businessId, card]);
 
   const allReviews = useMemo(
     () =>
@@ -115,8 +116,8 @@ const BusinessDetail = () => {
       for (const asset of reviewPhotos) {
         const url = await uploadReviewPhoto({
           uri: asset.uri,
-          name: asset.fileName,
-          type: asset.mimeType,
+          name: asset.fileName ?? "review.jpg",
+          type: asset.mimeType ?? "image/jpeg",
         });
         photoUrls.push(url);
       }
@@ -322,7 +323,7 @@ const BusinessDetail = () => {
           <Pressable
             className="rounded-xl border border-border bg-muted h-40 items-center justify-center mt-4"
             onPress={() => {
-              trackCardEvent(card.id, "direction_click");
+            trackCardEvent(businessId || card.id, "direction_click");
               Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(card.location!)}`);
             }}
           >
@@ -389,7 +390,7 @@ const BusinessDetail = () => {
         </View>
 
         <View className="mt-4">
-          <LeadForm businessCardId={card.id} businessName={card.full_name} />
+        <LeadForm businessCardId={businessId || card.id} businessName={card.full_name} />
         </View>
       </ScrollView>
 
@@ -397,14 +398,14 @@ const BusinessDetail = () => {
         <Button
           className="flex-1 gap-1.5 rounded-xl py-5"
           onPress={async () => {
-            trackCardEvent(card.id, "message_click");
+            trackCardEvent(businessId || card.id, "message_click");
             if (!user) {
               toast.error("Please sign in to message");
               navigation.navigate("Auth");
               return;
             }
             await createConversation.mutateAsync({
-              businessId: card.id,
+              businessId: businessId || card.id,
               businessName: card.full_name,
               businessAvatar: card.logo_url || "🏢",
             });
@@ -417,7 +418,7 @@ const BusinessDetail = () => {
           variant="outline"
           className="flex-1 gap-1.5 rounded-xl py-5"
           onPress={() => {
-            trackCardEvent(card.id, "phone_click");
+            trackCardEvent(businessId || card.id, "phone_click");
             Linking.openURL(`tel:${card.phone}`);
           }}
         >
@@ -543,7 +544,7 @@ const BusinessDetail = () => {
         onOpenChange={setShowBooking}
         businessName={card.full_name}
         businessLogo={card.logo_url || "🏢"}
-        businessId={card.id}
+        businessId={businessId || card.id}
       />
       <ShareCardModal
         open={showShareCard}
@@ -596,7 +597,7 @@ const BusinessDetail = () => {
               onPress={async () => {
                 try {
                   await reportBusiness.mutateAsync({
-                    business_id: card.id,
+                    business_id: businessId || card.id,
                     reason: reportReason,
                     details: reportDetails,
                   });
@@ -646,8 +647,8 @@ const BusinessDetail = () => {
                 try {
                   await createDispute.mutateAsync({
                     dispute_type: disputeType,
-                    reference_id: card.id,
-                    business_id: card.id,
+                    reference_id: businessId || card.id,
+                    business_id: businessId || card.id,
                     description: disputeDescription,
                   });
                   toast.success("Dispute filed. Our team will review it.");

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../integrations/supabase/client";
+import { supabase, SUPABASE_CONFIG_OK } from "../integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
 export function useBusinessFollows(businessCardId?: string) {
@@ -16,7 +16,7 @@ export function useBusinessFollows(businessCardId?: string) {
       if (error) throw error;
       return count || 0;
     },
-    enabled: !!businessCardId,
+    enabled: SUPABASE_CONFIG_OK && !!businessCardId,
   });
 
   const isFollowingQuery = useQuery({
@@ -31,7 +31,7 @@ export function useBusinessFollows(businessCardId?: string) {
       if (error) throw error;
       return !!data;
     },
-    enabled: !!businessCardId && !!user,
+    enabled: SUPABASE_CONFIG_OK && !!businessCardId && !!user,
   });
 
   const toggleFollow = useMutation({
@@ -79,6 +79,6 @@ export function useFollowedBusinesses() {
       if (error) throw error;
       return data as any[];
     },
-    enabled: !!user,
+    enabled: SUPABASE_CONFIG_OK && !!user,
   });
 }

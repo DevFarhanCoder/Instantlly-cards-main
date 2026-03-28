@@ -5,6 +5,7 @@ import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { useBusinessLeads } from "../../hooks/useBusinessLeads";
 import { colors } from "../../theme/colors";
+import { toast } from "../../lib/toast";
 
 interface LeadFormProps {
   businessCardId: string;
@@ -21,6 +22,10 @@ const LeadForm = ({ businessCardId, businessName }: LeadFormProps) => {
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
+    if (!businessCardId || Number.isNaN(Number(businessCardId))) {
+      toast.error("Business details are not available for this listing yet.");
+      return;
+    }
     await submitLead.mutateAsync({
       business_card_id: businessCardId,
       full_name: name.trim(),

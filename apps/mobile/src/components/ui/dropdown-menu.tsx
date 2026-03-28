@@ -20,14 +20,14 @@ export const DropdownMenuTrigger = ({
   children,
 }: {
   asChild?: boolean;
-  children: React.ReactElement;
+  children: React.ReactElement<any>;
 }) => {
   const context = useContext(DropdownContext);
   if (!context) return children;
   const { setOpen } = context;
 
-  if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children, {
+  if (asChild && React.isValidElement<any>(children)) {
+    return React.cloneElement(children as React.ReactElement<any>, {
       onPress: (...args: any[]) => {
         const existing = (children as any).props?.onPress;
         if (existing) existing(...args);

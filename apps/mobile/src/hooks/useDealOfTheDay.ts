@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../integrations/supabase/client";
+import { supabase, SUPABASE_CONFIG_OK } from "../integrations/supabase/client";
 
 export function useDealOfTheDay() {
   return useQuery({
     queryKey: ["deal-of-the-day"],
     queryFn: async () => {
+      if (!SUPABASE_CONFIG_OK) return null;
       const { data, error } = await supabase
         .from("vouchers")
         .select("*")
@@ -26,5 +27,6 @@ export function useDealOfTheDay() {
       return sorted[dayOfYear % sorted.length];
     },
     staleTime: 60 * 60 * 1000,
+    enabled: SUPABASE_CONFIG_OK,
   });
 }

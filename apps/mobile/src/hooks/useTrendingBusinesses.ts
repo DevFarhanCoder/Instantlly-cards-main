@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../integrations/supabase/client";
+import { supabase, SUPABASE_CONFIG_OK } from "../integrations/supabase/client";
 
 export function useTrendingBusinesses() {
   return useQuery({
     queryKey: ["trending-businesses"],
     queryFn: async () => {
+      if (!SUPABASE_CONFIG_OK) return [];
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
 
@@ -38,5 +39,6 @@ export function useTrendingBusinesses() {
         .sort((a, b) => b.viewCount - a.viewCount);
     },
     staleTime: 5 * 60 * 1000,
+    enabled: SUPABASE_CONFIG_OK,
   });
 }

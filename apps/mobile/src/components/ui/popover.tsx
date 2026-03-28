@@ -27,12 +27,12 @@ export const PopoverTrigger = ({
   children,
 }: {
   asChild?: boolean;
-  children: React.ReactElement;
+  children: React.ReactElement<any>;
 }) => {
   const ctx = useContext(PopoverContext);
   if (!ctx) return children;
-  if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children, {
+  if (asChild && React.isValidElement<any>(children)) {
+    return React.cloneElement(children as React.ReactElement<any>, {
       onPress: (...args: any[]) => {
         const existing = (children as any).props?.onPress;
         if (existing) existing(...args);
@@ -61,4 +61,3 @@ export const PopoverContent = ({
     </Modal>
   );
 };
-

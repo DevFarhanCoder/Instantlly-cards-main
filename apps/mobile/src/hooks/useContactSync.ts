@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as Contacts from "expo-contacts";
-import { supabase } from "../integrations/supabase/client";
+import { supabase, SUPABASE_CONFIG_OK } from "../integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { toast } from "../lib/toast";
 
@@ -22,13 +22,14 @@ export function useNetworkCards() {
   return useQuery({
     queryKey: ["network-cards", user?.id],
     queryFn: async () => {
+      if (!SUPABASE_CONFIG_OK) return [];
       const { data, error } = await supabase.rpc("get_network_cards", {
         p_user_id: user!.id,
       });
       if (error) throw error;
       return data as any[];
     },
-    enabled: !!user,
+    enabled: SUPABASE_CONFIG_OK && !!user,
   });
 }
 
@@ -37,6 +38,7 @@ export function useSyncedContacts() {
   return useQuery({
     queryKey: ["synced-contacts", user?.id],
     queryFn: async () => {
+      if (!SUPABASE_CONFIG_OK) return [];
       const { data, error } = await supabase
         .from("synced_contacts")
         .select("*")
@@ -44,7 +46,7 @@ export function useSyncedContacts() {
       if (error) throw error;
       return data;
     },
-    enabled: !!user,
+    enabled: SUPABASE_CONFIG_OK && !!user,
   });
 }
 

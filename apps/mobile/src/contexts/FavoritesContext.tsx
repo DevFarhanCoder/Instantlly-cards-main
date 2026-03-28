@@ -52,7 +52,7 @@ export const FavoritesProvider = ({ children }: { children: ReactNode }) => {
       .select("business_id")
       .then(({ data, error }) => {
         if (!error && data) {
-          setFavorites(data.map((f) => f.business_id));
+          setFavorites(data.map((f) => String(f.business_id)));
         }
         setLoading(false);
       });

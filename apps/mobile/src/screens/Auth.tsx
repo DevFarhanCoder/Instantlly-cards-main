@@ -5,7 +5,7 @@ import {
   Eye,
   EyeOff,
   Lock,
-  Mail,
+  Phone,
   Shield,
   Store,
   Users,
@@ -18,15 +18,10 @@ import { toast } from "../lib/toast";
 
 type RoleTab = "customer" | "business";
 
-const DEMO_ACCOUNTS: Record<string, { email: string; password: string }> = {
-  customer: { email: "customer@demo.com", password: "demo1234" },
-  business: { email: "business@demo.com", password: "demo1234" },
-  admin: { email: "admin@demo.com", password: "demo1234" },
-};
-
 const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -35,35 +30,35 @@ const Auth = () => {
   const navigation = useNavigation<any>();
 
   const handleSubmit = async () => {
-    setLoading(true);
-    try {
-      const { error } = isSignUp
-        ? await signUp(email, password)
-        : await signIn(email, password);
-
-      if (error) {
-        toast.error(error.message);
-      } else if (isSignUp) {
-        toast.success("Check your email to confirm your account!");
-      } else {
-        navigation.navigate("MyPasses");
-      }
-    } finally {
-      setLoading(false);
+    if (!phone.trim() || !password.trim()) {
+      console.log('[Auth Screen] Validation failed — empty phone or password');
+      toast.error("Phone and password are required");
+      return;
     }
-  };
-
-  const handleQuickDemo = async (role: string) => {
-    const creds = DEMO_ACCOUNTS[role];
+    console.log(`[Auth Screen] Submit — mode: ${isSignUp ? 'signup' : 'login'}, phone: ${phone.trim()}`);
     setLoading(true);
     try {
-      const { error } = await signIn(creds.email, creds.password);
-      if (error) {
-        toast.error(`Demo login failed: ${error.message}`);
+      if (isSignUp) {
+        console.log('[Auth Screen] Calling signUp...');
+        const { error } = await signUp(phone.trim(), password, name.trim() || undefined);
+        if (error) {
+          console.warn('[Auth Screen] signUp error:', error);
+          toast.error(error);
+        } else {
+          console.log('[Auth Screen] signUp success → navigating to MyPasses');
+          toast.success("Account created! Welcome to Instantlly.");
+          navigation.navigate("MyPasses");
+        }
       } else {
-        if (role === "admin") navigation.navigate("AdminDashboard");
-        else if (role === "business") navigation.navigate("BusinessDashboard");
-        else navigation.navigate("MyPasses");
+        console.log('[Auth Screen] Calling signIn...');
+        const { error } = await signIn(phone.trim(), password);
+        if (error) {
+          console.warn('[Auth Screen] signIn error:', error);
+          toast.error(error);
+        } else {
+          console.log('[Auth Screen] signIn success → navigating to MyPasses');
+          navigation.navigate("MyPasses");
+        }
       }
     } finally {
       setLoading(false);
@@ -81,26 +76,30 @@ const Auth = () => {
                   <Pressable
                     onPress={() => setRoleTab("customer")}
                     className={`flex-1 flex-row items-center justify-center gap-2 rounded-full py-2.5 ${
-                      roleTab === "customer"
-                        ? "bg-accent"
-                        : ""
+                      roleTab === "customer" ? "bg-accent" : ""
                     }`}
                   >
                     <Users size={16} color={roleTab === "customer" ? "#111827" : "#6a7181"} />
-                    <Text className={`text-sm font-semibold ${roleTab === "customer" ? "text-accent-foreground" : "text-muted-foreground"}`}>
+                    <Text
+                      className={`text-sm font-semibold ${
+                        roleTab === "customer" ? "text-accent-foreground" : "text-muted-foreground"
+                      }`}
+                    >
                       Customer
                     </Text>
                   </Pressable>
                   <Pressable
                     onPress={() => setRoleTab("business")}
                     className={`flex-1 flex-row items-center justify-center gap-2 rounded-full py-2.5 ${
-                      roleTab === "business"
-                        ? "bg-accent"
-                        : ""
+                      roleTab === "business" ? "bg-accent" : ""
                     }`}
                   >
                     <Store size={16} color={roleTab === "business" ? "#111827" : "#6a7181"} />
-                    <Text className={`text-sm font-semibold ${roleTab === "business" ? "text-accent-foreground" : "text-muted-foreground"}`}>
+                    <Text
+                      className={`text-sm font-semibold ${
+                        roleTab === "business" ? "text-accent-foreground" : "text-muted-foreground"
+                      }`}
+                    >
                       Business
                     </Text>
                   </Pressable>
@@ -117,18 +116,30 @@ const Auth = () => {
               </View>
 
               <View className="space-y-4">
+                {isSignUp && (
+                  <View className="space-y-1.5">
+                    <Text className="text-sm font-semibold text-foreground">Name</Text>
+                    <Input
+                      placeholder="Your name"
+                      value={name}
+                      onChangeText={setName}
+                      autoCapitalize="words"
+                    />
+                  </View>
+                )}
+
                 <View className="space-y-1.5">
-                  <Text className="text-sm font-semibold text-foreground">Email</Text>
+                  <Text className="text-sm font-semibold text-foreground">Phone</Text>
                   <View className="relative">
                     <View className="absolute left-3 top-3">
-                      <Mail size={16} color="#6a7181" />
+                      <Phone size={16} color="#6a7181" />
                     </View>
                     <Input
-                      placeholder="you@example.com"
-                      value={email}
-                      onChangeText={setEmail}
+                      placeholder="+91 9876543210"
+                      value={phone}
+                      onChangeText={setPhone}
                       autoCapitalize="none"
-                      keyboardType="email-address"
+                      keyboardType="phone-pad"
                       className="pl-9"
                     />
                   </View>
@@ -160,54 +171,16 @@ const Auth = () => {
                   </View>
                 </View>
 
-                <Button
-                  onPress={handleSubmit}
-                  className="w-full h-12"
-                  disabled={loading}
-                >
+                <Button onPress={handleSubmit} className="w-full h-12" disabled={loading}>
                   {loading ? "Please wait..." : isSignUp ? "Sign Up" : "Sign In"}
                 </Button>
               </View>
 
-              {!isSignUp && (
-                <View className="space-y-3">
-                  <View className="flex-row items-center gap-3">
-                    <View className="h-px flex-1 bg-border" />
-                    <Text className="text-xs text-muted-foreground">quick demo</Text>
-                    <View className="h-px flex-1 bg-border" />
-                  </View>
-                  <View className="flex-row gap-2">
-                    <Pressable
-                      onPress={() => handleQuickDemo("customer")}
-                      disabled={loading}
-                      className="flex-1 items-center gap-1.5 rounded-xl border-2 border-primary/20 bg-primary/5 py-3"
-                    >
-                      <Users size={20} color="#2563eb" />
-                      <Text className="text-xs font-semibold text-primary">Customer</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => handleQuickDemo("business")}
-                      disabled={loading}
-                      className="flex-1 items-center gap-1.5 rounded-xl border-2 border-primary/20 bg-primary/5 py-3"
-                    >
-                      <Store size={20} color="#2563eb" />
-                      <Text className="text-xs font-semibold text-primary">Business</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => handleQuickDemo("admin")}
-                      disabled={loading}
-                      className="flex-1 items-center gap-1.5 rounded-xl border-2 border-destructive/30 bg-destructive/5 py-3"
-                    >
-                      <Shield size={20} color="#ef4444" />
-                      <Text className="text-xs font-semibold text-destructive">Admin</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              )}
-
               <Pressable onPress={() => setIsSignUp(!isSignUp)} className="items-center">
                 <Text className="text-sm text-primary font-medium">
-                  {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+                  {isSignUp
+                    ? "Already have an account? Sign in"
+                    : "Don't have an account? Sign up"}
                 </Text>
               </Pressable>
             </CardContent>

@@ -24,7 +24,7 @@ export type Database = {
           event_type: string
           id: string
           metadata: Json | null
-          user_id: string | null
+          user_id: string | number | null
         }
         Insert: {
           admin_id?: string | null
@@ -35,7 +35,7 @@ export type Database = {
           event_type: string
           id?: string
           metadata?: Json | null
-          user_id?: string | null
+          user_id?: string | number | number | null
         }
         Update: {
           admin_id?: string | null
@@ -46,7 +46,7 @@ export type Database = {
           event_type?: string
           id?: string
           metadata?: Json | null
-          user_id?: string | null
+          user_id?: string | number | number | null
         }
         Relationships: []
       }
@@ -54,7 +54,7 @@ export type Database = {
         Row: {
           ad_type: string
           approval_status: string
-          business_card_id: string | null
+          business_card_id: string | number | null
           clicks: number
           created_at: string
           creative_url: string | null
@@ -75,12 +75,12 @@ export type Database = {
           title: string
           total_budget: number | null
           updated_at: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           ad_type?: string
           approval_status?: string
-          business_card_id?: string | null
+          business_card_id?: string | number | number | null
           clicks?: number
           created_at?: string
           creative_url?: string | null
@@ -101,12 +101,12 @@ export type Database = {
           title: string
           total_budget?: number | null
           updated_at?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
           ad_type?: string
           approval_status?: string
-          business_card_id?: string | null
+          business_card_id?: string | number | number | null
           clicks?: number
           created_at?: string
           creative_url?: string | null
@@ -127,7 +127,7 @@ export type Database = {
           title?: string
           total_budget?: number | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: [
           {
@@ -307,7 +307,7 @@ export type Database = {
         Row: {
           booking_date: string | null
           booking_time: string | null
-          business_id: string
+          business_id: string | number
           business_name: string
           created_at: string
           customer_name: string
@@ -317,12 +317,12 @@ export type Database = {
           notes: string | null
           status: string
           updated_at: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           booking_date?: string | null
           booking_time?: string | null
-          business_id: string
+          business_id: string | number
           business_name: string
           created_at?: string
           customer_name: string
@@ -332,12 +332,12 @@ export type Database = {
           notes?: string | null
           status?: string
           updated_at?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
           booking_date?: string | null
           booking_time?: string | null
-          business_id?: string
+          business_id?: string | number
           business_name?: string
           created_at?: string
           customer_name?: string
@@ -347,7 +347,7 @@ export type Database = {
           notes?: string | null
           status?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: []
       }
@@ -389,7 +389,7 @@ export type Database = {
           telegram: string | null
           twitter: string | null
           updated_at: string
-          user_id: string
+          user_id: string | number
           website: string | null
           whatsapp: string | null
           youtube: string | null
@@ -431,7 +431,7 @@ export type Database = {
           telegram?: string | null
           twitter?: string | null
           updated_at?: string
-          user_id: string
+          user_id: string | number
           website?: string | null
           whatsapp?: string | null
           youtube?: string | null
@@ -473,7 +473,7 @@ export type Database = {
           telegram?: string | null
           twitter?: string | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | number
           website?: string | null
           whatsapp?: string | null
           youtube?: string | null
@@ -482,22 +482,22 @@ export type Database = {
       }
       business_follows: {
         Row: {
-          business_card_id: string
+          business_card_id: string | number
           created_at: string
           id: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
-          business_card_id: string
+          business_card_id: string | number
           created_at?: string
           id?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
-          business_card_id?: string
+          business_card_id?: string | number
           created_at?: string
           id?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: [
           {
@@ -511,34 +511,34 @@ export type Database = {
       }
       business_hours: {
         Row: {
-          business_card_id: string
+          business_card_id: string | number
           close_time: string
           created_at: string
           day_of_week: number
           id: string
           is_closed: boolean
           open_time: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
-          business_card_id: string
+          business_card_id: string | number
           close_time?: string
           created_at?: string
           day_of_week: number
           id?: string
           is_closed?: boolean
           open_time?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
-          business_card_id?: string
+          business_card_id?: string | number
           close_time?: string
           created_at?: string
           day_of_week?: number
           id?: string
           is_closed?: boolean
           open_time?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: [
           {
@@ -552,7 +552,7 @@ export type Database = {
       }
       business_leads: {
         Row: {
-          business_card_id: string
+          business_card_id: string | number
           created_at: string
           email: string | null
           full_name: string
@@ -564,7 +564,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          business_card_id: string
+          business_card_id: string | number
           created_at?: string
           email?: string | null
           full_name: string
@@ -576,7 +576,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          business_card_id?: string
+          business_card_id?: string | number
           created_at?: string
           email?: string | null
           full_name?: string
@@ -601,7 +601,7 @@ export type Database = {
         Row: {
           address: string | null
           branch_name: string
-          business_card_id: string
+          business_card_id: string | number
           business_hours: string | null
           created_at: string
           id: string
@@ -609,12 +609,12 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           phone: string | null
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           address?: string | null
           branch_name: string
-          business_card_id: string
+          business_card_id: string | number
           business_hours?: string | null
           created_at?: string
           id?: string
@@ -622,12 +622,12 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           phone?: string | null
-          user_id: string
+          user_id: string | number
         }
         Update: {
           address?: string | null
           branch_name?: string
-          business_card_id?: string
+          business_card_id?: string | number
           business_hours?: string | null
           created_at?: string
           id?: string
@@ -635,7 +635,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           phone?: string | null
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: [
           {
@@ -649,31 +649,31 @@ export type Database = {
       }
       business_photos: {
         Row: {
-          business_card_id: string
+          business_card_id: string | number
           caption: string | null
           created_at: string
           id: string
           photo_url: string
           sort_order: number | null
-          user_id: string
+          user_id: string | number
         }
         Insert: {
-          business_card_id: string
+          business_card_id: string | number
           caption?: string | null
           created_at?: string
           id?: string
           photo_url: string
           sort_order?: number | null
-          user_id: string
+          user_id: string | number
         }
         Update: {
-          business_card_id?: string
+          business_card_id?: string | number
           caption?: string | null
           created_at?: string
           id?: string
           photo_url?: string
           sort_order?: number | null
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: [
           {
@@ -688,69 +688,69 @@ export type Database = {
       business_reports: {
         Row: {
           admin_notes: string | null
-          business_id: string
+          business_id: string | number
           created_at: string
           details: string | null
           id: string
           reason: string
           status: string
           updated_at: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           admin_notes?: string | null
-          business_id: string
+          business_id: string | number
           created_at?: string
           details?: string | null
           id?: string
           reason: string
           status?: string
           updated_at?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
           admin_notes?: string | null
-          business_id?: string
+          business_id?: string | number
           created_at?: string
           details?: string | null
           id?: string
           reason?: string
           status?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: []
       }
       business_staff: {
         Row: {
-          business_card_id: string
+          business_card_id: string | number
           created_at: string
           email: string | null
           id: string
           name: string
           permissions: string[] | null
           role: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
-          business_card_id: string
+          business_card_id: string | number
           created_at?: string
           email?: string | null
           id?: string
           name: string
           permissions?: string[] | null
           role?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
-          business_card_id?: string
+          business_card_id?: string | number
           created_at?: string
           email?: string | null
           id?: string
           name?: string
           permissions?: string[] | null
           role?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: [
           {
@@ -764,7 +764,7 @@ export type Database = {
       }
       campaigns: {
         Row: {
-          admin_user_id: string
+          admin_user_id: string | number
           body: string | null
           campaign_type: string | null
           created_at: string | null
@@ -775,7 +775,7 @@ export type Database = {
           title: string
         }
         Insert: {
-          admin_user_id: string
+          admin_user_id: string | number
           body?: string | null
           campaign_type?: string | null
           created_at?: string | null
@@ -786,7 +786,7 @@ export type Database = {
           title: string
         }
         Update: {
-          admin_user_id?: string
+          admin_user_id?: string | number
           body?: string | null
           campaign_type?: string | null
           created_at?: string | null
@@ -800,21 +800,21 @@ export type Database = {
       }
       card_analytics: {
         Row: {
-          business_card_id: string
+          business_card_id: string | number
           created_at: string
           event_type: string
           id: string
           visitor_id: string | null
         }
         Insert: {
-          business_card_id: string
+          business_card_id: string | number
           created_at?: string
           event_type: string
           id?: string
           visitor_id?: string | null
         }
         Update: {
-          business_card_id?: string
+          business_card_id?: string | number
           created_at?: string
           event_type?: string
           id?: string
@@ -838,8 +838,8 @@ export type Database = {
           purchased_at: string
           redeemed_at: string | null
           status: string
-          user_id: string
-          voucher_id: string
+          user_id: string | number
+          voucher_id: string | number
         }
         Insert: {
           code: string
@@ -848,8 +848,8 @@ export type Database = {
           purchased_at?: string
           redeemed_at?: string | null
           status?: string
-          user_id: string
-          voucher_id: string
+          user_id: string | number
+          voucher_id: string | number
         }
         Update: {
           code?: string
@@ -858,8 +858,8 @@ export type Database = {
           purchased_at?: string
           redeemed_at?: string | null
           status?: string
-          user_id?: string
-          voucher_id?: string
+          user_id?: string | number
+          voucher_id?: string | number
         }
         Relationships: [
           {
@@ -874,37 +874,37 @@ export type Database = {
       conversations: {
         Row: {
           business_avatar: string | null
-          business_id: string
+          business_id: string | number
           business_name: string
           created_at: string
           id: string
           updated_at: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           business_avatar?: string | null
-          business_id: string
+          business_id: string | number
           business_name: string
           created_at?: string
           id?: string
           updated_at?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
           business_avatar?: string | null
-          business_id?: string
+          business_id?: string | number
           business_name?: string
           created_at?: string
           id?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: []
       }
       disputes: {
         Row: {
           admin_notes: string | null
-          business_id: string
+          business_id: string | number
           created_at: string
           description: string
           dispute_type: string
@@ -913,11 +913,11 @@ export type Database = {
           resolution: string | null
           status: string
           updated_at: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           admin_notes?: string | null
-          business_id: string
+          business_id: string | number
           created_at?: string
           description: string
           dispute_type?: string
@@ -926,11 +926,11 @@ export type Database = {
           resolution?: string | null
           status?: string
           updated_at?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
           admin_notes?: string | null
-          business_id?: string
+          business_id?: string | number
           created_at?: string
           description?: string
           dispute_type?: string
@@ -939,7 +939,7 @@ export type Database = {
           resolution?: string | null
           status?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: []
       }
@@ -990,7 +990,7 @@ export type Database = {
       events: {
         Row: {
           approval_status: string
-          business_card_id: string | null
+          business_card_id: string | number | null
           category: string
           created_at: string
           date: string
@@ -1005,12 +1005,12 @@ export type Database = {
           time: string
           title: string
           updated_at: string
-          user_id: string | null
+          user_id: string | number | null
           venue: string
         }
         Insert: {
           approval_status?: string
-          business_card_id?: string | null
+          business_card_id?: string | number | number | null
           category: string
           created_at?: string
           date: string
@@ -1025,12 +1025,12 @@ export type Database = {
           time: string
           title: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: string | number | number | null
           venue: string
         }
         Update: {
           approval_status?: string
-          business_card_id?: string | null
+          business_card_id?: string | number | number | null
           category?: string
           created_at?: string
           date?: string
@@ -1045,7 +1045,7 @@ export type Database = {
           time?: string
           title?: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: string | number | number | null
           venue?: string
         }
         Relationships: [
@@ -1060,22 +1060,22 @@ export type Database = {
       }
       favorites: {
         Row: {
-          business_id: string
+          business_id: string | number
           created_at: string
           id: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
-          business_id: string
+          business_id: string | number
           created_at?: string
           id?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
-          business_id?: string
+          business_id?: string | number
           created_at?: string
           id?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: []
       }
@@ -1086,7 +1086,7 @@ export type Database = {
           lifetime_points: number
           points: number
           updated_at: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           created_at?: string
@@ -1094,7 +1094,7 @@ export type Database = {
           lifetime_points?: number
           points?: number
           updated_at?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
           created_at?: string
@@ -1102,7 +1102,7 @@ export type Database = {
           lifetime_points?: number
           points?: number
           updated_at?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: []
       }
@@ -1156,7 +1156,7 @@ export type Database = {
           read: boolean
           title: string
           type: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           created_at?: string
@@ -1166,7 +1166,7 @@ export type Database = {
           read?: boolean
           title: string
           type?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
           created_at?: string
@@ -1176,7 +1176,7 @@ export type Database = {
           read?: boolean
           title?: string
           type?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: []
       }
@@ -1215,7 +1215,7 @@ export type Database = {
           points: number
           source: string
           type: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           created_at?: string
@@ -1224,7 +1224,7 @@ export type Database = {
           points: number
           source: string
           type?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
           created_at?: string
@@ -1233,7 +1233,7 @@ export type Database = {
           points?: number
           source?: string
           type?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: []
       }
@@ -1270,33 +1270,33 @@ export type Database = {
       push_campaigns: {
         Row: {
           body: string
-          business_card_id: string
+          business_card_id: string | number
           created_at: string
           id: string
           sent_count: number
           target_type: string
           title: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           body: string
-          business_card_id: string
+          business_card_id: string | number
           created_at?: string
           id?: string
           sent_count?: number
           target_type?: string
           title: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
           body?: string
-          business_card_id?: string
+          business_card_id?: string | number
           created_at?: string
           id?: string
           sent_count?: number
           target_type?: string
           title?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: [
           {
@@ -1313,8 +1313,8 @@ export type Database = {
           created_at: string
           id: string
           referral_code: string
-          referred_id: string
-          referrer_id: string
+          referred_id: string | number
+          referrer_id: string | number
           reward_amount: number
           reward_redeemed: boolean
           status: string
@@ -1323,8 +1323,8 @@ export type Database = {
           created_at?: string
           id?: string
           referral_code: string
-          referred_id: string
-          referrer_id: string
+          referred_id: string | number
+          referrer_id: string | number
           reward_amount?: number
           reward_redeemed?: boolean
           status?: string
@@ -1333,8 +1333,8 @@ export type Database = {
           created_at?: string
           id?: string
           referral_code?: string
-          referred_id?: string
-          referrer_id?: string
+          referred_id?: string | number
+          referrer_id?: string | number
           reward_amount?: number
           reward_redeemed?: boolean
           status?: string
@@ -1343,7 +1343,7 @@ export type Database = {
       }
       reviews: {
         Row: {
-          business_id: string
+          business_id: string | number
           business_reply: string | null
           business_reply_at: string | null
           comment: string | null
@@ -1352,10 +1352,10 @@ export type Database = {
           is_flagged: boolean
           photo_urls: string[] | null
           rating: number
-          user_id: string
+          user_id: string | number
         }
         Insert: {
-          business_id: string
+          business_id: string | number
           business_reply?: string | null
           business_reply_at?: string | null
           comment?: string | null
@@ -1364,10 +1364,10 @@ export type Database = {
           is_flagged?: boolean
           photo_urls?: string[] | null
           rating: number
-          user_id: string
+          user_id: string | number
         }
         Update: {
-          business_id?: string
+          business_id?: string | number
           business_reply?: string | null
           business_reply_at?: string | null
           comment?: string | null
@@ -1376,13 +1376,13 @@ export type Database = {
           is_flagged?: boolean
           photo_urls?: string[] | null
           rating?: number
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: []
       }
       service_pricing: {
         Row: {
-          business_card_id: string
+          business_card_id: string | number
           created_at: string
           description: string | null
           duration: string | null
@@ -1390,10 +1390,10 @@ export type Database = {
           price: number
           service_name: string
           sort_order: number | null
-          user_id: string
+          user_id: string | number
         }
         Insert: {
-          business_card_id: string
+          business_card_id: string | number
           created_at?: string
           description?: string | null
           duration?: string | null
@@ -1401,10 +1401,10 @@ export type Database = {
           price?: number
           service_name: string
           sort_order?: number | null
-          user_id: string
+          user_id: string | number
         }
         Update: {
-          business_card_id?: string
+          business_card_id?: string | number
           created_at?: string
           description?: string | null
           duration?: string | null
@@ -1412,7 +1412,7 @@ export type Database = {
           price?: number
           service_name?: string
           sort_order?: number | null
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: [
           {
@@ -1473,7 +1473,7 @@ export type Database = {
           started_at: string
           status: string
           updated_at: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           billing_cycle?: string
@@ -1484,7 +1484,7 @@ export type Database = {
           started_at?: string
           status?: string
           updated_at?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
           billing_cycle?: string
@@ -1495,7 +1495,7 @@ export type Database = {
           started_at?: string
           status?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: []
       }
@@ -1509,7 +1509,7 @@ export type Database = {
           status: string
           subject: string
           updated_at: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           admin_notes?: string | null
@@ -1520,7 +1520,7 @@ export type Database = {
           status?: string
           subject: string
           updated_at?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
           admin_notes?: string | null
@@ -1531,7 +1531,7 @@ export type Database = {
           status?: string
           subject?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: []
       }
@@ -1541,21 +1541,21 @@ export type Database = {
           created_at: string
           id: string
           phone_number: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           contact_name?: string | null
           created_at?: string
           id?: string
           phone_number: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
           contact_name?: string | null
           created_at?: string
           id?: string
           phone_number?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: []
       }
@@ -1564,52 +1564,52 @@ export type Database = {
           created_at: string
           id: string
           role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          user_id: string | number
         }
         Insert: {
           created_at?: string
           id?: string
           role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          user_id: string | number
         }
         Update: {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: []
       }
       voucher_transfers: {
         Row: {
-          claimed_voucher_id: string
+          claimed_voucher_id: string | number | number
           created_at: string
           id: string
-          recipient_id: string
+          recipient_id: string | number
           recipient_phone: string | null
-          sender_id: string
+          sender_id: string | number
           sender_phone: string | null
-          voucher_id: string
+          voucher_id: string | number
         }
         Insert: {
-          claimed_voucher_id: string
+          claimed_voucher_id: string | number | number
           created_at?: string
           id?: string
-          recipient_id: string
+          recipient_id: string | number
           recipient_phone?: string | null
-          sender_id: string
+          sender_id: string | number
           sender_phone?: string | null
-          voucher_id: string
+          voucher_id: string | number
         }
         Update: {
-          claimed_voucher_id?: string
+          claimed_voucher_id?: string | number | number
           created_at?: string
           id?: string
-          recipient_id?: string
+          recipient_id?: string | number
           recipient_phone?: string | null
-          sender_id?: string
+          sender_id?: string | number
           sender_phone?: string | null
-          voucher_id?: string
+          voucher_id?: string | number
         }
         Relationships: [
           {
@@ -1630,7 +1630,7 @@ export type Database = {
       }
       vouchers: {
         Row: {
-          business_card_id: string | null
+          business_card_id: string | number | null
           category: string
           created_at: string
           discount_label: string | null
@@ -1645,10 +1645,10 @@ export type Database = {
           terms: string | null
           title: string
           updated_at: string
-          user_id: string
+          user_id: string | number
         }
         Insert: {
-          business_card_id?: string | null
+          business_card_id?: string | number | number | null
           category?: string
           created_at?: string
           discount_label?: string | null
@@ -1663,10 +1663,10 @@ export type Database = {
           terms?: string | null
           title: string
           updated_at?: string
-          user_id: string
+          user_id: string | number
         }
         Update: {
-          business_card_id?: string | null
+          business_card_id?: string | number | number | null
           category?: string
           created_at?: string
           discount_label?: string | null
@@ -1681,7 +1681,7 @@ export type Database = {
           terms?: string | null
           title?: string
           updated_at?: string
-          user_id?: string
+          user_id?: string | number
         }
         Relationships: [
           {
@@ -1704,12 +1704,12 @@ export type Database = {
           p_description?: string
           p_points: number
           p_source: string
-          p_user_id: string
+          p_user_id: string | number
         }
         Returns: undefined
       }
       get_network_cards: {
-        Args: { p_user_id: string }
+        Args: { p_user_id: string | number }
         Returns: {
           anniversary: string | null
           approval_status: string
@@ -1747,7 +1747,7 @@ export type Database = {
           telegram: string | null
           twitter: string | null
           updated_at: string
-          user_id: string
+          user_id: string | number
           website: string | null
           whatsapp: string | null
           youtube: string | null
@@ -1762,7 +1762,7 @@ export type Database = {
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
+          _user_id: string | number
         }
         Returns: boolean
       }
@@ -1775,11 +1775,11 @@ export type Database = {
         Returns: undefined
       }
       redeem_loyalty_points: {
-        Args: { p_description?: string; p_points: number; p_user_id: string }
+        Args: { p_description?: string; p_points: number; p_user_id: string | number }
         Returns: boolean
       }
       transfer_voucher: {
-        Args: { p_claimed_voucher_id: string; p_recipient_phone: string }
+        Args: { p_claimed_voucher_id: string | number | number; p_recipient_phone: string }
         Returns: Json
       }
     }
@@ -1916,3 +1916,4 @@ export const Constants = {
     },
   },
 } as const
+
