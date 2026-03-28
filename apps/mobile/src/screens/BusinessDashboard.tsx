@@ -263,38 +263,42 @@ const BusinessDashboard = () => {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4">
-        <View className="flex-row flex-wrap gap-2">
-          {[
-            { label: "Views", value: totalViews, emoji: "👁️" },
-            { label: "Calls", value: totalCalls, emoji: "📞" },
-            { label: "Bookings", value: incomingBookings.length, emoji: "📅" },
-            { label: "Rating", value: avgRating, emoji: "⭐" },
-          ].map((s) => (
-            <View key={s.label} className="w-[48%] rounded-xl border border-border bg-card p-2.5 items-center">
-              <Text className="text-lg">{s.emoji}</Text>
-              <Text className="text-base font-bold text-foreground">{s.value}</Text>
-              <Text className="text-[9px] text-muted-foreground">{s.label}</Text>
-            </View>
-          ))}
-        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+          <View className="flex-row gap-2">
+            {[
+              { label: "Views", value: totalViews, emoji: "👁️" },
+              { label: "Calls", value: totalCalls, emoji: "📞" },
+              { label: "Bookings", value: incomingBookings.length, emoji: "📅" },
+              { label: "Rating", value: avgRating, emoji: "⭐" },
+            ].map((s) => (
+              <View key={s.label} className="w-24 rounded-xl border border-border bg-card p-2.5 items-center">
+                <Text className="text-lg">{s.emoji}</Text>
+                <Text className="text-base font-bold text-foreground">{s.value}</Text>
+                <Text className="text-xs text-muted-foreground" numberOfLines={1}>{s.label}</Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
 
         <Tabs defaultValue="bookings" className="mt-4">
-          <TabsList className="w-full flex-wrap bg-muted p-1 rounded-lg">
-            {[
-              { v: "bookings", l: `Bookings${pendingBookings.length > 0 ? ` (${pendingBookings.length})` : ""}` },
-              { v: "reviews", l: `Reviews (${reviews.length})` },
-              { v: "events", l: "Events" },
-              { v: "vouchers", l: "Vouchers" },
-              { v: "messages", l: "Messages" },
-              { v: "leads", l: "Leads" },
-              { v: "calendar", l: "Calendar" },
-              { v: "tools", l: "Tools" },
-            ].map((t) => (
-              <TabsTrigger key={t.v} value={t.v} className="flex-1 text-[10px]">
-                {t.l}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <TabsList className="bg-muted p-1 rounded-lg flex-row">
+              {[
+                { v: "bookings", l: `Bookings${pendingBookings.length > 0 ? ` (${pendingBookings.length})` : ""}` },
+                { v: "reviews", l: `Reviews (${reviews.length})` },
+                { v: "events", l: "Events" },
+                { v: "vouchers", l: "Vouchers" },
+                { v: "messages", l: "Messages" },
+                { v: "leads", l: "Leads" },
+                { v: "calendar", l: "Calendar" },
+                { v: "tools", l: "Tools" },
+              ].map((t) => (
+                <TabsTrigger key={t.v} value={t.v} className="px-4 py-2 text-xs whitespace-nowrap">
+                  {t.l}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </ScrollView>
 
           <TabsContent value="bookings" className="space-y-3 mt-3">
             {bookingsLoading ? (
