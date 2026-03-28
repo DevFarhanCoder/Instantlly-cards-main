@@ -35,16 +35,18 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
-import { categories } from "../data/categories";
+import { categories as fallbackCategories } from "../data/categories";
+import { useListMobileCategoriesQuery } from "../store/api/categoriesApi";
 import { useNetworkCards } from "../hooks/useContactSync";
 import { useFavorites } from "../contexts/FavoritesContext";
-import { useDirectoryCards } from "../hooks/useDirectoryCards";
+import { useDirectoryFeed } from "../hooks/useDirectoryCards";
 import { useAuth } from "../hooks/useAuth";
 import { useUserRole } from "../hooks/useUserRole";
 import { useUserLocation, getDistanceKm, formatDistance } from "../hooks/useUserLocation";
 import { useTrendingBusinesses } from "../hooks/useTrendingBusinesses";
 import { useDealOfTheDay } from "../hooks/useDealOfTheDay";
-import { supabase } from "../integrations/supabase/client";
+import { useVouchers } from "../hooks/useVouchers";
+import { supabase, SUPABASE_CONFIG_OK } from "../integrations/supabase/client";
 import { colors } from "../theme/colors";
 
 type ServiceMode = "all" | "home" | "visit";
@@ -60,11 +62,23 @@ const Index = () => {
   const searchRef = useRef<TextInput>(null);
   const navigation = useNavigation<any>();
   const { toggleFavorite, isFavorite } = useFavorites();
-  const { data: allCards = [], isLoading } = useDirectoryCards();
-  const { data: networkCards = [], isLoading: isLoadingNetwork } = useNetworkCards();
   const userLocation = useUserLocation();
+  const {
+    data: allCards = [],
+    isLoading,
+    isFetching,
+    hasMore,
+    loadMore,
+  } = useDirectoryFeed({
+    pageSize: 30,
+    lat: userLocation?.latitude,
+    lng: userLocation?.longitude,
+    radius: 10000,
+  });
+  const { data: networkCards = [], isLoading: isLoadingNetwork } = useNetworkCards();
   const { user } = useAuth();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
+  const { data: categoryData = [], isLoading: isLoadingCategories } = useListMobileCategoriesQuery();
 
   useEffect(() => {
     if (!roleLoading && isAdmin) {
@@ -75,6 +89,7 @@ const Index = () => {
   const { data: sponsoredCampaigns = [] } = useQuery({
     queryKey: ["sponsored-ads"],
     queryFn: async () => {
+      if (!SUPABASE_CONFIG_OK) return [];
       const { data, error } = await supabase
         .from("ad_campaigns")
         .select("*, business_cards!ad_campaigns_business_card_id_fkey(*)")
@@ -85,9 +100,24 @@ const Index = () => {
       if (error) throw error;
       return data || [];
     },
+    enabled: SUPABASE_CONFIG_OK,
   });
 
-  const displayedCategories = showAllCategories ? categories : categories.slice(0, 8);
+  const normalizedCategories = useMemo(() => {
+    if (categoryData.length > 0) {
+      return categoryData.map((cat) => ({
+        id: String(cat.id),
+        name: cat.name,
+        emoji: cat.icon || "\u{1F4C1}",
+        count: cat.child_count ?? 0,
+      }));
+    }
+    return fallbackCategories;
+  }, [categoryData]);
+
+  const displayedCategories = showAllCategories
+    ? normalizedCategories
+    : normalizedCategories.slice(0, 8);
 
   const suggestions = useMemo(() => {
     if (!searchQuery.trim() || searchQuery.length < 2) return [];
@@ -158,11 +188,21 @@ const Index = () => {
     ];
   }, [filteredCards, networkCards]);
 
+  const handleScroll = (e: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    const paddingToBottom = 320;
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+      if (hasMore) loadMore();
+    }
+  };
+
   return (
     <View className="flex-1 bg-background">
       <ScrollView
         className="bg-background"
         contentContainerStyle={{ paddingBottom: 260 }}
+        onScroll={handleScroll}
+        scrollEventThrottle={200}
       >
       <View className="px-4 pt-4">
         <View className="flex-row gap-2">
@@ -301,19 +341,28 @@ const Index = () => {
         </View>
 
         <View className="flex-row flex-wrap justify-between gap-3">
-          {displayedCategories.map((cat, i) => (
-            <Pressable
-              key={cat.id}
-              onPress={() => navigation.navigate("CategoryDetail", { id: cat.id })}
-              className="items-center gap-1.5"
-              style={{ width: "22%" }}
-            >
-              <View className="h-16 w-16 items-center justify-center rounded-2xl border border-border bg-card shadow-sm">
-                <Text className="text-2xl">{cat.emoji}</Text>
+          {isLoadingCategories && normalizedCategories.length === 0 ? (
+            Array.from({ length: 8 }).map((_, idx) => (
+              <View key={`cat-skel-${idx}`} className="items-center gap-1.5" style={{ width: "22%" }}>
+                <Skeleton className="h-16 w-16 rounded-2xl" />
+                <Skeleton className="h-3 w-14 rounded" />
               </View>
-              <Text className="text-[11px] font-medium text-foreground text-center">{cat.name}</Text>
-            </Pressable>
-          ))}
+            ))
+          ) : (
+            displayedCategories.map((cat) => (
+              <Pressable
+                key={cat.id}
+                onPress={() => navigation.navigate("CategoryDetail", { id: cat.id })}
+                className="items-center gap-1.5"
+                style={{ width: "22%" }}
+              >
+                <View className="h-16 w-16 items-center justify-center rounded-2xl border border-border bg-card shadow-sm">
+                  <Text className="text-2xl">{cat.emoji}</Text>
+                </View>
+                <Text className="text-[11px] font-medium text-foreground text-center">{cat.name}</Text>
+              </Pressable>
+            ))
+          )}
         </View>
 
         {!showAllCategories && (
@@ -529,6 +578,16 @@ const Index = () => {
         )}
       </View>
 
+      {hasMore && (
+        <View className="px-4 pb-6 items-center">
+          {isFetching ? (
+            <ActivityIndicator size="small" color={colors.mutedForeground} />
+          ) : (
+            <Text className="text-[10px] text-muted-foreground">Loading more...</Text>
+          )}
+        </View>
+      )}
+
       </ScrollView>
 
       <Pressable
@@ -654,6 +713,7 @@ const AIRecommendations = ({
   const { data, isLoading, error } = useQuery({
     queryKey: ["ai-recommendations", user?.id, favoriteIds.length],
     queryFn: async () => {
+      if (!SUPABASE_CONFIG_OK) return [];
       const { data: fnData, error: fnError } = await supabase.functions.invoke(
         "ai-recommendations",
         {
@@ -670,7 +730,7 @@ const AIRecommendations = ({
       if (fnError) throw fnError;
       return fnData?.recommendations || [];
     },
-    enabled: !!user,
+    enabled: !!user && SUPABASE_CONFIG_OK,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
@@ -751,22 +811,10 @@ const AIRecommendations = ({
 };
 
 const PromotedVouchers = ({ navigate }: { navigate: any }) => {
-  const { data: vouchers = [], isLoading } = useQuery({
-    queryKey: ["promoted-vouchers"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vouchers")
-        .select("*")
-        .eq("status", "active")
-        .eq("is_popular", true)
-        .order("created_at", { ascending: false })
-        .limit(6);
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { data: vouchers = [], isLoading } = useVouchers();
+  const featured = vouchers.filter((v) => v.status === "active").slice(0, 6);
 
-  if (isLoading || vouchers.length === 0) return null;
+  if (isLoading || featured.length === 0) return null;
 
   return (
     <View className="px-4 mt-5">
@@ -781,7 +829,7 @@ const PromotedVouchers = ({ navigate }: { navigate: any }) => {
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View className="flex-row gap-3">
-          {vouchers.map((v: any) => (
+          {featured.map((v: any) => (
             <Pressable
               key={v.id}
               onPress={() => navigate.navigate("VoucherDetail", { id: v.id })}

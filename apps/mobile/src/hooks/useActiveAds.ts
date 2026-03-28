@@ -118,7 +118,7 @@ export function useRecordImpression(campaignId: string | undefined, variantId?: 
 
     supabase.rpc("record_ad_impression", {
       p_campaign_id: campaignId,
-      p_variant_id: variantId || null,
+      p_variant_id: variantId ?? undefined,
     });
   }, [campaignId, variantId]);
 }
@@ -126,6 +126,6 @@ export function useRecordImpression(campaignId: string | undefined, variantId?: 
 export async function recordAdClick(campaignId: string, variantId?: string) {
   await supabase.rpc("record_ad_click", {
     p_campaign_id: campaignId,
-    p_variant_id: variantId || null,
+    p_variant_id: variantId ?? undefined,
   });
 }

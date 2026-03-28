@@ -145,7 +145,7 @@ const MyVouchers = () => {
             ) : (
               <View className="gap-3">
                 {transfers.map((t) => {
-                  const isSent = t.sender_id === user?.id;
+                  const isSent = String(t.sender_id) === String(user?.id ?? "");
                   return (
                     <View
                       key={t.id}
@@ -386,7 +386,7 @@ const MyVouchers = () => {
                 disabled={transferPhone.replace(/\D/g, "").length < 10 || isTransferring}
                 onPress={() => {
                   transferVoucher(
-                    { claimedVoucherId: transferVoucherTarget.id, recipientPhone: transferPhone.trim() },
+                    { voucherId: transferVoucherTarget.voucher_id, recipientPhone: transferPhone.trim() },
                     { onSuccess: () => setTransferVoucherTarget(null) }
                   );
                 }}

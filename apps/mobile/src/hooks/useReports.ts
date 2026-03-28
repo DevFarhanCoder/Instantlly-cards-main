@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../integrations/supabase/client";
+import { supabase, SUPABASE_CONFIG_OK } from "../integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
 export function useReportBusiness() {
@@ -8,6 +8,7 @@ export function useReportBusiness() {
 
   return useMutation({
     mutationFn: async (report: { business_id: string; reason: string; details?: string }) => {
+      if (!SUPABASE_CONFIG_OK) throw new Error("Reports are not configured yet.");
       const { data, error } = await supabase
         .from("business_reports")
         .insert({ ...report, user_id: user!.id })
@@ -27,6 +28,7 @@ export function useDisputes() {
   const disputesQuery = useQuery({
     queryKey: ["my-disputes", user?.id],
     queryFn: async () => {
+      if (!SUPABASE_CONFIG_OK) return [];
       const { data, error } = await supabase
         .from("disputes")
         .select("*")
@@ -35,7 +37,7 @@ export function useDisputes() {
       if (error) throw error;
       return data as any[];
     },
-    enabled: !!user,
+    enabled: SUPABASE_CONFIG_OK && !!user,
   });
 
   const createDispute = useMutation({
@@ -45,6 +47,7 @@ export function useDisputes() {
       business_id: string;
       description: string;
     }) => {
+      if (!SUPABASE_CONFIG_OK) throw new Error("Disputes are not configured yet.");
       const { data, error } = await supabase
         .from("disputes")
         .insert({ ...dispute, user_id: user!.id })

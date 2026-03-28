@@ -40,31 +40,26 @@ import {
 import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "../hooks/useAuth";
 import { useUserRole } from "../hooks/useUserRole";
+import { useGetProfileQuery } from "../store/api/usersApi";
+import { useGetMyCardsQuery } from "../store/api/businessCardsApi";
+import { useGetMyVouchersQuery } from "../store/api/vouchersApi";
 import { toast } from "../lib/toast";
 
-const ProfileCompletion = ({ user, stats }: { user: any; stats: any }) => {
+const ProfileCompletion = ({ authUser, profile, stats }: { authUser: any; profile: any; stats: any }) => {
   const navigation = useNavigation<any>();
-  const { data: profile } = useQuery({
-    queryKey: ["profile", user.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-      return data;
-    },
-  });
+  const fullName = profile?.profile?.full_name || profile?.name || authUser?.name;
+  const phone = profile?.profile?.phone || profile?.phone || authUser?.phone;
+  const avatar = profile?.profile?.avatar_url || profile?.profile_picture || authUser?.profile_picture;
 
   const steps = useMemo(
     () => [
-      { label: "Email verified", done: !!user.email_confirmed_at || !!user.email },
-      { label: "Name added", done: !!profile?.full_name },
-      { label: "Phone added", done: !!profile?.phone },
-      { label: "Avatar uploaded", done: !!profile?.avatar_url },
+      { label: "Email added", done: !!profile?.email || !!authUser?.email },
+      { label: "Name added", done: !!fullName },
+      { label: "Phone added", done: !!phone },
+      { label: "Avatar uploaded", done: !!avatar },
       { label: "First booking", done: (stats?.bookings ?? 0) > 0 },
     ],
-    [user, profile, stats]
+    [authUser, profile, stats, fullName, phone, avatar]
   );
 
   const completed = steps.filter((s) => s.done).length;
@@ -105,7 +100,7 @@ const ProfileCompletion = ({ user, stats }: { user: any; stats: any }) => {
   );
 };
 
-const SupportTicketSection = ({ userId }: { userId: string }) => {
+const SupportTicketSection = ({ userId }: { userId: string | number }) => {
   const queryClient = useQueryClient();
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
@@ -280,35 +275,15 @@ const Profile = () => {
   const { user, signOut } = useAuth();
   const { isBusiness, isAdmin } = useUserRole();
   const [showTicketForm, setShowTicketForm] = useState(false);
+  const { data: profileData } = useGetProfileQuery(undefined, { skip: !user });
+  const { data: myCards = [] } = useGetMyCardsQuery(undefined, { skip: !user });
+  const { data: myVouchers = [] } = useGetMyVouchersQuery(undefined, { skip: !user });
 
-  const { data: profileStats } = useQuery({
-    queryKey: ["profile-stats", user?.id],
-    queryFn: async () => {
-      if (!user) {
-        return { cards: 0, vouchers: 0, bookings: 0 };
-      }
-      const [cards, vouchers, bookings] = await Promise.all([
-        supabase
-          .from("business_cards")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id),
-        supabase
-          .from("claimed_vouchers")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id),
-        supabase
-          .from("bookings")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id),
-      ]);
-      return {
-        cards: cards.count ?? 0,
-        vouchers: vouchers.count ?? 0,
-        bookings: bookings.count ?? 0,
-      };
-    },
-    enabled: !!user,
-  });
+  const profileStats = {
+    cards: myCards.length,
+    vouchers: myVouchers.length,
+    bookings: 0,
+  };
 
   if (!user) {
     return (
@@ -327,7 +302,13 @@ const Profile = () => {
     );
   }
 
-  const initials = user.email?.substring(0, 2).toUpperCase() || "U";
+  const displayName = profileData?.name || profileData?.profile?.full_name || user?.name || user?.phone || "User";
+  const displayEmail = profileData?.email || user?.email || "";
+  const memberSince = profileData?.created_at || new Date().toISOString();
+  const initials =
+    displayName?.toString().substring(0, 2).toUpperCase() ||
+    displayEmail?.toString().substring(0, 2).toUpperCase() ||
+    "U";
 
   const menuItems = [
     { icon: LayoutDashboard, label: "My Dashboard", desc: "Activity, saved cards, offers", route: "Dashboard" },
@@ -375,10 +356,10 @@ const Profile = () => {
             <Text className="text-xl font-bold text-primary-foreground">{initials}</Text>
           </View>
           <View>
-            <Text className="text-lg font-bold text-foreground">{user.email}</Text>
+            <Text className="text-lg font-bold text-foreground">{displayName}</Text>
             <Text className="text-xs text-muted-foreground">
               Member since{" "}
-              {new Date(user.created_at).toLocaleDateString("en-IN", {
+              {new Date(memberSince).toLocaleDateString("en-IN", {
                 month: "short",
                 year: "numeric",
               })}
@@ -387,7 +368,7 @@ const Profile = () => {
         </View>
 
         <View className="mt-4">
-          <ProfileCompletion user={user} stats={profileStats} />
+          <ProfileCompletion authUser={user} profile={profileData} stats={profileStats} />
         </View>
 
         <View className="mt-4 flex-row gap-3">

@@ -104,7 +104,7 @@ export function useCreateEvent() {
           ...event,
           user_id: user!.id,
           organizer_name:
-            event.organizer_name || user!.user_metadata?.full_name || "Organizer",
+            event.organizer_name || (user as any)?.user_metadata?.full_name || "Organizer",
         } as any)
         .select()
         .single();

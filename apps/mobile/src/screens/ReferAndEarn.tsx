@@ -19,14 +19,22 @@ import { useUserRole } from "../hooks/useUserRole";
 import { useSubscription } from "../hooks/useSubscription";
 import { toast } from "../lib/toast";
 
-const customerRewards = [
+type Reward = {
+  emoji: string;
+  title: string;
+  desc: string;
+  target: number;
+  highlight?: boolean;
+};
+
+const customerRewards: Reward[] = [
   { emoji: "🎁", title: "Refer a Friend", desc: "Get ₹50 credit when your friend signs up", target: 1 },
   { emoji: "⭐", title: "5 Referrals", desc: "Unlock Premium badge for 1 month", target: 5 },
   { emoji: "🎟️", title: "10 Referrals", desc: "Get ₹500 voucher for any service", target: 10 },
   { emoji: "🏆", title: "25 Referrals", desc: "Lifetime VIP status + exclusive deals", target: 25 },
 ];
 
-const businessRewards = [
+const businessRewards: Reward[] = [
   { emoji: "🎁", title: "Refer 1 Business", desc: "Get ₹100 ad credit for your next campaign", target: 1 },
   { emoji: "🚀", title: "Refer 3 Businesses", desc: "Featured listing for 7 days", target: 3 },
   {
@@ -46,7 +54,7 @@ const ReferAndEarn = () => {
   const { isBusiness } = useUserRole();
   const { currentPlan } = useSubscription();
 
-  const referralCode = user?.id ? `REF${user.id.slice(0, 6).toUpperCase()}` : "REF000000";
+  const referralCode = user?.id ? `REF${String(user.id).slice(0, 6).toUpperCase()}` : "REF000000";
   const rewards = isBusiness ? businessRewards : customerRewards;
   const nextMilestone = rewards.find((r) => completedCount < r.target);
   const progressToNext = nextMilestone

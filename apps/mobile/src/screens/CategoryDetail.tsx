@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Image,
   Linking,
@@ -23,10 +23,10 @@ import {
 } from "lucide-react-native";
 import { useFavorites } from "../contexts/FavoritesContext";
 import { Button } from "../components/ui/button";
-import { categories } from "../data/categories";
 import BookAppointmentModal from "../components/BookAppointmentModal";
-import { useDirectoryCards, type DirectoryCard } from "../hooks/useDirectoryCards";
+import { useDirectoryFeed, type DirectoryCard } from "../hooks/useDirectoryCards";
 import { Skeleton } from "../components/ui/skeleton";
+import { useListMobileCategoriesQuery, useGetMobileSubcategoriesQuery } from "../store/api/categoriesApi";
 import { useUserLocation, getDistanceKm, formatDistance } from "../hooks/useUserLocation";
 import { colors } from "../theme/colors";
 
@@ -38,30 +38,45 @@ const CategoryDetail = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const id = route.params?.id as string | undefined;
-  const category = categories.find((c) => c.id === id);
-  const { data: allCards = [], isLoading } = useDirectoryCards();
+  const categoryId = Number(id);
+  const { data: categoryData = [] } = useListMobileCategoriesQuery();
+  const category = categoryData.find((c) => String(c.id) === String(categoryId));
+  const { data: subcategoryResponse } = useGetMobileSubcategoriesQuery(
+    { id: categoryId, page: 1, limit: 200 },
+    { skip: !categoryId }
+  );
+  const subcategories = subcategoryResponse?.data?.subcategories ?? [];
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [showFilters, setShowFilters] = useState(false);
   const [serviceMode, setServiceMode] = useState<ServiceMode>("all");
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [bookingCard, setBookingCard] = useState<DirectoryCard | null>(null);
   const userLocation = useUserLocation();
 
-  const categoryCards = useMemo(
-    () =>
-      allCards.filter((c) => {
-        if (!c.category) return false;
-        const catName = category?.name?.toLowerCase() || "";
-        const catId = id?.replace(/-/g, "") || "";
-        const cardCat = c.category.toLowerCase().replace(/[& ]/g, "");
-        return cardCat === catId || c.category.toLowerCase() === catName;
-      }),
-    [allCards, id, category]
-  );
+  const {
+    data: allCards = [],
+    isLoading,
+    isFetching,
+    hasMore,
+    loadMore,
+  } = useDirectoryFeed({
+    pageSize: 30,
+    category: selectedSubcategory || category?.name,
+    skip: !selectedSubcategory && !category?.name,
+    lat: userLocation?.latitude,
+    lng: userLocation?.longitude,
+    radius: 10000,
+  });
+
+
+  useEffect(() => {
+    setSelectedSubcategory(null);
+  }, [categoryId]);
 
   const filteredCards = useMemo(() => {
-    let cards = [...categoryCards].filter((c) => {
+    let cards = [...allCards].filter((c) => {
       if (serviceMode === "home") return c.service_mode === "home" || c.service_mode === "both";
       if (serviceMode === "visit") return c.service_mode === "visit" || c.service_mode === "both";
       return true;
@@ -83,7 +98,15 @@ const CategoryDetail = () => {
     });
 
     return cards;
-  }, [categoryCards, searchQuery, sortBy, serviceMode]);
+  }, [allCards, searchQuery, sortBy, serviceMode]);
+
+  const handleScroll = (e: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    const paddingToBottom = 320;
+    if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+      if (hasMore) loadMore();
+    }
+  };
 
   return (
     <View className="flex-1 bg-background">
@@ -93,7 +116,7 @@ const CategoryDetail = () => {
             <ArrowLeft size={20} color="#111827" />
           </Pressable>
           <View className="flex-row items-center gap-2">
-            <Text className="text-xl">{category?.emoji || "📁"}</Text>
+            <Text className="text-xl">{category?.icon || "📁"}</Text>
             <Text className="text-lg font-bold text-foreground">{category?.name || "Category"}</Text>
           </View>
           <View className="ml-auto">
@@ -130,6 +153,32 @@ const CategoryDetail = () => {
             </Pressable>
           ))}
         </View>
+
+        {subcategories.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-4 pb-2">
+            <View className="flex-row gap-2">
+              <Pressable
+                onPress={() => setSelectedSubcategory(null)}
+                className={`rounded-full px-3 py-1.5 ${selectedSubcategory === null ? "bg-primary" : "bg-muted/60"}`}
+              >
+                <Text className={`text-[11px] font-semibold ${selectedSubcategory === null ? "text-primary-foreground" : "text-muted-foreground"}`}>
+                  All
+                </Text>
+              </Pressable>
+              {subcategories.map((sub) => (
+                <Pressable
+                  key={sub}
+                  onPress={() => setSelectedSubcategory(sub)}
+                  className={`rounded-full px-3 py-1.5 ${selectedSubcategory === sub ? "bg-primary" : "bg-muted/60"}`}
+                >
+                  <Text className={`text-[11px] font-semibold ${selectedSubcategory === sub ? "text-primary-foreground" : "text-muted-foreground"}`}>
+                    {sub}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </ScrollView>
+        )}
 
         <View className="px-4 pb-3">
           <View className="relative">
@@ -178,7 +227,12 @@ const CategoryDetail = () => {
         </View>
       )}
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4">
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 260 }}
+        className="px-4 py-4"
+        onScroll={handleScroll}
+        scrollEventThrottle={200}
+      >
         {isLoading ? (
           <View className="space-y-3">
             {[1, 2, 3].map((i) => (
@@ -322,6 +376,14 @@ const CategoryDetail = () => {
               )}
             </View>
           </>
+        )}
+
+        {hasMore && (
+          <View className="items-center pt-4 pb-6">
+            {isFetching ? (
+              <Text className="text-xs text-muted-foreground">Loading more...</Text>
+            ) : null}
+          </View>
         )}
       </ScrollView>
 
