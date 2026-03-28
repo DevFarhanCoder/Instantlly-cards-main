@@ -163,20 +163,6 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
         </Button>
       </Pressable>
 
-      {activeAds.length > 1 && (
-        <View style={styles.dotsRow}>
-          {activeAds.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                i === index ? styles.dotActive : styles.dotInactive,
-              ]}
-            />
-          ))}
-        </View>
-      )}
-
       <Modal visible={expanded} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>

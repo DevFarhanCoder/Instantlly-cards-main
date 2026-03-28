@@ -98,42 +98,41 @@ const Events = () => {
 
   return (
     <View className="flex-1 bg-background">
-      <View className="bg-primary px-4 py-4">
-        <View className="flex-row items-center justify-between">
+      <View className="bg-primary px-4 py-3">
+        <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center gap-2">
-            <Text className="text-xl">🎉</Text>
-            <Text className="text-xl font-bold text-primary-foreground">
+            <Text className="text-lg">🎉</Text>
+            <Text className="text-lg font-bold text-primary-foreground">
               Events Market
             </Text>
           </View>
-          <View className="flex-row gap-2">
-            <Pressable onPress={() => navigation.navigate("MyPasses")}>
-              <View className="relative">
-                <Button size="sm" variant="secondary" className="rounded-lg">
-                  <Ticket size={14} color="#111827" /> My Passes
-                </Button>
-                {passCount > 0 && (
-                  <View className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 rounded-full bg-destructive items-center justify-center px-1">
-                    <Text className="text-[10px] font-bold text-destructive-foreground">
-                      {passCount}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </Pressable>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="rounded-lg"
-              onPress={() => navigation.navigate("EventScanner")}
-            >
-              📷 Scan QR
-            </Button>
-          </View>
         </View>
-        <Text className="mt-1 text-xs text-primary-foreground/70">
-          Discover & register for exciting events
-        </Text>
+        
+        <View className="flex-row gap-2">
+          <Pressable onPress={() => navigation.navigate("MyPasses")} className="flex-1">
+            <View className="relative bg-white rounded-lg p-2.5 flex-row items-center justify-center gap-1.5">
+              <Ticket size={16} color="#2563eb" />
+              <Text className="text-sm font-semibold text-primary">My Passes</Text>
+              {passCount > 0 && (
+                <View className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-destructive items-center justify-center px-1">
+                  <Text className="text-[10px] font-bold text-destructive-foreground">
+                    {passCount}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </Pressable>
+          
+          <Pressable
+            onPress={() => navigation.navigate("EventScanner")}
+            className="flex-1"
+          >
+            <View className="bg-white rounded-lg p-2.5 flex-row items-center justify-center gap-1.5">
+              <Text className="text-base">📷</Text>
+              <Text className="text-sm font-semibold text-primary">Scan QR</Text>
+            </View>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4 space-y-5">

@@ -13,9 +13,7 @@ import AppNavigator from "./src/navigation/AppNavigator";
 import { colors } from "./src/theme/colors";
 import AppProviders from "./src/AppProviders";
 import { SUPABASE_CONFIG_OK } from "./src/integrations/supabase/client";
-
-const DEBUG_MINIMAL = false;
-const DEBUG_PROVIDERS_ONLY = false;
+import React from "react";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -43,26 +41,6 @@ export default function App() {
         </Text>
         <StatusBar style="auto" />
       </View>
-    );
-  }
-
-  if (DEBUG_MINIMAL) {
-    return (
-      <View style={styles.loading}>
-        <Text style={styles.debugText}>Debug Minimal Screen</Text>
-        <StatusBar style="auto" />
-      </View>
-    );
-  }
-
-  if (DEBUG_PROVIDERS_ONLY) {
-    return (
-      <AppProviders>
-        <View style={styles.loading}>
-          <Text style={styles.debugText}>Providers Only</Text>
-          <StatusBar style="auto" />
-        </View>
-      </AppProviders>
     );
   }
 
