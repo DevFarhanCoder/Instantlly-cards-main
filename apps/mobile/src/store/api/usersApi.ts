@@ -13,6 +13,13 @@ export const usersApi = baseApi.injectEndpoints({
       query: (body) => ({ url: '/users/profile', method: 'PUT', body }),
       invalidatesTags: ['User', 'Auth'],
     }),
+    changePassword: builder.mutation<any, { currentPassword: string; newPassword: string }>({
+      query: (body) => ({ url: '/auth/change-password', method: 'POST', body }),
+    }),
+    deleteAccount: builder.mutation<any, void>({
+      query: () => ({ url: '/users/me', method: 'DELETE' }),
+      invalidatesTags: ['User', 'Auth'],
+    }),
     getUserById: builder.query<any, number>({
       query: (id) => `/users/${id}`,
       providesTags: (_r, _e, id) => [{ type: 'User', id }],
@@ -20,4 +27,10 @@ export const usersApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useGetProfileQuery, useUpdateProfileMutation, useGetUserByIdQuery } = usersApi;
+export const {
+  useGetProfileQuery,
+  useUpdateProfileMutation,
+  useChangePasswordMutation,
+  useDeleteAccountMutation,
+  useGetUserByIdQuery,
+} = usersApi;
