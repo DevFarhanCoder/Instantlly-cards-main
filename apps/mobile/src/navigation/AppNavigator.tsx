@@ -1,6 +1,5 @@
-import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import BookingDemo from "../screens/BookingDemo";
+import { NavigationContainer } from "@react-navigation/native";
 import Index from "../screens/Index";
 import MyCards from "../screens/MyCards";
 import Messaging from "../screens/Messaging";
@@ -44,9 +43,6 @@ import type { RootStackParamList } from "./routes";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const DEBUG_NAVIGATION_OFF = false;
-const DEBUG_SIMPLE_NAV = false;
-
 const withLayout = (Screen: any) => (props: any) => (
   <AppLayout>
     <Screen {...props} />
@@ -73,25 +69,7 @@ const plainPlaceholder = (title: string) => (props: any) => (
   />
 );
 
-const PlainScreen = () => (
-  <PlaceholderScreen title="Debug Screen" subtitle="Minimal screen to isolate error." />
-);
-
 const AppNavigator = () => {
-  if (DEBUG_NAVIGATION_OFF) {
-    return <PlaceholderScreen title="Debug Screen" subtitle="Navigation disabled." />;
-  }
-
-  if (DEBUG_SIMPLE_NAV) {
-    return (
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Home" component={PlainScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    );
-  }
-
   return (
     <NavigationContainer>
       <Stack.Navigator
@@ -100,45 +78,45 @@ const AppNavigator = () => {
           headerShown: false,
         }}
       >
-        <Stack.Screen name="Home" component={withLayout(Index)} />
-        <Stack.Screen name="MyCards" component={withLayout(MyCards)} />
-        <Stack.Screen name="CardCreate" component={withLayout(CardCreate)} />
-        <Stack.Screen name="BusinessDetail" component={withLayout(BusinessDetail)} />
-        <Stack.Screen name="CategoryDetail" component={withLayout(CategoryDetail)} />
-        <Stack.Screen name="Messaging" component={withLayout(Messaging)} />
-        <Stack.Screen name="Vouchers" component={withLayout(Vouchers)} />
-        <Stack.Screen name="VoucherDetail" component={withLayout(VoucherDetail)} />
-        <Stack.Screen name="MyVouchers" component={withLayout(MyVouchers)} />
-        <Stack.Screen name="Ads" component={withLayout(Ads)} />
-        <Stack.Screen name="AdCreate" component={withLayout(AdCreate)} />
-        <Stack.Screen name="AdDashboard" component={withLayout(AdDashboard)} />
-        <Stack.Screen name="Events" component={withLayout(Events)} />
-        <Stack.Screen name="EventDetail" component={withLayout(EventDetail)} />
-        <Stack.Screen name="EventScanner" component={withLayout(EventScanner)} />
-        <Stack.Screen name="EventCreate" component={withLayout(EventCreate)} />
-        <Stack.Screen name="VoucherCreate" component={withLayout(VoucherCreate)} />
-        <Stack.Screen name="PublicCard" component={withLayout(PublicCard)} />
-        <Stack.Screen name="MyPasses" component={withLayout(MyPasses)} />
-        <Stack.Screen name="Profile" component={withLayout(Profile)} />
-        <Stack.Screen name="ChooseListingType" component={withLayout(ChooseListingType)} />
-        <Stack.Screen name="Dashboard" component={withLayout(Dashboard)} />
-        <Stack.Screen name="BusinessAnalytics" component={withLayout(BusinessAnalytics)} />
-        <Stack.Screen name="Subscription" component={withLayout(Subscription)} />
-        <Stack.Screen name="Notifications" component={withLayout(Notifications)} />
-        <Stack.Screen name="BusinessDashboard" component={withLayout(BusinessDashboard)} />
-        <Stack.Screen name="AdminDashboard" component={withLayout(AdminDashboard)} />
-        <Stack.Screen name="EditProfile" component={withLayout(EditProfile)} />
-        <Stack.Screen name="PaymentMethods" component={withLayout(PaymentMethods)} />
-        <Stack.Screen name="PrivacySecurity" component={withLayout(PrivacySecurity)} />
-        <Stack.Screen name="ReferAndEarn" component={withLayout(ReferAndEarn)} />
-        <Stack.Screen name="MyFavourites" component={withLayout(MyFavourites)} />
-        <Stack.Screen name="TrackBooking" component={withLayout(TrackBooking)} />
-        <Stack.Screen name="Support" component={withLayout(Support)} />
-        <Stack.Screen name="NearbyBusinesses" component={withLayout(NearbyBusinesses)} />
-        <Stack.Screen name="LoyaltyPoints" component={withLayout(LoyaltyPoints)} />
-        <Stack.Screen name="Auth" component={Auth} />
-        <Stack.Screen name="NotFound" component={plainPlaceholder("Not Found")} />
-      </Stack.Navigator>
+      <Stack.Screen name="Home" component={withLayout(Index)} />
+      <Stack.Screen name="MyCards" component={withLayout(MyCards)} />
+      <Stack.Screen name="CardCreate" component={withLayout(CardCreate)} />
+      <Stack.Screen name="BusinessDetail" component={withLayout(BusinessDetail)} />
+      <Stack.Screen name="CategoryDetail" component={withLayout(CategoryDetail)} />
+      <Stack.Screen name="Messaging" component={withLayout(Messaging)} />
+      <Stack.Screen name="Vouchers" component={withLayout(Vouchers)} />
+      <Stack.Screen name="VoucherDetail" component={withLayout(VoucherDetail)} />
+      <Stack.Screen name="MyVouchers" component={withLayout(MyVouchers)} />
+      <Stack.Screen name="Ads" component={withLayout(Ads)} />
+      <Stack.Screen name="AdCreate" component={withLayout(AdCreate)} />
+      <Stack.Screen name="AdDashboard" component={withLayout(AdDashboard)} />
+      <Stack.Screen name="Events" component={withLayout(Events)} />
+      <Stack.Screen name="EventDetail" component={withLayout(EventDetail)} />
+      <Stack.Screen name="EventScanner" component={withLayout(EventScanner)} />
+      <Stack.Screen name="EventCreate" component={withLayout(EventCreate)} />
+      <Stack.Screen name="VoucherCreate" component={withLayout(VoucherCreate)} />
+      <Stack.Screen name="PublicCard" component={withLayout(PublicCard)} />
+      <Stack.Screen name="MyPasses" component={withLayout(MyPasses)} />
+      <Stack.Screen name="Profile" component={withLayout(Profile)} />
+      <Stack.Screen name="ChooseListingType" component={withLayout(ChooseListingType)} />
+      <Stack.Screen name="Dashboard" component={withLayout(Dashboard)} />
+      <Stack.Screen name="BusinessAnalytics" component={withLayout(BusinessAnalytics)} />
+      <Stack.Screen name="Subscription" component={withLayout(Subscription)} />
+      <Stack.Screen name="Notifications" component={withLayout(Notifications)} />
+      <Stack.Screen name="BusinessDashboard" component={withLayout(BusinessDashboard)} />
+      <Stack.Screen name="AdminDashboard" component={withLayout(AdminDashboard)} />
+      <Stack.Screen name="EditProfile" component={withLayout(EditProfile)} />
+      <Stack.Screen name="PaymentMethods" component={withLayout(PaymentMethods)} />
+      <Stack.Screen name="PrivacySecurity" component={withLayout(PrivacySecurity)} />
+      <Stack.Screen name="ReferAndEarn" component={withLayout(ReferAndEarn)} />
+      <Stack.Screen name="MyFavourites" component={withLayout(MyFavourites)} />
+      <Stack.Screen name="TrackBooking" component={withLayout(TrackBooking)} />
+      <Stack.Screen name="Support" component={withLayout(Support)} />
+      <Stack.Screen name="NearbyBusinesses" component={withLayout(NearbyBusinesses)} />
+      <Stack.Screen name="LoyaltyPoints" component={withLayout(LoyaltyPoints)} />
+      <Stack.Screen name="Auth" component={Auth} />
+      <Stack.Screen name="NotFound" component={plainPlaceholder("Not Found")} />
+    </Stack.Navigator>
     </NavigationContainer>
   );
 };

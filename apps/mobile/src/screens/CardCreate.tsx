@@ -50,8 +50,10 @@ const STEPS = [
   { key: "additional", label: "SEO", icon: Search, num: 6 },
 ];
 
-const inputClass = "rounded-xl bg-muted/50 border-0";
-const errorInputClass = "rounded-xl bg-muted/50 border border-destructive";
+const inputClass = "rounded-xl bg-muted/50 border-0 text-base h-12 px-4";
+const errorInputClass = "rounded-xl bg-muted/50 border border-destructive text-base h-12 px-4";
+const textareaClass = "rounded-xl bg-muted/50 border-0 text-base px-4 py-3";
+const labelClass = "text-sm font-bold";
 
 const CardCreate = () => {
   const navigation = useNavigation<any>();
@@ -383,33 +385,33 @@ const CardCreate = () => {
     children: React.ReactNode;
   }) => (
     <View className="rounded-2xl border border-border bg-card overflow-hidden">
-      <Pressable onPress={onToggle} className="flex-row items-center gap-3 p-4">
+      <Pressable onPress={onToggle} className="flex-row items-center gap-3.5 p-5">
         <View
           className={cn(
-            "h-10 w-10 items-center justify-center rounded-xl",
+            "h-12 w-12 items-center justify-center rounded-xl",
             isComplete ? "bg-green-500/15" : "bg-primary/10"
           )}
         >
           {isComplete ? (
-            <Check size={18} color="#16a34a" />
+            <Check size={22} color="#16a34a" />
           ) : (
-            <Text className="text-sm font-bold text-primary">{stepNum}</Text>
+            <Text className="text-base font-bold text-primary">{stepNum}</Text>
           )}
         </View>
         <View className="flex-1">
-          <Text className="text-sm font-bold text-foreground">
+          <Text className="text-base font-bold text-foreground">
             {title}
             {required && <Text className="text-destructive"> *</Text>}
           </Text>
-          <Text className="text-xs text-muted-foreground">{subtitle}</Text>
+          <Text className="text-sm text-muted-foreground mt-0.5">{subtitle}</Text>
         </View>
         {isOpen ? (
-          <ChevronUp size={20} color="#9aa2b1" />
+          <ChevronUp size={24} color="#9aa2b1" />
         ) : (
-          <ChevronDown size={20} color="#9aa2b1" />
+          <ChevronDown size={24} color="#9aa2b1" />
         )}
       </Pressable>
-      {isOpen && <View className="space-y-4 px-4 pb-5">{children}</View>}
+      {isOpen && <View className="space-y-4 px-5 pb-6">{children}</View>}
     </View>
   );
 
@@ -427,13 +429,13 @@ const CardCreate = () => {
 
   return (
     <View className="flex-1 bg-background">
-      <View className="border-b border-border bg-card px-4 py-3">
-        <View className="flex-row items-center justify-between mb-2">
+      <View className="border-b border-border bg-card px-4 py-2">
+        <View className="flex-row items-center justify-between mb-1.5">
           <View>
-            <Text className="text-xl font-bold text-foreground">
+            <Text className="text-lg font-bold text-foreground">
               {isEdit ? "Edit Card" : "Create New Card"}
             </Text>
-            <Text className="text-xs text-muted-foreground">
+            <Text className="text-[10px] text-muted-foreground">
               {filledCount} of {progressFields.length} fields filled
             </Text>
           </View>
@@ -456,9 +458,9 @@ const CardCreate = () => {
             </Pressable>
           </View>
         </View>
-        <Progress value={progress} className="h-1.5" />
+        <Progress value={progress} className="h-1" />
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
           <View className="flex-row gap-2">
             {STEPS.map((step) => {
               const Icon = step.icon;
@@ -508,41 +510,41 @@ const CardCreate = () => {
       </View>
 
       {showPreview && (
-        <View className="border-b border-border bg-muted/30 px-4 py-4">
-          <Text className="mb-2 text-xs font-bold text-muted-foreground uppercase">
-            Live Preview
+        <View className="border-b border-border bg-muted/30 px-4 py-2">
+          <Text className="mb-1.5 text-[10px] font-bold text-muted-foreground uppercase">
+            Preview
           </Text>
-          <View className="rounded-2xl border border-border bg-card p-4">
-            <View className="flex-row items-center gap-3">
-              <View className="h-14 w-14 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+          <View className="rounded-xl border border-border bg-card p-3">
+            <View className="flex-row items-center gap-2.5">
+              <View className="h-12 w-12 items-center justify-center rounded-lg bg-primary/10 overflow-hidden">
                 {form.logoPreview ? (
                   <Image source={{ uri: form.logoPreview }} style={{ height: "100%", width: "100%" }} />
                 ) : (
-                  <Text className="text-xl">??</Text>
+                  <Text className="text-lg">??</Text>
                 )}
               </View>
               <View className="flex-1">
-                <Text className="text-base font-bold text-foreground">
+                <Text className="text-sm font-bold text-foreground">
                   {form.fullName || "Your Name"}
                 </Text>
-                <Text className="text-xs text-muted-foreground">
+                <Text className="text-[10px] text-muted-foreground">
                   {form.jobTitle || "Job Title"}
                 </Text>
-                <Text className="text-xs text-muted-foreground">
+                <Text className="text-[10px] text-muted-foreground">
                   {form.companyName || "Company"}
                 </Text>
               </View>
             </View>
             {form.offer ? (
-              <View className="mt-3 rounded-lg bg-success/10 px-3 py-2">
-                <Text className="text-xs font-semibold text-success">?? {form.offer}</Text>
+              <View className="mt-2 rounded-lg bg-success/10 px-2 py-1.5">
+                <Text className="text-[10px] font-semibold text-success">?? {form.offer}</Text>
               </View>
             ) : null}
           </View>
         </View>
       )}
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 pt-4 space-y-3">
+      <ScrollView contentContainerStyle={{ paddingBottom: 200 }} className="px-4 pt-2 space-y-4">
         <AccordionSection
           title="Personal Information"
           subtitle="Your basic contact details"
@@ -553,7 +555,7 @@ const CardCreate = () => {
           isComplete={sectionComplete.personal}
         >
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Full Name *</Label>
+            <Label className={labelClass}>Full Name *</Label>
             <Input
               placeholder="Enter your full name"
               value={form.fullName}
@@ -566,7 +568,7 @@ const CardCreate = () => {
             )}
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Birthdate</Label>
+            <Label className={labelClass}>Birthdate</Label>
             <Input
               placeholder="YYYY-MM-DD"
               value={form.birthdate}
@@ -575,7 +577,7 @@ const CardCreate = () => {
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Anniversary</Label>
+            <Label className={labelClass}>Anniversary</Label>
             <Input
               placeholder="YYYY-MM-DD"
               value={form.anniversary}
@@ -584,14 +586,14 @@ const CardCreate = () => {
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Gender</Label>
+            <Label className={labelClass}>Gender</Label>
             <View className="flex-row gap-2">
               {["Male", "Female"].map((g) => (
                 <Pressable
                   key={g}
                   onPress={() => updateField("gender", g)}
                   className={cn(
-                    "flex-1 rounded-xl py-2.5",
+                    "flex-1 rounded-xl py-3",
                     form.gender === g
                       ? "bg-primary"
                       : "bg-muted/50"
@@ -599,7 +601,7 @@ const CardCreate = () => {
                 >
                   <Text
                     className={cn(
-                      "text-sm font-medium text-center",
+                      "text-base font-medium text-center",
                       form.gender === g
                         ? "text-primary-foreground"
                         : "text-muted-foreground"
@@ -612,10 +614,10 @@ const CardCreate = () => {
             </View>
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Mobile Number *</Label>
+            <Label className={labelClass}>Mobile Number *</Label>
             <View className="flex-row gap-2 items-center">
-              <View className="h-10 items-center justify-center rounded-xl bg-muted/50 px-3">
-                <Text className="text-sm text-muted-foreground">???? +91</Text>
+              <View className="h-12 items-center justify-center rounded-xl bg-muted/50 px-3">
+                <Text className="text-base text-muted-foreground">???? +91</Text>
               </View>
               <Input
                 placeholder="Enter mobile number"
@@ -634,10 +636,10 @@ const CardCreate = () => {
             )}
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">WhatsApp Number</Label>
+            <Label className={labelClass}>WhatsApp Number</Label>
             <View className="flex-row gap-2 items-center">
-              <View className="h-10 items-center justify-center rounded-xl bg-muted/50 px-3">
-                <Text className="text-sm text-muted-foreground">?? +91</Text>
+              <View className="h-12 items-center justify-center rounded-xl bg-muted/50 px-3">
+                <Text className="text-base text-muted-foreground">?? +91</Text>
               </View>
               <Input
                 placeholder="WhatsApp number"
@@ -649,10 +651,10 @@ const CardCreate = () => {
             </View>
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Telegram Number / Username</Label>
+            <Label className={labelClass}>Telegram Number / Username</Label>
             <View className="flex-row gap-2 items-center">
-              <View className="h-10 items-center justify-center rounded-xl bg-muted/50 px-3">
-                <Text className="text-sm text-muted-foreground">??</Text>
+              <View className="h-12 items-center justify-center rounded-xl bg-muted/50 px-3">
+                <Text className="text-base text-muted-foreground">??</Text>
               </View>
               <Input
                 placeholder="@username or phone number"
@@ -663,7 +665,7 @@ const CardCreate = () => {
             </View>
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Email Address</Label>
+            <Label className={labelClass}>Email Address</Label>
             <Input
               placeholder="your.email@example.com"
               value={form.email}
@@ -674,7 +676,7 @@ const CardCreate = () => {
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Location / Address</Label>
+            <Label className={labelClass}>Location / Address</Label>
             <View className="flex-row gap-2">
               <Input
                 placeholder="City, State, Country"
@@ -693,7 +695,7 @@ const CardCreate = () => {
             </View>
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Google Maps Link</Label>
+            <Label className={labelClass}>Google Maps Link</Label>
             <Input
               placeholder="https://maps.google.com/..."
               value={form.mapsLink}
@@ -712,7 +714,7 @@ const CardCreate = () => {
           isComplete={sectionComplete.business}
         >
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Company Name</Label>
+            <Label className={labelClass}>Company Name</Label>
             <Input
               placeholder="Your company or organization"
               value={form.companyName}
@@ -721,7 +723,7 @@ const CardCreate = () => {
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Job Title / Designation</Label>
+            <Label className={labelClass}>Job Title / Designation</Label>
             <Input
               placeholder="e.g. Marketing Manager, CEO"
               value={form.jobTitle}
@@ -730,10 +732,10 @@ const CardCreate = () => {
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Company Phone</Label>
+            <Label className={labelClass}>Company Phone</Label>
             <View className="flex-row gap-2 items-center">
-              <View className="h-10 items-center justify-center rounded-xl bg-muted/50 px-3">
-                <Text className="text-sm text-muted-foreground">???? +91</Text>
+              <View className="h-12 items-center justify-center rounded-xl bg-muted/50 px-3">
+                <Text className="text-base text-muted-foreground">???? +91</Text>
               </View>
               <Input
                 placeholder="Company number"
@@ -745,7 +747,7 @@ const CardCreate = () => {
             </View>
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Company Email</Label>
+            <Label className={labelClass}>Company Email</Label>
             <Input
               placeholder="contact@company.com"
               value={form.companyEmail}
@@ -756,7 +758,7 @@ const CardCreate = () => {
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Company Website</Label>
+            <Label className={labelClass}>Company Website</Label>
             <Input
               placeholder="https://company.com"
               value={form.website}
@@ -765,7 +767,7 @@ const CardCreate = () => {
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Company Address</Label>
+            <Label className={labelClass}>Company Address</Label>
             <Input
               placeholder="Office address"
               value={form.companyAddress}
@@ -774,7 +776,7 @@ const CardCreate = () => {
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Company Maps Link</Label>
+            <Label className={labelClass}>Company Maps Link</Label>
             <Input
               placeholder="https://maps.google.com/..."
               value={form.companyMapsLink}
@@ -783,13 +785,13 @@ const CardCreate = () => {
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Business Photo / Logo</Label>
+            <Label className={labelClass}>Business Photo / Logo</Label>
             <Button
               variant="outline"
               className="w-full gap-2 rounded-xl border-primary/30"
               onPress={handleLogoUpload}
             >
-              <Camera size={14} color="#2563eb" />
+              <Camera size={18} color="#2563eb" />
               {form.logoPreview ? "Change Photo" : "Add Photo"}
             </Button>
             {form.logoPreview ? (
@@ -802,7 +804,7 @@ const CardCreate = () => {
             ) : null}
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Service Mode *</Label>
+            <Label className={labelClass}>Service Mode *</Label>
             <Text className="text-xs text-muted-foreground">
               Where do you serve your customers?
             </Text>
@@ -828,7 +830,7 @@ const CardCreate = () => {
                       : "border-border bg-muted/30"
                   )}
                 >
-                  <Text className="text-sm font-semibold text-foreground text-center">
+                  <Text className="text-base font-semibold text-foreground text-center">
                     {opt.label}
                   </Text>
                   <Text className="text-[10px] text-muted-foreground text-center mt-0.5">
@@ -849,17 +851,16 @@ const CardCreate = () => {
           isComplete={sectionComplete.about}
         >
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">About Business</Label>
+            <Label className={labelClass}>About Business</Label>
             <Textarea
               placeholder="Brief description of your business or services"
               value={form.description}
               onChangeText={(v) => updateField("description", v)}
-              rows={3}
-              className={inputClass}
+              className={textareaClass}
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Business Hours</Label>
+            <Label className={labelClass}>Business Hours</Label>
             <Select value={form.businessHours} onValueChange={(v) => updateField("businessHours", v)}>
               <SelectTrigger className={inputClass}>
                 <SelectValue placeholder="Set business hours" />
@@ -873,7 +874,7 @@ const CardCreate = () => {
             </Select>
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Category</Label>
+            <Label className={labelClass}>Category</Label>
             <Select value={form.category} onValueChange={(v) => updateField("category", v)}>
               <SelectTrigger className={inputClass}>
                 <SelectValue placeholder="Select category" />
@@ -888,7 +889,7 @@ const CardCreate = () => {
             </Select>
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Services (max 8)</Label>
+            <Label className={labelClass}>Services (max 8)</Label>
             <View className="flex-row gap-2">
               <Input
                 placeholder="Add a service"
@@ -898,16 +899,16 @@ const CardCreate = () => {
                 className={cn("flex-1", inputClass)}
               />
               <Button size="sm" className="rounded-xl" onPress={addService}>
-                <Plus size={14} color="#ffffff" /> Add
+                <Plus size={16} color="#ffffff" /> Add
               </Button>
             </View>
             {form.services.length > 0 && (
               <View className="flex-row flex-wrap gap-1.5 mt-2">
                 {form.services.map((s, i) => (
-                  <View key={`${s}-${i}`} className="flex-row items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1">
-                    <Text className="text-xs font-medium text-primary">{s}</Text>
+                  <View key={`${s}-${i}`} className="flex-row items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1.5">
+                    <Text className="text-sm font-medium text-primary">{s}</Text>
                     <Pressable onPress={() => removeService(i)}>
-                      <X size={12} color="#2563eb" />
+                      <X size={14} color="#2563eb" />
                     </Pressable>
                   </View>
                 ))}
@@ -915,7 +916,7 @@ const CardCreate = () => {
             )}
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Established Year</Label>
+            <Label className={labelClass}>Established Year</Label>
             <Input
               placeholder="e.g. 2020"
               value={form.establishedYear}
@@ -935,7 +936,7 @@ const CardCreate = () => {
           isComplete={sectionComplete.offer}
         >
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Offer</Label>
+            <Label className={labelClass}>Offer</Label>
             <Input
               placeholder="e.g. 20% off on first service"
               value={form.offer}
@@ -954,7 +955,7 @@ const CardCreate = () => {
           isComplete={sectionComplete.social}
         >
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Instagram</Label>
+            <Label className={labelClass}>Instagram</Label>
             <Input
               placeholder="@yourbusiness"
               value={form.instagram}
@@ -963,7 +964,7 @@ const CardCreate = () => {
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Facebook</Label>
+            <Label className={labelClass}>Facebook</Label>
             <Input
               placeholder="facebook.com/yourbusiness"
               value={form.facebook}
@@ -972,7 +973,7 @@ const CardCreate = () => {
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">LinkedIn</Label>
+            <Label className={labelClass}>LinkedIn</Label>
             <Input
               placeholder="linkedin.com/in/yourprofile"
               value={form.linkedin}
@@ -981,7 +982,7 @@ const CardCreate = () => {
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">YouTube</Label>
+            <Label className={labelClass}>YouTube</Label>
             <Input
               placeholder="youtube.com/@yourchannel"
               value={form.youtube}
@@ -990,7 +991,7 @@ const CardCreate = () => {
             />
           </View>
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Twitter / X</Label>
+            <Label className={labelClass}>Twitter / X</Label>
             <Input
               placeholder="@yourhandle"
               value={form.twitter}
@@ -1009,30 +1010,29 @@ const CardCreate = () => {
           isComplete={sectionComplete.additional}
         >
           <View className="space-y-1.5">
-            <Label className="text-xs font-bold">Keywords</Label>
+            <Label className={labelClass}>Keywords</Label>
             <Textarea
               placeholder="Add keywords separated by commas to help people find your card"
               value={form.keywords}
               onChangeText={(v) => updateField("keywords", v)}
-              rows={2}
-              className={inputClass}
+              className={textareaClass}
             />
           </View>
         </AccordionSection>
-      </ScrollView>
 
-      <View className="absolute bottom-56 left-0 right-0 border-t border-border bg-card px-4 py-3">
-        <Pressable
-          onPress={handleSubmit}
-          disabled={submitDisabled}
-          className="w-full items-center justify-center rounded-xl bg-primary py-6"
-          style={submitDisabled ? { opacity: 0.6 } : undefined}
-        >
-          <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: "700" }}>
-            {submitLabel}
-          </Text>
-        </Pressable>
-      </View>
+        <View className="border-t border-border bg-card px-4 py-3 mt-4">
+          <Pressable
+            onPress={handleSubmit}
+            disabled={submitDisabled}
+            className="w-full items-center justify-center rounded-xl bg-primary py-6"
+            style={submitDisabled ? { opacity: 0.6 } : undefined}
+          >
+            <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: "700" }}>
+              {submitLabel}
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
     </View>
   );
 };
