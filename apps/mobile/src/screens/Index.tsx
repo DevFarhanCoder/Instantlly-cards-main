@@ -76,15 +76,19 @@ const Index = () => {
     radius: 10000,
   });
   const { data: networkCards = [], isLoading: isLoadingNetwork } = useNetworkCards();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const { data: categoryData = [], isLoading: isLoadingCategories } = useListMobileCategoriesQuery();
 
   useEffect(() => {
-    if (!roleLoading && isAdmin) {
+    // Wait for auth hydration before checking admin role to avoid
+    // firing replace() before the user's roles are loaded from SecureStore.
+    if (!authLoading && !roleLoading && isAdmin) {
       navigation.replace("AdminDashboard");
     }
-  }, [isAdmin, roleLoading, navigation]);
+  // navigation is a stable ref from useNavigation() — omitting it is intentional.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, isAdmin, roleLoading]);
 
   const { data: sponsoredCampaigns = [] } = useQuery({
     queryKey: ["sponsored-ads"],
