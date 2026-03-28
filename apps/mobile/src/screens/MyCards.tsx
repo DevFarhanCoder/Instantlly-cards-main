@@ -42,7 +42,7 @@ const MyCards = () => {
   const { user } = useAuth();
   const { cards, isLoading, deleteCard } = useBusinessCards();
   const [shareCard, setShareCard] = useState<BusinessCardRow | null>(null);
-  const { data: demoCards = [] } = useDirectoryCards();
+  const { data: demoCards = [] } = useDirectoryCards({ skip: !!user });
 
   if (!user) {
     return (
@@ -270,7 +270,7 @@ const MyCards = () => {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive"
-                        onPress={() => deleteCard.mutate(card.id)}
+                        onPress={() => deleteCard.mutateAsync(card.id)}
                       >
                         <Trash2 size={14} color="#ef4343" /> Delete
                       </DropdownMenuItem>

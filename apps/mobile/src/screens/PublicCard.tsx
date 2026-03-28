@@ -6,16 +6,11 @@ import {
   Calendar,
   Clock,
   Globe,
-  Instagram,
-  Facebook,
-  Linkedin,
   Mail,
   MapPin,
   Phone,
   ShieldCheck,
   Share2,
-  Twitter,
-  Youtube,
 } from "lucide-react-native";
 import QRCode from "react-native-qrcode-svg";
 import { Badge } from "../components/ui/badge";
@@ -32,6 +27,7 @@ const PublicCard = () => {
   const id = route?.params?.id as string | undefined;
   const { data: card, isLoading, error } = useDirectoryCard(id || "");
   const [showShareCard, setShowShareCard] = useState(false);
+  const businessId = card?.business_card_id ?? card?.id ?? "";
 
   const shareUrl = useMemo(
     () => (id ? `https://instantlly.lovable.app/card/${id}` : "https://instantlly.lovable.app"),
@@ -64,11 +60,11 @@ const PublicCard = () => {
   const handleShare = () => setShowShareCard(true);
 
   const socialLinks = [
-    { url: card.instagram, label: "Instagram", icon: Instagram },
-    { url: card.facebook, label: "Facebook", icon: Facebook },
-    { url: card.linkedin, label: "LinkedIn", icon: Linkedin },
-    { url: card.youtube, label: "YouTube", icon: Youtube },
-    { url: card.twitter, label: "Twitter", icon: Twitter },
+    { url: card.instagram, label: "Instagram", icon: Globe },
+    { url: card.facebook, label: "Facebook", icon: Globe },
+    { url: card.linkedin, label: "LinkedIn", icon: Globe },
+    { url: card.youtube, label: "YouTube", icon: Globe },
+    { url: card.twitter, label: "Twitter", icon: Globe },
   ].filter((s) => s.url);
 
   const openUrl = (url: string) => {
@@ -235,7 +231,7 @@ const PublicCard = () => {
           </Pressable>
         )}
 
-        <LeadForm businessCardId={card.id} businessName={card.full_name} />
+        <LeadForm businessCardId={businessId || card.id} businessName={card.full_name} />
 
         <View className="items-center rounded-xl border border-border bg-card p-4">
           <QRCode value={shareUrl} size={120} />

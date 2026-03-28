@@ -30,8 +30,8 @@ export const supabase = createClient<Database>(
   {
     auth: {
       storage: AsyncStorage,
-      persistSession: true,
-      autoRefreshToken: true,
+      persistSession: false,   // Auth is now handled by custom JWT backend
+      autoRefreshToken: false, // Prevents stale-session refresh errors on startup
       detectSessionInUrl: false,
     },
   },

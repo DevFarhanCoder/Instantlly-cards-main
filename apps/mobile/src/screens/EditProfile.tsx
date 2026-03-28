@@ -2,61 +2,43 @@ import { useEffect, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ArrowLeft, Camera, Save, User } from "lucide-react-native";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useAuth } from "../hooks/useAuth";
+import { useGetProfileQuery, useUpdateProfileMutation } from "../store/api/usersApi";
 import { supabase } from "../integrations/supabase/client";
 import { toast } from "../lib/toast";
 
 const EditProfile = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-
-  const { data: profile, isLoading } = useQuery({
-    queryKey: ["profile", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user!.id)
-        .single();
-      if (error) throw error;
-      return data as any;
-    },
-    enabled: !!user,
-  });
+  const { data: profile, isLoading } = useGetProfileQuery(undefined, { skip: !user });
+  const [updateProfileMutation] = useUpdateProfileMutation();
 
   useEffect(() => {
     if (profile) {
-      setFullName(profile.full_name || "");
-      setPhone(profile.phone || "");
-      setAvatarUrl(profile.avatar_url);
+      setFullName(profile.name || profile.profile?.full_name || "");
+      setPhone(profile.phone || profile.profile?.phone || "");
+      setAvatarUrl(profile.profile_picture || profile.profile?.avatar_url || null);
     }
   }, [profile]);
 
-  const updateProfile = useMutation({
+  const saveProfile = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: fullName.trim(),
-          phone: phone.trim(),
-          avatar_url: avatarUrl,
-        })
-        .eq("id", user!.id);
-      if (error) throw error;
+      await updateProfileMutation({
+        name: fullName.trim(),
+        phone: phone.trim(),
+        profile_picture: avatarUrl ?? undefined,
+      }).unwrap();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["profile"] });
-      queryClient.invalidateQueries({ queryKey: ["profile-stats"] });
       toast.success("Profile updated!");
       navigation.goBack();
     },
@@ -174,14 +156,14 @@ const EditProfile = () => {
 
           <View className="space-y-2">
             <Label>Email</Label>
-            <Input value={user.email || ""} editable={false} className="rounded-xl bg-muted" />
+            <Input value={profile?.email || user.email || ""} editable={false} className="rounded-xl bg-muted" />
             <Text className="text-[10px] text-muted-foreground">Email cannot be changed</Text>
           </View>
 
           <View className="space-y-2">
             <Label>Member Since</Label>
             <Input
-              value={new Date(user.created_at).toLocaleDateString("en-IN", {
+              value={new Date(profile?.created_at || Date.now()).toLocaleDateString("en-IN", {
                 day: "numeric",
                 month: "long",
                 year: "numeric",
@@ -194,11 +176,11 @@ const EditProfile = () => {
 
         <Button
           className="mt-6 w-full gap-2 rounded-xl py-5"
-          onPress={() => updateProfile.mutate()}
-          disabled={updateProfile.isPending || isLoading}
+          onPress={() => saveProfile.mutate()}
+          disabled={saveProfile.isPending || isLoading}
         >
           <Save size={16} color="#ffffff" />
-          {updateProfile.isPending ? "Saving..." : "Save Changes"}
+          {saveProfile.isPending ? "Saving..." : "Save Changes"}
         </Button>
       </ScrollView>
     </View>

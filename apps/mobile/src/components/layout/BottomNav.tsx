@@ -46,7 +46,7 @@ const adminNav = [
   { route: "AdminDashboard", icon: TrendingUp, label: "Growth", badgeKey: null, params: { tab: "growth" } },
 ];
 
-const customerMoreItems = [
+const customerMoreItems: { route: string; label: string; emoji: string; params?: any }[] = [
   { route: "NearbyBusinesses", label: "Nearby", emoji: "📍" },
   { route: "Profile", label: "Profile", emoji: "👤" },
   { route: "Messaging", label: "Inbox", emoji: "💬" },
@@ -143,7 +143,7 @@ const BottomNav = () => {
   const navigation = useNavigation<any>();
   const currentRoute = useNavigationState(
     (state) => state.routes[state.index]
-  );
+  ) as any;
   const { isBusiness, isAdmin } = useUserRole();
   const [moreOpen, setMoreOpen] = useState(false);
   const { data: pendingCounts } = useAdminPendingCounts();

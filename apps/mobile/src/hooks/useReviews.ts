@@ -1,6 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "./useAuth";
+import {
+  useGetCardReviewsQuery,
+  useCreateReviewMutation,
+} from "../store/api/reviewsApi";
 
 export interface Review {
   id: string;
@@ -16,35 +19,23 @@ export interface Review {
 
 export function useReviews(businessId: string) {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
+  const cardId = Number(businessId);
+  const reviewsQuery = useGetCardReviewsQuery(cardId, { skip: !cardId });
 
-  const reviewsQuery = useQuery({
-    queryKey: ["reviews", businessId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("reviews")
-        .select("*")
-        .eq("business_id", businessId)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data as any[]).map((r) => ({ ...r, photo_urls: r.photo_urls || [] })) as Review[];
-    },
-  });
-
-  const createReview = useMutation({
-    mutationFn: async (review: { rating: number; comment?: string; photo_urls?: string[] }) => {
-      const { data, error } = await supabase
-        .from("reviews")
-        .insert({ ...review, business_id: businessId, user_id: user!.id } as any)
-        .select()
-        .single();
-      if (error) throw error;
+  const [createTrigger, createState] = useCreateReviewMutation();
+  const createReview = {
+    mutateAsync: async (review: { rating: number; comment?: string; photo_urls?: string[] }) => {
+      const payload = {
+        business_id: cardId,
+        rating: review.rating,
+        comment: review.comment,
+        photo_url: review.photo_urls?.[0],
+      };
+      const data = await createTrigger(payload).unwrap();
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reviews", businessId] });
-    },
-  });
+    isPending: createState.isLoading,
+  };
 
   const uploadReviewPhoto = async (file: { uri: string; name?: string; type?: string }): Promise<string> => {
     const ext = (file.name || file.uri.split(".").pop() || "jpg").split(".").pop();
@@ -60,7 +51,7 @@ export function useReviews(businessId: string) {
   };
 
   return {
-    reviews: reviewsQuery.data ?? [],
+    reviews: (reviewsQuery.data ?? []).map((r: any) => ({ ...r, id: String(r.id) })) as Review[],
     isLoading: reviewsQuery.isLoading,
     createReview,
     uploadReviewPhoto,

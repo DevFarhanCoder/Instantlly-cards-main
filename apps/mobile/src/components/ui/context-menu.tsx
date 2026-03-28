@@ -20,12 +20,12 @@ export const ContextMenuTrigger = ({
   children,
 }: {
   asChild?: boolean;
-  children: React.ReactElement;
+  children: React.ReactElement<any>;
 }) => {
   const ctx = useContext(ContextMenuContext);
   if (!ctx) return children;
-  if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children, {
+  if (asChild && React.isValidElement<any>(children)) {
+    return React.cloneElement(children as React.ReactElement<any>, {
       onLongPress: (...args: any[]) => {
         const existing = (children as any).props?.onLongPress;
         if (existing) existing(...args);
@@ -85,4 +85,3 @@ export const ContextMenuItem = ({
 };
 
 export const ContextMenuSeparator = () => <View className="my-1 h-px bg-border" />;
-

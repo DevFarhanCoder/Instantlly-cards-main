@@ -3,13 +3,13 @@ import { Pressable, ScrollView, View } from "react-native";
 import { cn } from "../../lib/utils";
 
 type CarouselContextValue = {
-  scrollRef: React.RefObject<ScrollView>;
+  scrollRef: React.RefObject<ScrollView | null>;
 };
 
 const CarouselContext = createContext<CarouselContextValue | null>(null);
 
 export const Carousel = ({ children }: { children: React.ReactNode }) => {
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
   const value = useMemo(() => ({ scrollRef }), []);
   return <CarouselContext.Provider value={value}>{children}</CarouselContext.Provider>;
 };
@@ -69,4 +69,3 @@ export const CarouselNext = ({
     {children}
   </Pressable>
 );
-

@@ -1,7 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { toast } from "../lib/toast";
+import {
+  useGetMyCardsQuery,
+  useCreateCardMutation,
+  useUpdateCardMutation,
+  useDeleteCardMutation,
+} from "../store/api/businessCardsApi";
 
 export interface BusinessCardRow {
   id: string;
@@ -39,71 +43,58 @@ export interface BusinessCardRow {
 }
 
 export const useBusinessCards = () => {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-
-  const { data: cards = [], isLoading } = useQuery({
-    queryKey: ["business-cards", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("business_cards" as any)
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data as any[]) as BusinessCardRow[];
-    },
-    enabled: !!user,
+  const { isAuthenticated } = useAuth();
+  const { data: rawCards = [], isLoading } = useGetMyCardsQuery(undefined, {
+    skip: !isAuthenticated,
   });
+  const cards = (rawCards as any[]).map((c) => ({ ...c, id: String(c.id) })) as BusinessCardRow[];
 
-  const createCard = useMutation({
-    mutationFn: async (
+  const [createCardTrigger, createState] = useCreateCardMutation();
+  const [updateCardTrigger, updateState] = useUpdateCardMutation();
+  const [deleteCardTrigger, deleteState] = useDeleteCardMutation();
+
+  const createCard = {
+    mutateAsync: async (
       card: Omit<BusinessCardRow, "id" | "user_id" | "created_at" | "updated_at">
     ) => {
-      const { data, error } = await supabase
-        .from("business_cards" as any)
-        .insert({ ...card, user_id: user!.id } as any)
-        .select()
-        .single();
-      if (error) throw error;
-      return data as unknown as BusinessCardRow;
+      try {
+        const data = await createCardTrigger(card).unwrap();
+        toast.success("Business card created!");
+        return { ...data, id: String((data as any).id) } as BusinessCardRow;
+      } catch (e: any) {
+        toast.error(e?.data?.error || e?.message || "Failed to create card");
+        throw e;
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["business-cards"] });
-      toast.success("Business card created!");
-    },
-    onError: (e: any) => toast.error(e.message || "Failed to create card"),
-  });
+    isPending: createState.isLoading,
+  };
 
-  const updateCard = useMutation({
-    mutationFn: async ({ id, ...card }: Partial<BusinessCardRow> & { id: string }) => {
-      const { data, error } = await supabase
-        .from("business_cards" as any)
-        .update(card as any)
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data as unknown as BusinessCardRow;
+  const updateCard = {
+    mutateAsync: async ({ id, ...card }: Partial<BusinessCardRow> & { id: string }) => {
+      try {
+        const data = await updateCardTrigger({ id: Number(id), data: card }).unwrap();
+        toast.success("Business card updated!");
+        return { ...data, id: String((data as any).id) } as BusinessCardRow;
+      } catch (e: any) {
+        toast.error(e?.data?.error || e?.message || "Failed to update card");
+        throw e;
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["business-cards"] });
-      toast.success("Business card updated!");
-    },
-    onError: (e: any) => toast.error(e.message || "Failed to update card"),
-  });
+    isPending: updateState.isLoading,
+  };
 
-  const deleteCard = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("business_cards" as any).delete().eq("id", id);
-      if (error) throw error;
+  const deleteCard = {
+    mutateAsync: async (id: string) => {
+      try {
+        await deleteCardTrigger(Number(id)).unwrap();
+        toast.success("Card deleted");
+      } catch (e: any) {
+        toast.error(e?.data?.error || e?.message || "Failed to delete card");
+        throw e;
+      }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["business-cards"] });
-      toast.success("Card deleted");
-    },
-    onError: (e: any) => toast.error(e.message || "Failed to delete card"),
-  });
+    isPending: deleteState.isLoading,
+  };
 
   return { cards, isLoading, createCard, updateCard, deleteCard };
 };

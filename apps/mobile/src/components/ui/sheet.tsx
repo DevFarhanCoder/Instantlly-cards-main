@@ -27,12 +27,12 @@ export const SheetTrigger = ({
   children,
 }: {
   asChild?: boolean;
-  children: React.ReactElement;
+  children: React.ReactElement<any>;
 }) => {
   const ctx = useContext(SheetContext);
   if (!ctx) return children;
-  if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children, {
+  if (asChild && React.isValidElement<any>(children)) {
+    return React.cloneElement(children as React.ReactElement<any>, {
       onPress: (...args: any[]) => {
         const existing = (children as any).props?.onPress;
         if (existing) existing(...args);
@@ -68,4 +68,3 @@ export const SheetHeader = ({ children }: { children: React.ReactNode }) => (
 export const SheetFooter = ({ children }: { children: React.ReactNode }) => (
   <View className="mt-3">{children}</View>
 );
-

@@ -58,7 +58,7 @@ const sizeClasses: Record<ButtonSize, string> = {
   icon: "h-10 w-10",
 };
 
-const Button = React.forwardRef<Pressable, ButtonProps>(
+const Button = React.forwardRef<React.ElementRef<typeof Pressable>, ButtonProps>(
   (
     {
       className,
@@ -156,7 +156,8 @@ const Button = React.forwardRef<Pressable, ButtonProps>(
       return React.cloneElement(child, { ...childProps, children: wrappedChildren });
     };
 
-    const renderedChildren = React.Children.map(children, wrapTextNodes);
+    const renderedChildren =
+      typeof children === "function" ? children : React.Children.map(children, wrapTextNodes);
 
     return (
       <Pressable ref={ref} className={classes} disabled={disabled} {...props}>
