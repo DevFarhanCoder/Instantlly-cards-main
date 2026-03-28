@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, ScrollView, Pressable, Text, Modal, StyleSheet, Image } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { Users, Store, Shield, ChevronDown } from "lucide-react-native";
+import { Users, Store, Shield, ChevronDown, Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "../hooks/useAuth";
 import { Input } from "../components/ui/input";
 import { Card, CardContent } from "../components/ui/card";
@@ -104,7 +104,7 @@ const Auth = ({ navigation }: Props) => {
   const { signIn, signUp } = useAuth();
 
   const validatePhone = (phone: string): boolean => {
-    return /^\d{7,15}$/.test(phone);
+    return /^\d{10}$/.test(phone);
   };
 
   const validatePassword = (pass: string): boolean => {
@@ -118,7 +118,7 @@ const Auth = ({ navigation }: Props) => {
     }
 
     if (!validatePhone(phone)) {
-      toast.error("Invalid phone number");
+      toast.error("Phone number must be exactly 10 digits");
       return;
     }
 
@@ -155,7 +155,7 @@ const Auth = ({ navigation }: Props) => {
 
       if (isSignUp) {
         console.log('[Auth Screen] Calling signUp...');
-        const { error } = await signUp(fullPhone, password, name.trim() || undefined);
+        const { error } = await signUp(fullPhone, password, name.trim() || undefined, undefined, roleTab);
         if (error) {
           console.warn('[Auth Screen] signUp error:', error);
           toast.error(error);
@@ -256,10 +256,12 @@ const Auth = ({ navigation }: Props) => {
                 {/* Name Field (Sign Up Only) */}
                 {isSignUp && (
                   <View className="space-y-1.5">
-                    <Text className="text-sm font-bold text-gray-900">Full Name</Text>
+                    <Text className="text-sm font-bold text-gray-900">
+                      {roleTab === 'business' ? 'Business Name' : 'Full Name'}
+                    </Text>
                     <View className="relative">
                       <Input
-                        placeholder="Enter your full name"
+                        placeholder={roleTab === 'business' ? 'Enter your business name' : 'Enter your full name'}
                         value={name}
                         onChangeText={setName}
                         autoCapitalize="words"
@@ -279,6 +281,7 @@ const Auth = ({ navigation }: Props) => {
                       value={phone}
                       onChangeText={setPhone}
                       keyboardType="phone-pad"
+                      maxLength={10}
                       className="pl-32 pr-4 h-12 rounded-2xl text-sm border-0 bg-gray-100"
                       placeholderTextColor="#9ca3af"
                     />
@@ -294,7 +297,7 @@ const Auth = ({ navigation }: Props) => {
                   </View>
                   {phone.length > 0 && !validatePhone(phone) && (
                     <Text className="text-xs text-red-600 font-semibold">
-                      ⚠️ Invalid phone number
+                      ⚠️ Phone number must be exactly 10 digits
                     </Text>
                   )}
                 </View>
@@ -311,6 +314,16 @@ const Auth = ({ navigation }: Props) => {
                       className="pl-4 pr-14 h-12 rounded-2xl text-sm border-0 bg-gray-100"
                       placeholderTextColor="#9ca3af"
                     />
+                    <Pressable
+                      onPress={() => setShowPassword(!showPassword)}
+                      style={styles.eyeButton}
+                    >
+                      {showPassword ? (
+                        <EyeOff size={18} color="#6b7280" />
+                      ) : (
+                        <Eye size={18} color="#6b7280" />
+                      )}
+                    </Pressable>
                   </View>
                   {password.length > 0 && !validatePassword(password) && (
                     <Text className="text-xs text-red-600 font-semibold">
@@ -332,6 +345,16 @@ const Auth = ({ navigation }: Props) => {
                         className="pl-4 pr-14 h-12 rounded-2xl text-sm border-0 bg-gray-100"
                         placeholderTextColor="#9ca3af"
                       />
+                      <Pressable
+                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                        style={styles.eyeButton}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff size={18} color="#6b7280" />
+                        ) : (
+                          <Eye size={18} color="#6b7280" />
+                        )}
+                      </Pressable>
                     </View>
                     {confirmPassword.length > 0 && password !== confirmPassword && (
                       <Text className="text-xs text-red-600 font-semibold">
@@ -554,6 +577,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#1f2937',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    bottom: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    zIndex: 10,
   },
   modalOverlay: {
     flex: 1,

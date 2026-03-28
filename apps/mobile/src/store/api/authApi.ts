@@ -12,6 +12,7 @@ export interface SignupRequest {
   password: string;
   name?: string;
   email?: string;
+  role?: string;
 }
 
 export interface AuthResponse {

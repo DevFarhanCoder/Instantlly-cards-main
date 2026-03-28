@@ -20,7 +20,7 @@ interface AuthContextType {
   user: ReturnType<typeof selectCurrentUser>;
   accessToken: string | null;
   signIn: (phoneOrEmail: string, password: string, isEmail?: boolean) => Promise<{ error?: string }>;
-  signUp: (phone: string, password: string, name?: string, email?: string) => Promise<{ error?: string }>;
+  signUp: (phone: string, password: string, name?: string, email?: string, role?: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -107,11 +107,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     phone: string,
     password: string,
     name?: string,
-    email?: string
+    email?: string,
+    role?: string
   ): Promise<{ error?: string }> => {
-    console.log(`[SIGNUP] Attempt — phone: ${phone}, name: ${name ?? 'N/A'}, email: ${email ?? 'N/A'}`);
+    console.log(`[SIGNUP] Attempt — phone: ${phone}, name: ${name ?? 'N/A'}, email: ${email ?? 'N/A'}, role: ${role ?? 'customer'}`);
     try {
-      const data = await signupMutation({ phone, password, name, email }).unwrap();
+      const data = await signupMutation({ phone, password, name, email, role }).unwrap();
       dispatch(setCredentials(data));
       await SecureStore.setItemAsync('accessToken', data.accessToken);
       await SecureStore.setItemAsync('refreshToken', data.refreshToken);
