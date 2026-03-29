@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, ScrollView, Pressable, Text, Modal, StyleSheet, Image } from "react-native";
+import { View, ScrollView, Pressable, Text, Modal, StyleSheet, Image, KeyboardAvoidingView, Platform } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Users, Store, Shield, ChevronDown, Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "../hooks/useAuth";
@@ -216,8 +216,11 @@ const Auth = ({ navigation }: Props) => {
   };
 
   return (
-    <View className="flex-1 bg-gray-50">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="p-6">
+    <KeyboardAvoidingView
+      className="flex-1 bg-gray-50"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled" className="p-6">
         <View className="flex-1 items-center justify-center py-8">
           {/* Logo Section */}
           <View className="mb-3 items-center">
@@ -508,7 +511,7 @@ const Auth = ({ navigation }: Props) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <ScrollView style={styles.countryList}>
+            <ScrollView keyboardShouldPersistTaps="handled" style={styles.countryList}>
               {COUNTRY_CODES.map((country, index) => (
                 <Pressable
                   key={`${country.code}-${index}`}
@@ -530,7 +533,7 @@ const Auth = ({ navigation }: Props) => {
           </View>
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

@@ -5,10 +5,16 @@ import {
   createApi,
   fetchBaseQuery,
 } from '@reduxjs/toolkit/query/react';
+import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { updateTokens, clearCredentials } from '../authSlice';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080';
+const API_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL ||
+  'http://localhost:8080';
+
+console.log(`[RTK baseApi] Using API_URL: ${API_URL}`);
 
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: `${API_URL}/api`,

@@ -1,12 +1,14 @@
-﻿
-import { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -15,6 +17,8 @@ import {
   Camera,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
   Eye,
   EyeOff,
@@ -35,7 +39,8 @@ import { Progress } from "../components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
 import { categories as fallbackCategories } from "../data/categories";
-import { useListMobileCategoriesQuery } from "../store/api/categoriesApi";
+import { useGetCategoryTreeQuery } from "../store/api/categoriesApi";
+import type { CategoryTreeNode } from "../store/api/categoriesApi";
 import { useAuth } from "../hooks/useAuth";
 import { useBusinessCards } from "../hooks/useBusinessCards";
 import { supabase } from "../integrations/supabase/client";
@@ -58,36 +63,293 @@ const textareaClass = "rounded-xl bg-muted/50 border-0 text-base px-4 py-3";
 const labelClass = "text-sm font-bold";
 
 const COUNTRY_CODES = [
-  { code: "+91", country: "India", flag: "🇮🇳" },
-  { code: "+1", country: "United States", flag: "🇺🇸" },
-  { code: "+1", country: "Canada", flag: "🇨🇦" },
-  { code: "+44", country: "United Kingdom", flag: "🇬🇧" },
-  { code: "+61", country: "Australia", flag: "🇦🇺" },
-  { code: "+971", country: "UAE", flag: "🇦🇪" },
-  { code: "+65", country: "Singapore", flag: "🇸🇬" },
+  { code: "+91", country: "India", flag: "\u{1F1EE}\u{1F1F3}" },
+  { code: "+1", country: "United States", flag: "\u{1F1FA}\u{1F1F8}" },
+  { code: "+1", country: "Canada", flag: "\u{1F1E8}\u{1F1E6}" },
+  { code: "+44", country: "United Kingdom", flag: "\u{1F1EC}\u{1F1E7}" },
+  { code: "+61", country: "Australia", flag: "\u{1F1E6}\u{1F1FA}" },
+  { code: "+971", country: "UAE", flag: "\u{1F1E6}\u{1F1EA}" },
+  { code: "+65", country: "Singapore", flag: "\u{1F1F8}\u{1F1EC}" },
 ];
 
+/* ── Reusable Country Picker Modal ─────────────────────── */
+const CountryPickerModal = ({
+  visible,
+  onClose,
+  selectedCode,
+  onSelect,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  selectedCode: string;
+  onSelect: (code: string) => void;
+}) => (
+  <Modal visible={visible} transparent animationType="slide">
+    <Pressable style={s.overlay} onPress={onClose}>
+      <Pressable style={s.sheet} onPress={(e) => e.stopPropagation()}>
+        <View style={s.sheetHeader}>
+          <Text style={s.sheetTitle}>Select Country</Text>
+          <Pressable onPress={onClose} hitSlop={8}>
+            <X size={20} color="#6b7280" />
+          </Pressable>
+        </View>
+        <ScrollView keyboardShouldPersistTaps="handled" bounces={false}>
+          {COUNTRY_CODES.map((country, index) => {
+            const active = selectedCode === country.code;
+            return (
+              <Pressable
+                key={`${country.country}-${index}`}
+                style={[s.pickItem, active && s.pickItemActive]}
+                onPress={() => {
+                  onSelect(country.code);
+                  onClose();
+                }}
+              >
+                <Text style={s.pickEmoji}>{country.flag}</Text>
+                <Text style={[s.pickText, active && s.pickTextActive]}>
+                  {country.country}
+                </Text>
+                <Text style={s.pickCode}>{country.code}</Text>
+                {active && <Check size={16} color="#2563eb" />}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </Pressable>
+    </Pressable>
+  </Modal>
+);
+
+/* ── Category Picker Modal with Nested Navigation ─────── */
+const CategoryPickerModal = ({
+  visible,
+  onClose,
+  selected,
+  onSelect,
+  tree,
+  fallback,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  selected: string;
+  onSelect: (name: string) => void;
+  tree: CategoryTreeNode[];
+  fallback: Array<{ id: string; name: string; emoji: string }>;
+}) => {
+  const [search, setSearch] = useState("");
+  const [path, setPath] = useState<CategoryTreeNode[]>([]);
+
+  useEffect(() => {
+    if (!visible) {
+      setSearch("");
+      setPath([]);
+    }
+  }, [visible]);
+
+  const currentNodes = path.length > 0 ? path[path.length - 1].children : tree;
+  const parentLabel = path.length > 0 ? path[path.length - 1].name : null;
+
+  // Flatten tree for search
+  const flattenTree = useCallback(
+    (nodes: CategoryTreeNode[]): CategoryTreeNode[] =>
+      nodes.reduce<CategoryTreeNode[]>(
+        (acc, n) => [...acc, n, ...flattenTree(n.children)],
+        []
+      ),
+    []
+  );
+
+  const displayItems = useMemo(() => {
+    if (search) {
+      const q = search.toLowerCase();
+      if (tree.length > 0) {
+        return flattenTree(tree)
+          .filter((n) => n.name.toLowerCase().includes(q))
+          .map((n) => ({
+            id: String(n.id),
+            name: n.name,
+            icon: n.icon,
+            hasChildren: n.children.length > 0,
+            node: n,
+          }));
+      }
+      return fallback
+        .filter((c) => c.name.toLowerCase().includes(q))
+        .map((c) => ({ id: c.id, name: c.name, icon: c.emoji, hasChildren: false, node: null as CategoryTreeNode | null }));
+    }
+    if (tree.length > 0) {
+      return currentNodes.map((n) => ({
+        id: String(n.id),
+        name: n.name,
+        icon: n.icon,
+        hasChildren: n.children.length > 0,
+        node: n,
+      }));
+    }
+    return fallback.map((c) => ({ id: c.id, name: c.name, icon: c.emoji, hasChildren: false, node: null as CategoryTreeNode | null }));
+  }, [search, tree, currentNodes, fallback, flattenTree]);
+
+  const goBack = () => setPath((p) => p.slice(0, -1));
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <Pressable style={s.catOverlay} onPress={onClose}>
+        <Pressable style={s.catDropdown} onPress={(e) => e.stopPropagation()}>
+          <View style={s.sheetHeader}>
+            {path.length > 0 && !search ? (
+              <Pressable onPress={goBack} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <ChevronLeft size={18} color="#6b7280" />
+                <Text style={{ fontSize: 13, color: "#6b7280" }}>Back</Text>
+              </Pressable>
+            ) : null}
+            <Text style={[s.sheetTitle, { flex: 1 }]}>
+              {parentLabel && !search ? parentLabel : "Select Category"}
+            </Text>
+            <Pressable onPress={onClose} hitSlop={8}>
+              <X size={20} color="#6b7280" />
+            </Pressable>
+          </View>
+          <View style={s.searchWrap}>
+            <View style={s.searchBox}>
+              <Search size={16} color="#9ca3af" />
+              <TextInput
+                placeholder="Search categories..."
+                value={search}
+                onChangeText={setSearch}
+                style={s.searchInput}
+                placeholderTextColor="#9ca3af"
+                autoCorrect={false}
+              />
+              {search.length > 0 && (
+                <Pressable onPress={() => setSearch("")} hitSlop={8}>
+                  <X size={16} color="#9ca3af" />
+                </Pressable>
+              )}
+            </View>
+          </View>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+            style={{ flexGrow: 0 }}
+          >
+            {displayItems.map((item) => {
+              const active = selected === item.name;
+              return (
+                <Pressable
+                  key={item.id}
+                  style={[s.pickItem, active && s.pickItemActive]}
+                  onPress={() => {
+                    if (item.hasChildren && item.node && !search) {
+                      setPath((p) => [...p, item.node!]);
+                    } else {
+                      onSelect(item.name);
+                      onClose();
+                    }
+                  }}
+                >
+                  <Text style={s.pickEmoji}>{item.icon || "\u{1F4C1}"}</Text>
+                  <Text style={[s.pickText, active && s.pickTextActive, { flex: 1 }]}>
+                    {item.name}
+                  </Text>
+                  {active && <Check size={18} color="#2563eb" />}
+                  {item.hasChildren && !search && (
+                    <ChevronRight size={16} color="#9ca3af" />
+                  )}
+                </Pressable>
+              );
+            })}
+            {displayItems.length === 0 && (
+              <View style={s.emptyState}>
+                <Text style={s.emptyText}>No categories found</Text>
+              </View>
+            )}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+};
+
+/* ── Accordion Section (must be outside CardCreate to avoid remount on re-render) ── */
+const AccordionSection = ({
+  title,
+  subtitle,
+  required,
+  isOpen,
+  onToggle,
+  stepNum,
+  isComplete,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  required?: boolean;
+  isOpen: boolean;
+  onToggle: () => void;
+  stepNum: number;
+  isComplete: boolean;
+  children: React.ReactNode;
+}) => (
+  <View className="rounded-2xl border border-border bg-card overflow-hidden">
+    <Pressable onPress={onToggle} className="flex-row items-center gap-3.5 p-5">
+      <View
+        className={cn(
+          "h-12 w-12 items-center justify-center rounded-xl",
+          isComplete ? "bg-green-500/15" : "bg-primary/10"
+        )}
+      >
+        {isComplete ? (
+          <Check size={22} color="#16a34a" />
+        ) : (
+          <Text className="text-base font-bold text-primary">{stepNum}</Text>
+        )}
+      </View>
+      <View className="flex-1">
+        <Text className="text-base font-bold text-foreground">
+          {title}
+          {required && <Text className="text-destructive"> *</Text>}
+        </Text>
+        <Text className="text-sm text-muted-foreground mt-0.5">{subtitle}</Text>
+      </View>
+      {isOpen ? (
+        <ChevronUp size={24} color="#9aa2b1" />
+      ) : (
+        <ChevronDown size={24} color="#9aa2b1" />
+      )}
+    </Pressable>
+    {isOpen && (
+      <View style={{ gap: 16, paddingHorizontal: 20, paddingBottom: 24 }}>
+        {children}
+      </View>
+    )}
+  </View>
+);
+
+/* ── Main Component ────────────────────────────────────── */
 const CardCreate = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const cardId = route?.params?.cardId as string | undefined;
   const { user } = useAuth();
   const { cards, createCard, updateCard } = useBusinessCards();
-  const { data: categoryData = [] } = useListMobileCategoriesQuery();
+  const { data: categoryTree = [] } = useGetCategoryTreeQuery();
   const categoryOptions = useMemo(() => {
-    if (categoryData.length > 0) {
-      return categoryData.map((cat) => ({
-        id: String(cat.id),
-        name: cat.name,
-        emoji: cat.icon || "\u{1F4C1}",
-      }));
-    }
+    // Flatten the tree for display in the category trigger text
+    const flatten = (nodes: CategoryTreeNode[]): Array<{ id: string; name: string; emoji: string }> =>
+      nodes.reduce<Array<{ id: string; name: string; emoji: string }>>((acc, n) => [
+        ...acc,
+        { id: String(n.id), name: n.name, emoji: n.icon || "\u{1F4C1}" },
+        ...flatten(n.children),
+      ], []);
+    if (categoryTree.length > 0) return flatten(categoryTree);
     return fallbackCategories;
-  }, [categoryData]);
+  }, [categoryTree]);
+
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     personal: true,
   });
   const [showPreview, setShowPreview] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [serviceInput, setServiceInput] = useState("");
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [uploading, setUploading] = useState(false);
@@ -131,20 +393,33 @@ const CardCreate = () => {
     keywords: "",
     offer: "",
     services: [] as string[],
-    homeService: false,
     serviceMode: "visit" as string,
-    latitude: null as number | null,
-    longitude: null as number | null,
   });
 
   useEffect(() => {
     if (!isEdit || cards.length === 0) return;
     const card = cards.find((c) => c.id === cardId);
     if (!card) return;
+
+    // Convert ISO date to DD/MM/YYYY for display
+    const isoToDisplay = (iso: string | null | undefined): string => {
+      if (!iso) return "";
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return iso;
+        const dd = String(d.getUTCDate()).padStart(2, "0");
+        const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+        const yyyy = d.getUTCFullYear();
+        return `${dd}/${mm}/${yyyy}`;
+      } catch {
+        return iso;
+      }
+    };
+
     setForm({
       fullName: card.full_name || "",
-      birthdate: card.birthdate || "",
-      anniversary: card.anniversary || "",
+      birthdate: isoToDisplay(card.birthdate),
+      anniversary: isoToDisplay(card.anniversary),
       gender: card.gender || "",
       phone: card.phone || "",
       whatsapp: (card as any).whatsapp || "",
@@ -172,29 +447,23 @@ const CardCreate = () => {
       keywords: card.keywords || "",
       offer: card.offer || "",
       services: card.services || [],
-      homeService: (card as any).home_service || false,
-      serviceMode: (card as any).service_mode || "visit",
-      latitude: (card as any).latitude || null,
-      longitude: (card as any).longitude || null,
+      serviceMode: "visit",
     });
+    // Restore country codes
+    if ((card as any).personal_country_code) setPhoneCountry((card as any).personal_country_code);
+    if ((card as any).company_country_code) setCompanyPhoneCountry((card as any).company_country_code);
   }, [isEdit, cardId, cards]);
 
   const updateField = (field: string, value: any) =>
     setForm((prev) => ({ ...prev, [field]: value }));
-  
+
   const formatDateInput = (text: string): string => {
-    // Remove all non-numeric characters
-    const numericOnly = text.replace(/[^\d]/g, '');
-    
-    // Format with slashes: DD/MM/YYYY
-    let formatted = '';
+    const numericOnly = text.replace(/[^\d]/g, "");
+    let formatted = "";
     for (let i = 0; i < numericOnly.length && i < 8; i++) {
-      if (i === 2 || i === 4) {
-        formatted += '/';
-      }
+      if (i === 2 || i === 4) formatted += "/";
       formatted += numericOnly[i];
     }
-    
     return formatted;
   };
 
@@ -327,11 +596,37 @@ const CardCreate = () => {
       "mapsLink",
       `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`
     );
-    setForm((prev) => ({
-      ...prev,
+  };
+
+  const handleAutoCompanyLocation = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      toast.error("Location permission denied");
+      return;
+    }
+    toast.success("Detecting location...");
+    const pos = await Location.getCurrentPositionAsync({});
+    const places = await Location.reverseGeocodeAsync({
       latitude: pos.coords.latitude,
       longitude: pos.coords.longitude,
-    }));
+    });
+    const addr = places[0];
+    const loc = [
+      addr?.name,
+      addr?.street,
+      addr?.subregion || (addr as any)?.neighborhood,
+      addr?.city || addr?.region,
+      addr?.region,
+      addr?.postalCode,
+      addr?.country,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    updateField("companyAddress", loc);
+    updateField(
+      "companyMapsLink",
+      `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`
+    );
   };
 
   const handleSubmit = async () => {
@@ -354,10 +649,20 @@ const CardCreate = () => {
       logoUrl = await uploadLogo();
     }
 
+    // Convert DD/MM/YYYY to ISO date for DateTime fields
+    const parseDate = (str: string): string | null => {
+      if (!str) return null;
+      const parts = str.split("/");
+      if (parts.length !== 3) return str;
+      const [dd, mm, yyyy] = parts;
+      if (!dd || !mm || !yyyy || yyyy.length < 4) return null;
+      return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}T00:00:00.000Z`;
+    };
+
     const cardData = {
       full_name: form.fullName,
-      birthdate: form.birthdate || null,
-      anniversary: form.anniversary || null,
+      birthdate: parseDate(form.birthdate),
+      anniversary: parseDate(form.anniversary),
       gender: form.gender || null,
       phone: form.phone,
       whatsapp: form.whatsapp || null,
@@ -385,10 +690,8 @@ const CardCreate = () => {
       keywords: form.keywords || null,
       offer: form.offer || null,
       services: form.services,
-      home_service: form.serviceMode === "home" || form.serviceMode === "both",
-      service_mode: form.serviceMode,
-      latitude: form.latitude,
-      longitude: form.longitude,
+      personal_country_code: phoneCountry,
+      company_country_code: companyPhoneCountry,
     };
 
     if (isEdit) {
@@ -399,56 +702,6 @@ const CardCreate = () => {
 
     navigation.navigate("MyCards");
   };
-
-  const AccordionSection = ({
-    title,
-    subtitle,
-    required,
-    isOpen,
-    onToggle,
-    stepNum,
-    isComplete,
-    children,
-  }: {
-    title: string;
-    subtitle: string;
-    required?: boolean;
-    isOpen: boolean;
-    onToggle: () => void;
-    stepNum: number;
-    isComplete: boolean;
-    children: React.ReactNode;
-  }) => (
-    <View className="rounded-2xl border border-border bg-card overflow-hidden">
-      <Pressable onPress={onToggle} className="flex-row items-center gap-3.5 p-5">
-        <View
-          className={cn(
-            "h-12 w-12 items-center justify-center rounded-xl",
-            isComplete ? "bg-green-500/15" : "bg-primary/10"
-          )}
-        >
-          {isComplete ? (
-            <Check size={22} color="#16a34a" />
-          ) : (
-            <Text className="text-base font-bold text-primary">{stepNum}</Text>
-          )}
-        </View>
-        <View className="flex-1">
-          <Text className="text-base font-bold text-foreground">
-            {title}
-            {required && <Text className="text-destructive"> *</Text>}
-          </Text>
-          <Text className="text-sm text-muted-foreground mt-0.5">{subtitle}</Text>
-        </View>
-        {isOpen ? (
-          <ChevronUp size={24} color="#9aa2b1" />
-        ) : (
-          <ChevronDown size={24} color="#9aa2b1" />
-        )}
-      </Pressable>
-      {isOpen && <View className="space-y-4 px-5 pb-6">{children}</View>}
-    </View>
-  );
 
   const submitLabel = uploading
     ? "Uploading..."
@@ -462,8 +715,14 @@ const CardCreate = () => {
   const submitDisabled =
     createCard.isPending || updateCard.isPending || uploading || !isValid;
 
+  /* ── Render ── */
   return (
-    <View className="flex-1 bg-background">
+    <KeyboardAvoidingView
+      className="flex-1 bg-background"
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+    >
+      {/* ── Header ── */}
       <View className="border-b border-border bg-card px-4 py-2">
         <View className="flex-row items-center justify-between mb-1.5">
           <View>
@@ -495,7 +754,12 @@ const CardCreate = () => {
         </View>
         <Progress value={progress} className="h-1" />
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          className="mt-2"
+        >
           <View className="flex-row gap-2">
             {STEPS.map((step) => {
               const Icon = step.icon;
@@ -505,8 +769,8 @@ const CardCreate = () => {
                   key={step.key}
                   onPress={() =>
                     setOpenSections(
-                      STEPS.reduce((acc, s) => {
-                        acc[s.key] = s.key === step.key;
+                      STEPS.reduce((acc, st) => {
+                        acc[st.key] = st.key === step.key;
                         return acc;
                       }, {} as Record<string, boolean>)
                     )
@@ -544,6 +808,7 @@ const CardCreate = () => {
         </ScrollView>
       </View>
 
+      {/* ── Preview ── */}
       {showPreview && (
         <View className="border-b border-border bg-muted/30 px-4 py-2">
           <Text className="mb-1.5 text-[10px] font-bold text-muted-foreground uppercase">
@@ -553,9 +818,12 @@ const CardCreate = () => {
             <View className="flex-row items-center gap-2.5">
               <View className="h-12 w-12 items-center justify-center rounded-lg bg-primary/10 overflow-hidden">
                 {form.logoPreview ? (
-                  <Image source={{ uri: form.logoPreview }} style={{ height: "100%", width: "100%" }} />
+                  <Image
+                    source={{ uri: form.logoPreview }}
+                    style={{ height: "100%", width: "100%" }}
+                  />
                 ) : (
-                  <Text className="text-lg">🏢</Text>
+                  <Text className="text-lg">{"\u{1F3E2}"}</Text>
                 )}
               </View>
               <View className="flex-1">
@@ -572,14 +840,21 @@ const CardCreate = () => {
             </View>
             {form.offer ? (
               <View className="mt-2 rounded-lg bg-success/10 px-2 py-1.5">
-                <Text className="text-[10px] font-semibold text-success">🎁 {form.offer}</Text>
+                <Text className="text-[10px] font-semibold text-success">
+                  {"\u{1F381}"} {form.offer}
+                </Text>
               </View>
             ) : null}
           </View>
         </View>
       )}
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 200 }} className="px-4 pt-2 space-y-4">
+      {/* ── Form ── */}
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ gap: 16, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 }}
+      >
+        {/* Section 1: Personal */}
         <AccordionSection
           title="Personal Information"
           subtitle="Your basic contact details"
@@ -589,7 +864,7 @@ const CardCreate = () => {
           stepNum={1}
           isComplete={sectionComplete.personal}
         >
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Full Name *</Label>
             <Input
               placeholder="Enter your full name"
@@ -602,7 +877,7 @@ const CardCreate = () => {
               <Text className="text-xs text-destructive">Full name is required</Text>
             )}
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Birthdate</Label>
             <Input
               placeholder="DD/MM/YYYY (e.g., 15/06/1990)"
@@ -613,7 +888,7 @@ const CardCreate = () => {
               className={inputClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Anniversary</Label>
             <Input
               placeholder="DD/MM/YYYY (e.g., 20/05/2015)"
@@ -624,35 +899,36 @@ const CardCreate = () => {
               className={inputClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Gender</Label>
             <View className="flex-row gap-2">
-              {["Male", "Female"].map((g) => (
+              {([
+                { value: "Male", emoji: "\u{1F468}" },
+                { value: "Female", emoji: "\u{1F469}" },
+              ] as const).map((g) => (
                 <Pressable
-                  key={g}
-                  onPress={() => updateField("gender", g)}
+                  key={g.value}
+                  onPress={() => updateField("gender", g.value)}
                   className={cn(
                     "flex-1 rounded-xl py-3",
-                    form.gender === g
-                      ? "bg-primary"
-                      : "bg-muted/50"
+                    form.gender === g.value ? "bg-primary" : "bg-muted/50"
                   )}
                 >
                   <Text
                     className={cn(
                       "text-base font-medium text-center",
-                      form.gender === g
+                      form.gender === g.value
                         ? "text-primary-foreground"
                         : "text-muted-foreground"
                     )}
                   >
-                    {g}
+                    {g.emoji} {g.value}
                   </Text>
                 </Pressable>
               ))}
             </View>
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Mobile Number *</Label>
             <View className="flex-row gap-2 items-center">
               <Pressable
@@ -660,7 +936,8 @@ const CardCreate = () => {
                 className="h-12 flex-row items-center justify-center gap-1 rounded-xl bg-muted/50 px-3"
               >
                 <Text className="text-base text-muted-foreground">
-                  {COUNTRY_CODES.find(c => c.code === phoneCountry)?.flag} {phoneCountry}
+                  {COUNTRY_CODES.find((c) => c.code === phoneCountry)?.flag}{" "}
+                  {phoneCountry}
                 </Text>
                 <ChevronDown size={14} color="#6b7280" />
               </Pressable>
@@ -678,10 +955,12 @@ const CardCreate = () => {
               />
             </View>
             {touched.phone && !form.phone && (
-              <Text className="text-xs text-destructive">Mobile number is required</Text>
+              <Text className="text-xs text-destructive">
+                Mobile number is required
+              </Text>
             )}
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>WhatsApp Number</Label>
             <View className="flex-row gap-2 items-center">
               <Pressable
@@ -689,7 +968,8 @@ const CardCreate = () => {
                 className="h-12 flex-row items-center justify-center gap-1 rounded-xl bg-muted/50 px-3"
               >
                 <Text className="text-base text-muted-foreground">
-                  {COUNTRY_CODES.find(c => c.code === whatsappCountry)?.flag} {whatsappCountry}
+                  {COUNTRY_CODES.find((c) => c.code === whatsappCountry)?.flag}{" "}
+                  {whatsappCountry}
                 </Text>
                 <ChevronDown size={14} color="#6b7280" />
               </Pressable>
@@ -703,7 +983,7 @@ const CardCreate = () => {
               />
             </View>
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Telegram Username / Number</Label>
             <Input
               placeholder="@username or phone number"
@@ -712,7 +992,7 @@ const CardCreate = () => {
               className={inputClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Email Address</Label>
             <Input
               placeholder="your.email@example.com"
@@ -723,7 +1003,7 @@ const CardCreate = () => {
               className={inputClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Location / Address</Label>
             <View className="flex-row gap-2">
               <Input
@@ -738,11 +1018,11 @@ const CardCreate = () => {
                 className="shrink-0 rounded-xl"
                 onPress={handleAutoLocation}
               >
-                📍 Auto
+                {"\u{1F4CD}"} Auto
               </Button>
             </View>
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Google Maps Link</Label>
             <Input
               placeholder="https://maps.google.com/..."
@@ -753,6 +1033,7 @@ const CardCreate = () => {
           </View>
         </AccordionSection>
 
+        {/* Section 2: Business */}
         <AccordionSection
           title="Business Information"
           subtitle="Company and professional details"
@@ -761,7 +1042,7 @@ const CardCreate = () => {
           stepNum={2}
           isComplete={sectionComplete.business}
         >
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Company Name</Label>
             <Input
               placeholder="Your company or organization"
@@ -770,7 +1051,7 @@ const CardCreate = () => {
               className={inputClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Job Title / Designation</Label>
             <Input
               placeholder="e.g. Marketing Manager, CEO"
@@ -779,7 +1060,7 @@ const CardCreate = () => {
               className={inputClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Company Phone</Label>
             <View className="flex-row gap-2 items-center">
               <Pressable
@@ -787,7 +1068,8 @@ const CardCreate = () => {
                 className="h-12 flex-row items-center justify-center gap-1 rounded-xl bg-muted/50 px-3"
               >
                 <Text className="text-base text-muted-foreground">
-                  {COUNTRY_CODES.find(c => c.code === companyPhoneCountry)?.flag} {companyPhoneCountry}
+                  {COUNTRY_CODES.find((c) => c.code === companyPhoneCountry)?.flag}{" "}
+                  {companyPhoneCountry}
                 </Text>
                 <ChevronDown size={14} color="#6b7280" />
               </Pressable>
@@ -801,7 +1083,7 @@ const CardCreate = () => {
               />
             </View>
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Company Email</Label>
             <Input
               placeholder="contact@company.com"
@@ -812,7 +1094,7 @@ const CardCreate = () => {
               className={inputClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Company Website</Label>
             <Input
               placeholder="https://company.com"
@@ -821,16 +1103,26 @@ const CardCreate = () => {
               className={inputClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Company Address</Label>
-            <Input
-              placeholder="Office address"
-              value={form.companyAddress}
-              onChangeText={(v) => updateField("companyAddress", v)}
-              className={inputClass}
-            />
+            <View className="flex-row gap-2">
+              <Input
+                placeholder="Office address"
+                value={form.companyAddress}
+                onChangeText={(v) => updateField("companyAddress", v)}
+                className={cn("flex-1", inputClass)}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 rounded-xl"
+                onPress={handleAutoCompanyLocation}
+              >
+                {"\u{1F4CD}"} Auto
+              </Button>
+            </View>
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Company Maps Link</Label>
             <Input
               placeholder="https://maps.google.com/..."
@@ -839,7 +1131,7 @@ const CardCreate = () => {
               className={inputClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Business Photo / Logo</Label>
             <Button
               variant="outline"
@@ -858,16 +1150,16 @@ const CardCreate = () => {
               </View>
             ) : null}
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Service Mode *</Label>
             <Text className="text-xs text-muted-foreground">
               Where do you serve your customers?
             </Text>
             <View className="flex-row gap-2 mt-1">
               {[
-                { value: "home", label: "🏠 Home Service", desc: "We visit the customer" },
-                { value: "visit", label: "🏢 At Business", desc: "Customer visits us" },
-                { value: "both", label: "🔄 Both", desc: "Home & business" },
+                { value: "home", label: "\u{1F3E0} Home Service", desc: "We visit the customer" },
+                { value: "visit", label: "\u{1F3E2} At Business", desc: "Customer visits us" },
+                { value: "both", label: "\u{1F504} Both", desc: "Home & business" },
               ].map((opt) => (
                 <Pressable
                   key={opt.value}
@@ -875,7 +1167,6 @@ const CardCreate = () => {
                     setForm((prev) => ({
                       ...prev,
                       serviceMode: opt.value,
-                      homeService: opt.value === "home" || opt.value === "both",
                     }))
                   }
                   className={cn(
@@ -897,6 +1188,7 @@ const CardCreate = () => {
           </View>
         </AccordionSection>
 
+        {/* Section 3: About */}
         <AccordionSection
           title="About Business"
           subtitle="Describe your services and hours"
@@ -905,7 +1197,7 @@ const CardCreate = () => {
           stepNum={3}
           isComplete={sectionComplete.about}
         >
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>About Business</Label>
             <Textarea
               placeholder="Brief description of your business or services"
@@ -914,36 +1206,48 @@ const CardCreate = () => {
               className={textareaClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Business Hours</Label>
-            <Select value={form.businessHours} onValueChange={(v) => updateField("businessHours", v)}>
+            <Select
+              value={form.businessHours}
+              onValueChange={(v) => updateField("businessHours", v)}
+            >
               <SelectTrigger className={inputClass}>
                 <SelectValue placeholder="Set business hours" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="9am-6pm">9:00 AM � 6:00 PM</SelectItem>
-                <SelectItem value="9am-9pm">9:00 AM � 9:00 PM</SelectItem>
-                <SelectItem value="10am-8pm">10:00 AM � 8:00 PM</SelectItem>
+                <SelectItem value="9am-6pm">9:00 AM - 6:00 PM</SelectItem>
+                <SelectItem value="9am-9pm">9:00 AM - 9:00 PM</SelectItem>
+                <SelectItem value="10am-8pm">10:00 AM - 8:00 PM</SelectItem>
                 <SelectItem value="24x7">24 x 7</SelectItem>
               </SelectContent>
             </Select>
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Category</Label>
-            <Select value={form.category} onValueChange={(v) => updateField("category", v)}>
-              <SelectTrigger className={inputClass}>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categoryOptions.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.name}>
-                    {cat.emoji} {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Pressable
+              onPress={() => setShowCategoryPicker(true)}
+              className={inputClass}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 16,
+                  color: form.category ? colors.foreground : "#9ca3af",
+                }}
+              >
+                {form.category
+                  ? `${categoryOptions.find((c) => c.name === form.category)?.emoji || "\u{1F4C1}"} ${form.category}`
+                  : "Select category"}
+              </Text>
+              <ChevronDown size={16} color="#6b7280" />
+            </Pressable>
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Services (max 8)</Label>
             <View className="flex-row gap-2">
               <Input
@@ -959,9 +1263,12 @@ const CardCreate = () => {
             </View>
             {form.services.length > 0 && (
               <View className="flex-row flex-wrap gap-1.5 mt-2">
-                {form.services.map((s, i) => (
-                  <View key={`${s}-${i}`} className="flex-row items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1.5">
-                    <Text className="text-sm font-medium text-primary">{s}</Text>
+                {form.services.map((svc, i) => (
+                  <View
+                    key={`${svc}-${i}`}
+                    className="flex-row items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1.5"
+                  >
+                    <Text className="text-sm font-medium text-primary">{svc}</Text>
                     <Pressable onPress={() => removeService(i)}>
                       <X size={14} color="#2563eb" />
                     </Pressable>
@@ -970,7 +1277,7 @@ const CardCreate = () => {
               </View>
             )}
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Established Year</Label>
             <Input
               placeholder="e.g. 2020"
@@ -982,6 +1289,7 @@ const CardCreate = () => {
           </View>
         </AccordionSection>
 
+        {/* Section 4: Offer */}
         <AccordionSection
           title="Special Offer"
           subtitle="Attract customers with an offer"
@@ -990,7 +1298,7 @@ const CardCreate = () => {
           stepNum={4}
           isComplete={sectionComplete.offer}
         >
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Offer</Label>
             <Input
               placeholder="e.g. 20% off on first service"
@@ -1001,6 +1309,7 @@ const CardCreate = () => {
           </View>
         </AccordionSection>
 
+        {/* Section 5: Social */}
         <AccordionSection
           title="Social Media"
           subtitle="Connect on social platforms"
@@ -1009,7 +1318,7 @@ const CardCreate = () => {
           stepNum={5}
           isComplete={sectionComplete.social}
         >
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Instagram</Label>
             <Input
               placeholder="@yourbusiness"
@@ -1018,7 +1327,7 @@ const CardCreate = () => {
               className={inputClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Facebook</Label>
             <Input
               placeholder="facebook.com/yourbusiness"
@@ -1027,7 +1336,7 @@ const CardCreate = () => {
               className={inputClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>LinkedIn</Label>
             <Input
               placeholder="linkedin.com/in/yourprofile"
@@ -1036,7 +1345,7 @@ const CardCreate = () => {
               className={inputClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>YouTube</Label>
             <Input
               placeholder="youtube.com/@yourchannel"
@@ -1045,7 +1354,7 @@ const CardCreate = () => {
               className={inputClass}
             />
           </View>
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Twitter / X</Label>
             <Input
               placeholder="@yourhandle"
@@ -1056,6 +1365,7 @@ const CardCreate = () => {
           </View>
         </AccordionSection>
 
+        {/* Section 6: SEO */}
         <AccordionSection
           title="Additional Information"
           subtitle="Keywords and search optimization"
@@ -1064,7 +1374,7 @@ const CardCreate = () => {
           stepNum={6}
           isComplete={sectionComplete.additional}
         >
-          <View className="space-y-1.5">
+          <View style={{ gap: 6 }}>
             <Label className={labelClass}>Keywords</Label>
             <Textarea
               placeholder="Add keywords separated by commas to help people find your card"
@@ -1074,167 +1384,171 @@ const CardCreate = () => {
             />
           </View>
         </AccordionSection>
-
-        <View className="border-t border-border bg-card px-4 py-3 mt-4">
-          <Pressable
-            onPress={handleSubmit}
-            disabled={submitDisabled}
-            className="w-full items-center justify-center rounded-xl bg-primary py-6"
-            style={submitDisabled ? { opacity: 0.6 } : undefined}
-          >
-            <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: "700" }}>
-              {submitLabel}
-            </Text>
-          </Pressable>
-        </View>
       </ScrollView>
 
-      {/* Phone Country Picker Modal */}
-      <Modal visible={showPhoneCountryPicker} transparent animationType="slide">
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setShowPhoneCountryPicker(false)}
+      {/* ── Sticky Submit Button ── */}
+      <View style={s.submitBar}>
+        <Pressable
+          onPress={handleSubmit}
+          disabled={submitDisabled}
+          style={[s.submitBtn, submitDisabled && { opacity: 0.5 }]}
         >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1f2937' }}>Select Country</Text>
-            </View>
-            <ScrollView style={styles.countryList}>
-              {COUNTRY_CODES.map((country, index) => (
-                <Pressable
-                  key={`${country.code}-${index}`}
-                  style={[
-                    styles.countryItem,
-                    phoneCountry === country.code && styles.countryItemSelected
-                  ]}
-                  onPress={() => {
-                    setPhoneCountry(country.code);
-                    setShowPhoneCountryPicker(false);
-                  }}
-                >
-                  <Text style={styles.countryFlag}>{country.flag}</Text>
-                  <Text style={styles.countryName}>{country.country}</Text>
-                  <Text style={styles.countryCodeInList}>{country.code}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </Pressable>
+          <Text style={s.submitText}>{submitLabel}</Text>
         </Pressable>
-      </Modal>
+      </View>
 
-      {/* WhatsApp Country Picker Modal */}
-      <Modal visible={showWhatsappCountryPicker} transparent animationType="slide">
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setShowWhatsappCountryPicker(false)}
-        >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1f2937' }}>Select Country</Text>
-            </View>
-            <ScrollView style={styles.countryList}>
-              {COUNTRY_CODES.map((country, index) => (
-                <Pressable
-                  key={`${country.code}-${index}`}
-                  style={[
-                    styles.countryItem,
-                    whatsappCountry === country.code && styles.countryItemSelected
-                  ]}
-                  onPress={() => {
-                    setWhatsappCountry(country.code);
-                    setShowWhatsappCountryPicker(false);
-                  }}
-                >
-                  <Text style={styles.countryFlag}>{country.flag}</Text>
-                  <Text style={styles.countryName}>{country.country}</Text>
-                  <Text style={styles.countryCodeInList}>{country.code}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Company Phone Country Picker Modal */}
-      <Modal visible={showCompanyPhoneCountryPicker} transparent animationType="slide">
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setShowCompanyPhoneCountryPicker(false)}
-        >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1f2937' }}>Select Country</Text>
-            </View>
-            <ScrollView style={styles.countryList}>
-              {COUNTRY_CODES.map((country, index) => (
-                <Pressable
-                  key={`${country.code}-${index}`}
-                  style={[
-                    styles.countryItem,
-                    companyPhoneCountry === country.code && styles.countryItemSelected
-                  ]}
-                  onPress={() => {
-                    setCompanyPhoneCountry(country.code);
-                    setShowCompanyPhoneCountryPicker(false);
-                  }}
-                >
-                  <Text style={styles.countryFlag}>{country.flag}</Text>
-                  <Text style={styles.countryName}>{country.country}</Text>
-                  <Text style={styles.countryCodeInList}>{country.code}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </View>
+      {/* ── Modals ── */}
+      <CountryPickerModal
+        visible={showPhoneCountryPicker}
+        onClose={() => setShowPhoneCountryPicker(false)}
+        selectedCode={phoneCountry}
+        onSelect={setPhoneCountry}
+      />
+      <CountryPickerModal
+        visible={showWhatsappCountryPicker}
+        onClose={() => setShowWhatsappCountryPicker(false)}
+        selectedCode={whatsappCountry}
+        onSelect={setWhatsappCountry}
+      />
+      <CountryPickerModal
+        visible={showCompanyPhoneCountryPicker}
+        onClose={() => setShowCompanyPhoneCountryPicker(false)}
+        selectedCode={companyPhoneCountry}
+        onSelect={setCompanyPhoneCountry}
+      />
+      <CategoryPickerModal
+        visible={showCategoryPicker}
+        onClose={() => setShowCategoryPicker(false)}
+        selected={form.category}
+        onSelect={(name) => updateField("category", name)}
+        tree={categoryTree}
+        fallback={fallbackCategories}
+      />
+    </KeyboardAvoidingView>
   );
 };
 
-const styles = StyleSheet.create({
-  modalOverlay: {
+/* ── Styles ── */
+const s = StyleSheet.create({
+  overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
-  modalContent: {
-    backgroundColor: '#ffffff',
+  catOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  catDropdown: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    maxHeight: "60%",
+    overflow: "hidden",
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  sheet: {
+    backgroundColor: "#ffffff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    height: '70%',
+    maxHeight: "65%",
     paddingBottom: 20,
-    paddingTop: 20,
   },
-  countryList: {
-    flex: 1,
-  },
-  countryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1f2937",
+  },
+  searchWrap: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f3f4f6",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: "#1f2937",
+    paddingVertical: 0,
+  },
+  pickItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: "#f3f4f6",
   },
-  countryItemSelected: {
-    backgroundColor: '#eff6ff',
+  pickItemActive: {
+    backgroundColor: "#eff6ff",
   },
-  countryFlag: {
-    fontSize: 24,
+  pickEmoji: {
+    fontSize: 22,
     marginRight: 12,
   },
-  countryName: {
+  pickText: {
     flex: 1,
     fontSize: 16,
-    color: '#1f2937',
+    color: "#1f2937",
   },
-  countryCodeInList: {
+  pickTextActive: {
+    color: "#2563eb",
+    fontWeight: "600",
+  },
+  pickCode: {
     fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '600',
+    color: "#6b7280",
+    fontWeight: "600",
+    marginRight: 8,
+  },
+  emptyState: {
+    paddingVertical: 32,
+    alignItems: "center",
+  },
+  emptyText: {
+    fontSize: 14,
+    color: "#9ca3af",
+  },
+  submitBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+    backgroundColor: colors.card,
+  },
+  submitBtn: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    paddingVertical: 18,
+  },
+  submitText: {
+    color: colors.primaryForeground,
+    fontSize: 18,
+    fontWeight: "700",
   },
 });
 
 export default CardCreate;
-
-

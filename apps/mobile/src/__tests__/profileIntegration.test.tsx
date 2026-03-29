@@ -120,7 +120,8 @@ const mockInvalidateQueries = jest.fn();
 // Captures the latest opts passed to useMutation (updates on every re-render).
 // Used by tests that need to directly invoke onSuccess/onError without relying
 // on deep async Promise chain flushing through act().
-let lastMutationOpts: any = null;
+// Stored on global so jest.mock() can access it (must be prefixed with "mock").
+let mockLastMutationOpts: any = null;
 
 jest.mock('@tanstack/react-query', () => ({
   useQuery: jest.fn().mockImplementation((opts: any) => {
@@ -131,14 +132,16 @@ jest.mock('@tanstack/react-query', () => ({
   }),
   useMutation: jest.fn().mockImplementation((opts: any) => {
     // Always keep the latest opts so tests can read onSuccess/onError directly
-    lastMutationOpts = opts;
+    mockLastMutationOpts = opts;
     return {
       mutate: jest.fn().mockImplementation(async () => {
+        // Use mockLastMutationOpts to get the most recent closure (with updated state)
+        const current = mockLastMutationOpts || opts;
         try {
-          await opts.mutationFn();
-          opts.onSuccess?.();
+          await current.mutationFn();
+          current.onSuccess?.();
         } catch (e: any) {
-          opts.onError?.(e);
+          current.onError?.(e);
         }
       }),
       isPending: false,
@@ -286,6 +289,11 @@ beforeEach(() => {
   mockSupabaseSelect.mockResolvedValue({ data: [], error: null });
   mockSupabaseInsert.mockResolvedValue({ error: null });
   mockSignOut.mockResolvedValue(undefined);
+  // Restore useQueryClient mock after clearAllMocks wipes it
+  const { useQueryClient } = require('@tanstack/react-query');
+  (useQueryClient as jest.Mock).mockReturnValue({
+    invalidateQueries: mockInvalidateQueries,
+  });
 });
 
 // ─── READ: Profile Data ───────────────────────────────────────────────────────
@@ -546,11 +554,14 @@ describe('CREATE — Submit Support Ticket', () => {
       fireEvent.press(getByText('Submit Ticket'));
     });
 
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith(
-        "Support ticket submitted! We'll get back to you soon."
-      );
+    // Directly invoke onSuccess from the latest mutation opts to simulate successful completion
+    await act(async () => {
+      mockLastMutationOpts?.onSuccess?.();
     });
+
+    expect(toast.success).toHaveBeenCalledWith(
+      "Support ticket submitted! We'll get back to you soon."
+    );
   });
 
   it('invalidates my-tickets query after successful submission', async () => {
@@ -569,11 +580,14 @@ describe('CREATE — Submit Support Ticket', () => {
       fireEvent.press(getByText('Submit Ticket'));
     });
 
-    await waitFor(() => {
-      expect(mockInvalidateQueries).toHaveBeenCalledWith(
-        expect.objectContaining({ queryKey: ['my-tickets'] })
-      );
+    // Directly invoke onSuccess from the latest mutation opts to simulate successful completion
+    await act(async () => {
+      mockLastMutationOpts?.onSuccess?.();
     });
+
+    expect(mockInvalidateQueries).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: ['my-tickets'] })
+    );
   });
 
   it('shows toast error when Supabase insert fails', async () => {

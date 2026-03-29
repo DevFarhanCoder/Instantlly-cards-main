@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useAuth } from "./useAuth";
 import { toast } from "../lib/toast";
 import {
@@ -47,14 +48,11 @@ export const useBusinessCards = () => {
   const { data: rawCards = [], isLoading, error } = useGetMyCardsQuery(undefined, {
     skip: !isAuthenticated,
   });
-  
-  console.log('[useBusinessCards] isAuthenticated:', isAuthenticated);
-  console.log('[useBusinessCards] user:', user);
-  console.log('[useBusinessCards] rawCards:', rawCards);
-  console.log('[useBusinessCards] isLoading:', isLoading);
-  console.log('[useBusinessCards] error:', error);
-  
-  const cards = (rawCards as any[]).map((c) => ({ ...c, id: String(c.id) })) as BusinessCardRow[];
+
+  const cards = useMemo(
+    () => (rawCards as any[]).map((c) => ({ ...c, id: String(c.id) })) as BusinessCardRow[],
+    [rawCards]
+  );
 
   const [createCardTrigger, createState] = useCreateCardMutation();
   const [updateCardTrigger, updateState] = useUpdateCardMutation();

@@ -30,8 +30,12 @@
     },
     "collectCoverageFrom": [
       "src/screens/Auth.tsx",
+      "src/screens/CardCreate.tsx",
+      "src/screens/Index.tsx",
       "src/hooks/useAuth.tsx",
+      "src/hooks/useBusinessCards.ts",
       "src/store/api/authApi.ts",
+      "src/store/api/businessCardsApi.ts",
       "src/store/authSlice.ts"
     ]
   },

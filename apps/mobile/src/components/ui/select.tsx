@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { cn } from "../../lib/utils";
 
 type SelectContextValue = {
@@ -86,8 +86,17 @@ export const SelectContent = ({
     >
       <View className="flex-1 justify-end bg-black/30">
         <Pressable className="absolute inset-0" onPress={() => context.setOpen(false)} />
-        <View className="mx-4 mb-6 rounded-2xl border border-border bg-card p-2 shadow-lg">
-          {children}
+        <View
+          className="mx-4 mb-6 rounded-2xl border border-border bg-card shadow-lg"
+          style={{ maxHeight: "60%" }}
+        >
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+            style={{ padding: 8 }}
+          >
+            {children}
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -105,6 +114,7 @@ export const SelectItem = ({
 }) => {
   const context = useContext(SelectContext);
   if (!context) return null;
+  const isSelected = context.value === value;
   const label =
     typeof children === "string" || typeof children === "number"
       ? String(children)
@@ -116,9 +126,23 @@ export const SelectItem = ({
         context.setValue(value, label);
         context.setOpen(false);
       }}
-      className={cn("rounded-lg px-3 py-2", className)}
+      className={cn(
+        "rounded-lg px-3 py-2.5 flex-row items-center",
+        isSelected ? "bg-primary/10" : "",
+        className
+      )}
     >
-      <Text className="text-sm text-foreground">{children}</Text>
+      <Text
+        className={cn(
+          "text-sm flex-1",
+          isSelected ? "text-primary font-semibold" : "text-foreground"
+        )}
+      >
+        {children}
+      </Text>
+      {isSelected && (
+        <Text className="text-primary font-bold text-base ml-2">{"\u2713"}</Text>
+      )}
     </Pressable>
   );
 };
