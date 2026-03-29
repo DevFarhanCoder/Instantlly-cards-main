@@ -42,6 +42,7 @@ import { useFavorites } from "../contexts/FavoritesContext";
 import { useDirectoryFeed } from "../hooks/useDirectoryCards";
 import { useAuth } from "../hooks/useAuth";
 import { useUserRole } from "../hooks/useUserRole";
+import { useGetMyCardsQuery } from "../store/api/businessCardsApi";
 import { useUserLocation, getDistanceKm, formatDistance } from "../hooks/useUserLocation";
 import { useTrendingBusinesses } from "../hooks/useTrendingBusinesses";
 import { useDealOfTheDay } from "../hooks/useDealOfTheDay";
@@ -78,6 +79,7 @@ const Index = () => {
   const { data: networkCards = [], isLoading: isLoadingNetwork } = useNetworkCards();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
+  const { data: myCards = [] } = useGetMyCardsQuery(undefined, { skip: !user });
   const { data: categoryData = [], isLoading: isLoadingCategories } = useListMobileCategoriesQuery();
 
   useEffect(() => {
@@ -594,6 +596,7 @@ const Index = () => {
 
       </ScrollView>
 
+      {user && (myCards as any[]).length === 0 && (
       <Pressable
         onPress={() => navigation.navigate("CardCreate")}
         style={{
@@ -613,6 +616,7 @@ const Index = () => {
       >
         <Plus size={22} color="#fff" />
       </Pressable>
+      )}
     </View>
   );
 };

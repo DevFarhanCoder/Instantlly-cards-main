@@ -94,7 +94,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         {children}
       </Animated.View>
 
-      <View style={styles.stickyAd}>
+      <View style={styles.adBar}>
         <BannerAdSlot variant="sticky" />
       </View>
 
@@ -177,12 +177,9 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingBottom: 0,
   },
-  stickyAd: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-    bottom: 70,
-    zIndex: 2,
+  adBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 4,
   },
 });
 

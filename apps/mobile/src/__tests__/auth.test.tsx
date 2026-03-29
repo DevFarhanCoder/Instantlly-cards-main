@@ -137,7 +137,7 @@ describe('Auth Screen — Signup Role Passing', () => {
     rendered.getAllByPlaceholderText('1234567890').forEach((i) => fireEvent.changeText(i, '9876543210'));
     fireEvent.changeText(rendered.getAllByPlaceholderText('••••••••')[0], 'password123');
     fireEvent.changeText(rendered.getAllByPlaceholderText('••••••••')[1], 'password123');
-    const nameInputs = rendered.getAllByPlaceholderText('Enter your full name');
+    const nameInputs = rendered.getAllByPlaceholderText('Enter your business name');
     fireEvent.changeText(nameInputs[0], 'My Business');
 
     await act(async () => {

@@ -24,6 +24,16 @@ export type MobileSubcategoriesMeta = {
   source: 'nodes' | 'legacy';
 };
 
+export type CategoryTreeNode = {
+  id: number;
+  name: string;
+  icon: string | null;
+  level: number;
+  sort_order: number;
+  is_active: boolean;
+  children: CategoryTreeNode[];
+};
+
 export const categoriesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     listMobileCategories: builder.query<MobileCategorySummary[], { fresh?: boolean } | void>({
@@ -43,6 +53,11 @@ export const categoriesApi = baseApi.injectEndpoints({
         return `/categories/mobile/${id}/subcategories?${params.toString()}`;
       },
       providesTags: (_r, _e, { id }) => [{ type: 'Category', id }],
+    }),
+    getCategoryTree: builder.query<CategoryTreeNode[], void>({
+      query: () => '/categories/tree',
+      transformResponse: (response: { data: CategoryTreeNode[] }) => response.data,
+      providesTags: ['Category'],
     }),
     listCategories: builder.query<any[], void>({
       query: () => '/categories',
@@ -64,6 +79,7 @@ export const categoriesApi = baseApi.injectEndpoints({
 export const {
   useListMobileCategoriesQuery,
   useGetMobileSubcategoriesQuery,
+  useGetCategoryTreeQuery,
   useListCategoriesQuery,
   useGetCategoryByIdQuery,
   useGetCategoryCardsQuery,

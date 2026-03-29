@@ -70,6 +70,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } catch {
               console.warn('[AUTH] Could not fetch full profile, using JWT data');
             }
+          } else if (storedRefresh) {
+            // Access token expired — attempt refresh before giving up
+            console.log('[AUTH] Stored access token expired, attempting refresh...');
+            try {
+              const refreshResult = await fetch(`${process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080'}/api/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refreshToken: storedRefresh }),
+              });
+              if (refreshResult.ok) {
+                const tokens = await refreshResult.json();
+                const freshPayload = parseJwtPayload(tokens.accessToken);
+                dispatch(
+                  setCredentials({
+                    user: { id: freshPayload.userId, phone: '', roles: freshPayload.roles ?? [] },
+                    accessToken: tokens.accessToken,
+                    refreshToken: tokens.refreshToken,
+                  })
+                );
+                await SecureStore.setItemAsync('accessToken', tokens.accessToken);
+                await SecureStore.setItemAsync('refreshToken', tokens.refreshToken);
+                console.log(`[AUTH] Session refreshed — userId: ${freshPayload.userId}`);
+                // Fetch full profile with new token
+                try {
+                  const me = await fetchMe().unwrap();
+                  dispatch(setCredentials({ user: me, accessToken: tokens.accessToken, refreshToken: tokens.refreshToken }));
+                } catch {
+                  console.warn('[AUTH] Could not fetch full profile after refresh');
+                }
+              } else {
+                console.log('[AUTH] Refresh failed, starting unauthenticated');
+                dispatch(clearCredentials());
+                await SecureStore.deleteItemAsync('accessToken');
+                await SecureStore.deleteItemAsync('refreshToken');
+              }
+            } catch {
+              console.warn('[AUTH] Refresh request failed, starting unauthenticated');
+              dispatch(clearCredentials());
+              await SecureStore.deleteItemAsync('accessToken');
+              await SecureStore.deleteItemAsync('refreshToken');
+            }
           } else {
             console.log('[AUTH] Stored token expired, starting unauthenticated');
             dispatch(clearCredentials());
