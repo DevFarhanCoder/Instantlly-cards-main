@@ -70,13 +70,13 @@ const ProfileCompletion = ({ authUser, profile, stats }: { authUser: any; profil
   if (pct === 100) return null;
 
   return (
-    <View className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+    <View style={{ borderRadius: 12, borderWidth: 1, borderColor: 'rgba(36,99,235,0.2)', backgroundColor: 'rgba(36,99,235,0.05)', padding: 16, gap: 12 }}>
       <View className="flex-row items-center justify-between">
         <Text className="text-sm font-bold text-foreground">Complete Your Profile</Text>
         <Text className="text-xs font-bold text-primary">{pct}%</Text>
       </View>
       <Progress value={pct} className="h-2" />
-      <View className="space-y-1.5">
+      <View style={{ gap: 6 }}>
         {steps.map((step) => (
           <View key={step.label} className="flex-row items-center gap-2">
             <CheckCircle size={14} color={step.done ? "#2563eb" : "#c0c4cc"} />
@@ -93,7 +93,7 @@ const ProfileCompletion = ({ authUser, profile, stats }: { authUser: any; profil
       <Button
         size="sm"
         variant="outline"
-        className="w-full rounded-lg text-xs"
+        className="w-full rounded-lg"
         onPress={() => navigation.navigate("EditProfile")}
       >
         Complete Profile →
@@ -163,13 +163,13 @@ const SupportTicketSection = ({ userId }: { userId: string | number }) => {
   };
 
   return (
-    <View className="space-y-4">
+    <View style={{ gap: 16 }}>
       <View className="flex-row items-center gap-2">
         <LifeBuoy size={18} color="#2563eb" />
         <Text className="text-sm font-bold text-foreground">Help & Support</Text>
       </View>
 
-      <View className="rounded-xl border border-border bg-card p-4 space-y-3">
+      <View className="rounded-xl border border-border bg-card p-4" style={{ gap: 12 }}>
         <Text className="text-xs font-bold text-foreground">Submit a Support Ticket</Text>
         <View>
           <Input
@@ -197,7 +197,7 @@ const SupportTicketSection = ({ userId }: { userId: string | number }) => {
         </View>
         <View className="flex-row items-center gap-3">
           <Select value={priority} onValueChange={(v) => setPriority(v as any)}>
-            <SelectTrigger className="w-32 rounded-xl h-9 text-xs">
+            <SelectTrigger className="w-32 rounded-xl h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -206,9 +206,10 @@ const SupportTicketSection = ({ userId }: { userId: string | number }) => {
               <SelectItem value="high">🔴 High</SelectItem>
             </SelectContent>
           </Select>
+          <View style={{ flex: 1 }} />
           <Button
             size="sm"
-            className="rounded-xl gap-1.5 ml-auto"
+            className="rounded-xl"
             onPress={() => createTicket.mutate()}
             disabled={createTicket.isPending}
           >
@@ -219,7 +220,7 @@ const SupportTicketSection = ({ userId }: { userId: string | number }) => {
       </View>
 
       {myTickets.length > 0 && (
-        <View className="space-y-2">
+        <View style={{ gap: 8 }}>
           <Text className="text-xs font-bold text-foreground">
             My Tickets ({myTickets.length})
           </Text>
@@ -234,7 +235,7 @@ const SupportTicketSection = ({ userId }: { userId: string | number }) => {
                     {t.description}
                   </Text>
                 </View>
-                <View className="items-end gap-1">
+                <View className="items-end" style={{ gap: 4 }}>
                   <Badge
                     variant={t.priority === "high" ? "destructive" : "secondary"}
                     className="text-[9px] capitalize"
@@ -250,7 +251,7 @@ const SupportTicketSection = ({ userId }: { userId: string | number }) => {
                 </View>
               </View>
               {t.admin_notes && (
-                <View className="mt-2 rounded-lg bg-muted/50 p-2">
+                <View className="mt-2 rounded-lg bg-muted p-2">
                   <Text className="text-[10px] font-medium text-foreground">
                     Admin Response:
                   </Text>
@@ -354,7 +355,7 @@ const Profile = () => {
         <Text className="text-lg font-bold text-foreground">Profile</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} className="px-4 py-5">
         <View className="flex-row items-center gap-4">
           <View className="h-16 w-16 items-center justify-center rounded-full bg-primary overflow-hidden">
             {avatarUrl ? (

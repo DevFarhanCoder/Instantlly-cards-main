@@ -96,9 +96,13 @@ jest.mock('lucide-react-native', () => {
 jest.mock('../components/ui/button', () => ({
   Button: ({ children, onPress, ...p }: any) => {
     const { Pressable, Text } = require('react-native');
+    const childArray = Array.isArray(children) ? children : [children];
+    const textContent = childArray
+      .filter((c: any) => typeof c === 'string' || typeof c === 'number')
+      .join('') || 'Btn';
     return (
       <Pressable onPress={onPress} {...p}>
-        <Text>{children}</Text>
+        <Text>{textContent}</Text>
       </Pressable>
     );
   },
