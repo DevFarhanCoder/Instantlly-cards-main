@@ -71,18 +71,21 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
+    "react-native-worklets": "0.5.1",
     "react-redux": "^9.2.0",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^3.4.19"
   },
   "devDependencies": {
+    "@babel/plugin-proposal-export-namespace-from": "^7.18.9",
+    "@babel/plugin-transform-template-literals": "^7.25.9",
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-native": "^13.3.3",
     "@types/jest": "^30.0.0",
     "@types/react": "~19.1.10",
     "babel-preset-expo": "~54.0.10",
     "jest": "^30.3.0",
-    "jest-expo": "^55.0.12-canary-20260328-2049187",
+    "jest-expo": "~54.0.0",
     "patch-package": "^8.0.1",
     "react-test-renderer": "^19.1.0",
     "typescript": "~5.9.2"

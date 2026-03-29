@@ -57,9 +57,9 @@ const STEPS = [
   { key: "additional", label: "SEO", icon: Search, num: 6 },
 ];
 
-const inputClass = "rounded-xl bg-muted/50 border-0 text-base h-12 px-4";
-const errorInputClass = "rounded-xl bg-muted/50 border border-destructive text-base h-12 px-4";
-const textareaClass = "rounded-xl bg-muted/50 border-0 text-base px-4 py-3";
+const inputClass = "rounded-xl bg-muted/50 border-0 text-base h-14 px-4";
+const errorInputClass = "rounded-xl bg-muted/50 border border-destructive text-base h-14 px-4";
+const textareaClass = "rounded-xl bg-muted/50 border-0 text-base px-4 py-4 min-h-[100px]";
 const labelClass = "text-sm font-bold";
 
 const COUNTRY_CODES = [
@@ -375,7 +375,7 @@ const CardCreate = () => {
     mapsLink: "",
     companyName: "",
     jobTitle: "",
-    companyPhone: "",
+    companyPhones: [""] as string[],
     companyEmail: "",
     website: "",
     companyAddress: "",
@@ -429,7 +429,9 @@ const CardCreate = () => {
       mapsLink: card.maps_link || "",
       companyName: card.company_name || "",
       jobTitle: card.job_title || "",
-      companyPhone: card.company_phone || "",
+      companyPhones: card.company_phone 
+        ? card.company_phone.split(",").map(p => p.trim()) 
+        : [""],
       companyEmail: card.company_email || "",
       website: card.website || "",
       companyAddress: card.company_address || "",
@@ -454,7 +456,7 @@ const CardCreate = () => {
     if ((card as any).company_country_code) setCompanyPhoneCountry((card as any).company_country_code);
   }, [isEdit, cardId, cards]);
 
-  const updateField = (field: string, value: any) =>
+  const updateField = useCallback((field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
 
   const formatDateInput = (text: string): string => {
@@ -465,12 +467,15 @@ const CardCreate = () => {
       formatted += numericOnly[i];
     }
     return formatted;
-  };
+  }, []);
 
-  const markTouched = (field: string) =>
+  const markTouched = useCallback((field: string) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
-  const toggleSection = (key: string) =>
+  }, []);
+  
+  const toggleSection = useCallback((key: string) => {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   const progressFields = [
     form.fullName,
@@ -672,7 +677,7 @@ const CardCreate = () => {
       maps_link: form.mapsLink || null,
       company_name: form.companyName || null,
       job_title: form.jobTitle || null,
-      company_phone: form.companyPhone || null,
+      company_phone: form.companyPhones.filter(p => p.trim()).join(", ") || null,
       company_email: form.companyEmail || null,
       website: form.website || null,
       company_address: form.companyAddress || null,
@@ -933,7 +938,7 @@ const CardCreate = () => {
             <View className="flex-row gap-2 items-center">
               <Pressable
                 onPress={() => setShowPhoneCountryPicker(true)}
-                className="h-12 flex-row items-center justify-center gap-1 rounded-xl bg-muted/50 px-3"
+                className="h-14 flex-row items-center justify-center gap-1 rounded-xl bg-muted/50 px-3 min-w-[90px]"
               >
                 <Text className="text-base text-muted-foreground">
                   {COUNTRY_CODES.find((c) => c.code === phoneCountry)?.flag}{" "}
@@ -965,7 +970,7 @@ const CardCreate = () => {
             <View className="flex-row gap-2 items-center">
               <Pressable
                 onPress={() => setShowWhatsappCountryPicker(true)}
-                className="h-12 flex-row items-center justify-center gap-1 rounded-xl bg-muted/50 px-3"
+                className="h-14 flex-row items-center justify-center gap-1 rounded-xl bg-muted/50 px-3 min-w-[90px]"
               >
                 <Text className="text-base text-muted-foreground">
                   {COUNTRY_CODES.find((c) => c.code === whatsappCountry)?.flag}{" "}
@@ -1017,10 +1022,21 @@ const CardCreate = () => {
                 size="sm"
                 className="shrink-0 rounded-xl"
                 onPress={handleAutoLocation}
+                className="flex-row items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5"
               >
                 {"\u{1F4CD}"} Auto
               </Button>
             </View>
+            <TextInput
+              placeholder="Enter complete business address (Street, Area, City, State, Country)"
+              value={form.location}
+              onChangeText={(v) => updateField("location", v)}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+              className={cn(textareaClass, "text-base")}
+              placeholderTextColor="#9ca3af"
+            />
           </View>
           <View style={{ gap: 6 }}>
             <Label className={labelClass}>Google Maps Link</Label>
@@ -1064,8 +1080,8 @@ const CardCreate = () => {
             <Label className={labelClass}>Company Phone</Label>
             <View className="flex-row gap-2 items-center">
               <Pressable
-                onPress={() => setShowCompanyPhoneCountryPicker(true)}
-                className="h-12 flex-row items-center justify-center gap-1 rounded-xl bg-muted/50 px-3"
+                onPress={() => setForm({ ...form, companyPhones: [...form.companyPhones, ""] })}
+                className="flex-row items-center justify-center gap-2 rounded-xl bg-primary/10 py-4 mt-2"
               >
                 <Text className="text-base text-muted-foreground">
                   {COUNTRY_CODES.find((c) => c.code === companyPhoneCountry)?.flag}{" "}
@@ -1073,14 +1089,6 @@ const CardCreate = () => {
                 </Text>
                 <ChevronDown size={14} color="#6b7280" />
               </Pressable>
-              <Input
-                placeholder="Company number"
-                value={form.companyPhone}
-                onChangeText={(v) => updateField("companyPhone", v)}
-                keyboardType="phone-pad"
-                maxLength={10}
-                className={cn("flex-1", inputClass)}
-              />
             </View>
           </View>
           <View style={{ gap: 6 }}>
