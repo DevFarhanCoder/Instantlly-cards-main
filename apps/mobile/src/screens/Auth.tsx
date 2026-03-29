@@ -586,14 +586,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ffffff',
   },
-  eyeButton: {
-    position: 'absolute',
-    right: 12,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
+  // eyeButton: {
+  //   position: 'absolute',
+  //   right: 12,
+  //   top: 0,
+  //   bottom: 0,
+  //   justifyContent: 'center',
+  //   paddingHorizontal: 4,
+  // },
   demoButton: {
     flex: 1,
     alignItems: 'center',
