@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import {
+  Dimensions,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useNavigation, useNavigationState } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Activity,
   BarChart3,
@@ -24,6 +27,8 @@ import {
 import { colors } from "../../theme/colors";
 import { useUserRole } from "../../hooks/useUserRole";
 import { useAdminPendingCounts } from "../../hooks/useAdminData";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const customerNav = [
   { route: "Home", icon: Home, label: "Home" },
@@ -147,6 +152,7 @@ const BottomNav = () => {
   const { isBusiness, isAdmin } = useUserRole();
   const [moreOpen, setMoreOpen] = useState(false);
   const { data: pendingCounts } = useAdminPendingCounts();
+  const insets = useSafeAreaInsets();
 
   const totalPending = useMemo(() => {
     if (!isAdmin || !pendingCounts) return 0;
@@ -166,7 +172,7 @@ const BottomNav = () => {
   if (isAdmin) {
     return (
       <>
-        <View style={styles.nav}>
+        <View style={[styles.nav, { paddingBottom: Math.max(insets.bottom, 6) }]}>
           <View style={styles.navRow}>
             {adminNav.map((item) => {
               const Icon = item.icon;
@@ -234,7 +240,7 @@ const BottomNav = () => {
           onRequestClose={() => setMoreOpen(false)}
         >
           <Pressable style={styles.overlay} onPress={() => setMoreOpen(false)} />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom + 12, 24) }]}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Admin Access</Text>
             <ScrollView contentContainerStyle={styles.sheetContent}>
@@ -269,7 +275,7 @@ const BottomNav = () => {
 
   return (
     <>
-      <View style={styles.nav}>
+      <View style={[styles.nav, { paddingBottom: Math.max(insets.bottom, 6) }]}>
         <View style={styles.navRow}>
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -314,7 +320,7 @@ const BottomNav = () => {
         onRequestClose={() => setMoreOpen(false)}
       >
         <Pressable style={styles.overlay} onPress={() => setMoreOpen(false)} />
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom + 12, 24) }]}>
           <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>
             {isBusiness ? "Business Tools" : "More Options"}
@@ -374,8 +380,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingTop: Platform.OS === "ios" ? 8 : 6,
+    paddingHorizontal: SCREEN_WIDTH > 400 ? 12 : 8,
   },
   navRow: {
     flexDirection: "row",
@@ -384,14 +390,16 @@ const styles = StyleSheet.create({
   },
   navItem: {
     alignItems: "center",
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    gap: SCREEN_WIDTH > 400 ? 4 : 3,
+    paddingVertical: SCREEN_WIDTH > 400 ? 6 : 4,
+    paddingHorizontal: SCREEN_WIDTH > 400 ? 10 : 6,
+    minWidth: SCREEN_WIDTH > 400 ? 60 : 50,
   },
   navLabel: {
-    fontSize: 11,
+    fontSize: SCREEN_WIDTH > 400 ? 11 : 10,
     fontWeight: "600",
     color: colors.mutedForeground,
+    textAlign: "center",
   },
   navLabelActive: {
     color: colors.primary,
@@ -440,7 +448,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 24,
   },
   sheetHandle: {
     width: 40,
@@ -473,32 +480,40 @@ const styles = StyleSheet.create({
   grid3: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
+    gap: SCREEN_WIDTH > 400 ? 12 : 8,
+    justifyContent: "flex-start",
   },
   grid4: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
+    gap: SCREEN_WIDTH > 400 ? 12 : 8,
+    justifyContent: "flex-start",
   },
   gridItem: {
     backgroundColor: colors.muted,
     borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingVertical: SCREEN_WIDTH > 400 ? 14 : 12,
+    paddingHorizontal: SCREEN_WIDTH > 400 ? 12 : 8,
     alignItems: "center",
+    minHeight: SCREEN_WIDTH > 400 ? 80 : 75,
+    justifyContent: "center",
   },
   gridItem3: {
-    flexBasis: "30%",
+    width: SCREEN_WIDTH > 400 
+      ? Math.floor((SCREEN_WIDTH - 56) / 3) 
+      : Math.floor((SCREEN_WIDTH - 48) / 3),
   },
   gridItem4: {
-    flexBasis: "22%",
+    width: SCREEN_WIDTH > 400 
+      ? Math.floor((SCREEN_WIDTH - 68) / 4) 
+      : Math.floor((SCREEN_WIDTH - 56) / 4),
   },
   gridEmoji: {
-    fontSize: 20,
+    fontSize: SCREEN_WIDTH > 400 ? 24 : 20,
     marginBottom: 6,
   },
   gridLabel: {
-    fontSize: 11,
+    fontSize: SCREEN_WIDTH > 400 ? 11 : 10,
     fontWeight: "600",
     color: colors.foreground,
     textAlign: "center",
