@@ -13,6 +13,18 @@ const statusColors: Record<string, string> = {
   completed: "bg-muted text-muted-foreground",
 };
 
+const approvalColors: Record<string, string> = {
+  approved: "bg-green-500/10 text-green-600",
+  pending: "bg-orange-500/10 text-orange-600",
+  rejected: "bg-red-500/10 text-red-600",
+};
+
+const approvalLabels: Record<string, string> = {
+  approved: "Approved",
+  pending: "Pending Approval",
+  rejected: "Rejected",
+};
+
 const typeEmoji: Record<string, string> = {
   banner: "🖼️",
   featured: "⭐",
@@ -205,9 +217,15 @@ const Ads = () => {
                         {ad.impressions.toLocaleString()} views • {ad.clicks} clicks
                       </Text>
                     </View>
-                    <Badge className={`border-none text-[10px] ${statusColors[ad.status] || statusColors.active}`}>
-                      {ad.status}
-                    </Badge>
+                    {ad.approval_status !== "approved" ? (
+                      <Badge className={`border-none text-[10px] ${approvalColors[ad.approval_status] || approvalColors.pending}`}>
+                        {approvalLabels[ad.approval_status] || ad.approval_status}
+                      </Badge>
+                    ) : (
+                      <Badge className={`border-none text-[10px] ${statusColors[ad.status] || statusColors.active}`}>
+                        {ad.status}
+                      </Badge>
+                    )}
                   </View>
                 ))}
               </View>

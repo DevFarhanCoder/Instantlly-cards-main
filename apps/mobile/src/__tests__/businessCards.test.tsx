@@ -110,6 +110,10 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
+// ─── Ad components mock ─────────────────────────────────────────────────────
+jest.mock('../components/ads/BannerAdSlot', () => 'BannerAdSlot');
+jest.mock('../components/ads/SponsoredCardSlot', () => 'SponsoredCardSlot');
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const buildTestStore = (user?: any) => {

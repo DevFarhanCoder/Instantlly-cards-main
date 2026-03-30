@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import {
   ArrowLeft,
@@ -21,7 +21,7 @@ import { Slider } from "../components/ui/slider";
 import { useCreateAdCampaign } from "../hooks/useAds";
 import { useBusinessCards } from "../hooks/useBusinessCards";
 import { useAuth } from "../hooks/useAuth";
-import { supabase } from "../integrations/supabase/client";
+import { useUploadAdCreativeMutation } from "../store/api/adsApi";
 import { toast } from "../lib/toast";
 import { colors } from "../theme/colors";
 
@@ -40,6 +40,7 @@ const AdCreate = () => {
   const { user } = useAuth();
   const { cards } = useBusinessCards();
   const createCampaign = useCreateAdCampaign();
+  const [uploadAdCreative] = useUploadAdCreativeMutation();
   const [step, setStep] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
@@ -80,23 +81,26 @@ const AdCreate = () => {
 
     setUploading(true);
     try {
+      const newUrls = [...form.creativeUrls];
       for (const asset of result.assets) {
-        const ext = (asset.fileName || asset.uri.split(".").pop() || "jpg")
-          .split(".")
-          .pop();
-        const path = `${user.id}/${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2, 6)}.${ext}`;
-        const response = await fetch(asset.uri);
-        const blob = await response.blob();
-        const { error } = await supabase.storage.from("ad-creatives").upload(path, blob);
-        if (error) throw error;
-        const { data } = supabase.storage.from("ad-creatives").getPublicUrl(path);
-        updateField("creativeUrls", [...form.creativeUrls, data.publicUrl]);
+        const uri = asset.uri;
+        const fileName = asset.fileName || uri.split("/").pop() || "image.jpg";
+
+        const formData = new FormData();
+        formData.append("file", {
+          uri: Platform.OS === "android" ? uri : uri.replace("file://", ""),
+          name: fileName,
+          type: asset.mimeType || "image/jpeg",
+        } as any);
+
+        const { url } = await uploadAdCreative(formData).unwrap();
+        newUrls.push(url);
       }
+      updateField("creativeUrls", newUrls);
       toast.success("Image uploaded!");
     } catch (err: any) {
-      toast.error(err.message || "Upload failed");
+      console.error("[AdCreate] Upload error:", err);
+      toast.error(err?.data?.error || err?.message || "Upload failed");
     } finally {
       setUploading(false);
     }
@@ -115,21 +119,26 @@ const AdCreate = () => {
       navigation.navigate("Auth");
       return;
     }
-    await createCampaign.mutateAsync({
-      title: form.title || "Untitled Campaign",
-      description: form.description || undefined,
-      ad_type: form.type,
-      cta: form.cta,
-      target_city: form.targetCity || undefined,
-      target_age: form.targetAge,
-      target_interests: form.targetInterests || undefined,
-      daily_budget: form.budget[0],
-      duration_days: parseInt(form.duration, 10),
-      business_card_id: form.business_card_id || undefined,
-      creative_url: form.creativeUrls[0] || undefined,
-      creative_urls: form.creativeUrls,
-    });
-    navigation.navigate("Ads");
+    try {
+      await createCampaign.mutateAsync({
+        title: form.title || "Untitled Campaign",
+        description: form.description || undefined,
+        ad_type: form.type,
+        cta: form.cta,
+        target_city: form.targetCity || undefined,
+        target_age: form.targetAge,
+        target_interests: form.targetInterests || undefined,
+        daily_budget: form.budget[0],
+        duration_days: parseInt(form.duration, 10),
+        business_card_id: form.business_card_id || undefined,
+        creative_url: form.creativeUrls[0] || undefined,
+        creative_urls: form.creativeUrls,
+      });
+      toast.success("Ad campaign launched!");
+      navigation.navigate("Ads");
+    } catch (err: any) {
+      toast.error(err?.data?.error || "Failed to create campaign");
+    }
   };
 
   const selectedType = useMemo(

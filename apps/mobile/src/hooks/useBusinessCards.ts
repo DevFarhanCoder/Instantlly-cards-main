@@ -39,6 +39,8 @@ export interface BusinessCardRow {
   keywords: string | null;
   offer: string | null;
   services: string[];
+  is_live: boolean;
+  approval_status: string;
   created_at: string;
   updated_at: string;
 }

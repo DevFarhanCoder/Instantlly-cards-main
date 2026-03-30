@@ -3,13 +3,17 @@ import { baseApi } from './baseApi';
 export const businessCardsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     listCards: builder.query<
-      { data: any[]; page: number },
-      { page?: number; search?: string; limit?: number }
+      { data: any[]; page: number; total: number },
+      { page?: number; search?: string; limit?: number; category?: string }
     >({
-      query: ({ page = 1, search, limit } = {}) =>
-        `/cards?page=${page}${limit ? `&limit=${limit}` : ''}${
-          search ? `&search=${encodeURIComponent(search)}` : ''
-        }`,
+      query: ({ page = 1, search, limit, category } = {}) => {
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        if (limit) params.set('limit', String(limit));
+        if (search) params.set('search', search);
+        if (category) params.set('category', category);
+        return `/cards?${params.toString()}`;
+      },
       providesTags: ['BusinessCard'],
     }),
     getCard: builder.query<any, number>({

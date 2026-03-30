@@ -30,7 +30,6 @@ import {
   Ticket,
   TrendingUp,
   X,
-  Zap,
 } from "lucide-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
@@ -91,23 +90,6 @@ const Index = () => {
   // navigation is a stable ref from useNavigation() — omitting it is intentional.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isAdmin, roleLoading]);
-
-  const { data: sponsoredCampaigns = [] } = useQuery({
-    queryKey: ["sponsored-ads"],
-    queryFn: async () => {
-      if (!SUPABASE_CONFIG_OK) return [];
-      const { data, error } = await supabase
-        .from("ad_campaigns")
-        .select("*, business_cards!ad_campaigns_business_card_id_fkey(*)")
-        .in("ad_type", ["featured", "sponsored"])
-        .eq("status", "active")
-        .eq("approval_status", "approved")
-        .not("business_card_id", "is", null);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: SUPABASE_CONFIG_OK,
-  });
 
   const normalizedCategories = useMemo(() => {
     if (categoryData.length > 0) {
@@ -382,63 +364,6 @@ const Index = () => {
       <PromotedVouchers navigate={navigation} />
       <DealOfTheDaySection navigate={navigation} />
       <TrendingSection navigate={navigation} />
-      {sponsoredCampaigns.length > 0 && (
-        <View className="px-4 mt-4">
-          <View className="flex-row items-center gap-2 mb-2">
-            <Zap size={16} color="#f59e0b" />
-            <Text className="text-sm font-bold text-foreground">Sponsored</Text>
-          </View>
-          {sponsoredCampaigns.map((campaign: any) => {
-            const card = campaign.business_cards;
-            if (!card) return null;
-            return (
-              <Pressable
-                key={campaign.id}
-                onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
-                className="rounded-2xl border border-border bg-card p-4 mb-3"
-              >
-                <View className="flex-row items-start justify-between">
-                  <View className="flex-row items-start gap-3">
-                    <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
-                      {card.logo_url ? (
-                        <Image source={{ uri: card.logo_url }} style={{ height: "100%", width: "100%" }} />
-                      ) : (
-                        <Text>🏢</Text>
-                      )}
-                    </View>
-                    <View>
-                      <Text className="text-base font-bold text-foreground">{card.full_name}</Text>
-                      <View className="flex-row items-center gap-2 mt-1">
-                        {card.category && <Text className="text-xs text-muted-foreground">{card.category}</Text>}
-                        <View className="rounded-full bg-amber-100 px-2 py-0.5">
-                          <Text className="text-[10px] font-semibold text-amber-700">Sponsored</Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-                {campaign.description && (
-                  <Text className="mt-2 text-xs text-muted-foreground">{campaign.description}</Text>
-                )}
-                {card.location && (
-                  <View className="mt-2 flex-row items-center gap-2">
-                    <MapPin size={14} color={colors.mutedForeground} />
-                    <Text className="text-xs text-muted-foreground">{card.location}</Text>
-                  </View>
-                )}
-                <View className="mt-3 flex-row gap-2">
-                  <Button size="sm" className="flex-1 rounded-lg" onPress={() => Linking.openURL(`tel:${card.phone}`)}>
-                    <Phone size={14} color="#fff" /> Call
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1 rounded-lg" onPress={() => navigation.navigate("Messaging")}>
-                    <MessageCircle size={14} color={colors.foreground} /> Message
-                  </Button>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
 
       {user && (
         <AIRecommendations

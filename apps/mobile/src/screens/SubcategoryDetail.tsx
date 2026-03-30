@@ -209,7 +209,7 @@ const SubcategoryDetail = () => {
                 : "No businesses in this category yet"}
             </Text>
 
-            <View className="gap-2.5">
+            <View className="gap-2.5 mt-2">
               {filteredCards.length === 0 ? (
                 <View className="items-center py-16">
                   <Text className="text-5xl mb-3">📭</Text>

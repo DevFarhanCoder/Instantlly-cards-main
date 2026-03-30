@@ -1,6 +1,8 @@
 import {
+  Alert,
   Pressable,
   ScrollView,
+  Switch,
   Text,
   View,
 } from "react-native";
@@ -41,7 +43,7 @@ import { toast } from "../lib/toast";
 const BusinessDashboard = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { cards, isLoading } = useBusinessCards();
+  const { cards, isLoading, updateCard } = useBusinessCards();
   const queryClient = useQueryClient();
 
   const cardIds = cards.map((c) => c.id);
@@ -273,6 +275,52 @@ const BusinessDashboard = () => {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4">
+        {/* Live/Offline Toggle + Approval Status */}
+        {primaryCard && (
+          <View className="rounded-xl border border-border bg-card p-4 mb-4">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-foreground">
+                  {(primaryCard as any).is_live ? "Live" : "Offline"}
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  {(primaryCard as any).is_live
+                    ? "Your card appears in search results"
+                    : "Your card is hidden from search results"}
+                </Text>
+              </View>
+              <Switch
+                value={(primaryCard as any).is_live ?? true}
+                onValueChange={(val) => {
+                  updateCard.mutateAsync({ id: primaryCard.id, is_live: val } as any);
+                }}
+                trackColor={{ false: "#d1d5db", true: "#22c55e" }}
+                thumbColor="#ffffff"
+              />
+            </View>
+            {(primaryCard as any).approval_status === "pending" && (
+              <View className="mt-3 rounded-lg bg-amber-50 p-3">
+                <Text className="text-xs font-semibold text-amber-700">
+                  Pending Approval
+                </Text>
+                <Text className="text-xs text-amber-600 mt-0.5">
+                  Your card is under review. It will appear in search results once approved.
+                </Text>
+              </View>
+            )}
+            {(primaryCard as any).approval_status === "rejected" && (
+              <View className="mt-3 rounded-lg bg-red-50 p-3">
+                <Text className="text-xs font-semibold text-red-700">
+                  Card Rejected
+                </Text>
+                <Text className="text-xs text-red-600 mt-0.5">
+                  Your card was not approved. Please edit and resubmit.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
           <View className="flex-row gap-2">
             {[

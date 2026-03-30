@@ -52,6 +52,9 @@ jest.mock('../lib/toast', () => ({
   toast: { success: jest.fn(), error: jest.fn() },
 }));
 
+// ─── Ad components mock ─────────────────────────────────────────────────────
+jest.mock('../components/ads/BannerAdSlot', () => 'BannerAdSlot');
+
 // ─── Store helper ────────────────────────────────────────────────────────────
 const createTestStore = () =>
   configureStore({

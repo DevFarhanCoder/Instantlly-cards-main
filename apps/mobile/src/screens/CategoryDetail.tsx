@@ -246,7 +246,7 @@ const CategoryDetail = () => {
         <Text className="text-sm font-semibold text-foreground mb-3">
           Select a Subcategory
         </Text>
-        
+
         {subcategories.length > 0 ? (
           <View className="flex-row flex-wrap gap-2">
             {subcategories.map((sub, index) => {

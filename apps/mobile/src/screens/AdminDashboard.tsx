@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View, Image } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
   ArrowLeft,
@@ -11,27 +11,32 @@ import {
 } from "lucide-react-native";
 import { useAuth } from "../hooks/useAuth";
 import { useUserRole } from "../hooks/useUserRole";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../integrations/supabase/client";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
-import { Textarea } from "../components/ui/textarea";
 import { toast } from "../lib/toast";
+import {
+  useGetDashboardCountsQuery,
+  useListAdminUsersQuery,
+  useGetAdminAdsQuery,
+  useApproveAdCampaignMutation,
+  useRejectAdCampaignMutation,
+  useGetAdminBusinessesQuery,
+  useApproveBusinessCardMutation,
+  useRejectBusinessCardMutation,
+  useGetAdminEventsQuery,
+  useGetAdminVouchersQuery,
+  useGetAdminReviewsQuery,
+} from "../store/api/adminApi";
 
 const TABS = [
   { key: "overview", label: "Overview" },
-  { key: "approvals", label: "Approvals" },
+  { key: "ads", label: "Ads" },
   { key: "users", label: "Users" },
   { key: "businesses", label: "Businesses" },
   { key: "events", label: "Events" },
   { key: "vouchers", label: "Vouchers" },
-  { key: "ads", label: "Ads" },
   { key: "reviews", label: "Reviews" },
-  { key: "reports", label: "Reports" },
-  { key: "disputes", label: "Disputes" },
-  { key: "tickets", label: "Support" },
-  { key: "notifications", label: "Notify" },
 ];
 
 const AdminDashboard = () => {
@@ -80,216 +85,94 @@ const AdminDashboard = () => {
 
 const AdminPanel = () => {
   const navigation = useNavigation<any>();
-  const queryClient = useQueryClient();
   const [tab, setTab] = useState("overview");
   const [globalSearch, setGlobalSearch] = useState("");
-  const [broadcastTitle, setBroadcastTitle] = useState("");
-  const [broadcastDesc, setBroadcastDesc] = useState("");
 
-  const { data: stats } = useQuery({
-    queryKey: ["admin-stats"],
-    queryFn: async () => {
-      const [cards, events, vouchers, bookings, ads, reviews, subs, tickets] = await Promise.all([
-        supabase.from("business_cards").select("id", { count: "exact", head: true }),
-        supabase.from("events").select("id", { count: "exact", head: true }),
-        supabase.from("vouchers").select("id", { count: "exact", head: true }),
-        supabase.from("bookings").select("id", { count: "exact", head: true }),
-        supabase.from("ad_campaigns").select("id", { count: "exact", head: true }),
-        supabase.from("reviews").select("id", { count: "exact", head: true }),
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }),
-        supabase.from("support_tickets").select("id", { count: "exact", head: true }),
-      ]);
-      return {
-        businesses: cards.count ?? 0,
-        events: events.count ?? 0,
-        vouchers: vouchers.count ?? 0,
-        bookings: bookings.count ?? 0,
-        ads: ads.count ?? 0,
-        reviews: reviews.count ?? 0,
-        subscriptions: subs.count ?? 0,
-        tickets: tickets.count ?? 0,
-      };
-    },
+  // ─── Dashboard counts ───────────────────────────────────────────────────
+  const { data: stats } = useGetDashboardCountsQuery();
+
+  // ─── Users ──────────────────────────────────────────────────────────────
+  const { data: usersData } = useListAdminUsersQuery(undefined, { skip: tab !== "users" });
+  const users = usersData?.data ?? [];
+
+  // ─── Ad campaigns ──────────────────────────────────────────────────────
+  const { data: allAds = [], isLoading: adsLoading, error: adsError } = useGetAdminAdsQuery(undefined, {
+    skip: tab !== "ads",
   });
 
-  const { data: pendingCards = [] } = useQuery({
-    queryKey: ["admin-pending-cards"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("business_cards")
-        .select("*")
-        .eq("approval_status", "pending")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: tab === "approvals",
-  });
+  const [approveAd] = useApproveAdCampaignMutation();
+  const [rejectAd] = useRejectAdCampaignMutation();
+  const [adsFilter, setAdsFilter] = useState("all");
 
-  const { data: pendingEvents = [] } = useQuery({
-    queryKey: ["admin-pending-events"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .eq("approval_status", "pending")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: tab === "approvals",
-  });
+  const filteredAds = useMemo(() => {
+    if (adsFilter === "all") return allAds;
+    return allAds.filter((a: any) => a.approval_status === adsFilter);
+  }, [adsFilter, allAds]);
 
-  const { data: pendingAds = [] } = useQuery({
-    queryKey: ["admin-pending-ads"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ad_campaigns")
-        .select("*")
-        .eq("approval_status", "pending")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: tab === "approvals",
-  });
+  const handleApproveAd = async (id: number) => {
+    try {
+      await approveAd(id).unwrap();
+      toast.success("Ad approved");
+    } catch {
+      toast.error("Failed to approve ad");
+    }
+  };
 
-  const { data: reports = [] } = useQuery({
-    queryKey: ["admin-reports"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("business_reports")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: tab === "reports",
-  });
+  const handleRejectAd = async (id: number) => {
+    try {
+      await rejectAd(id).unwrap();
+      toast.success("Ad rejected");
+    } catch {
+      toast.error("Failed to reject ad");
+    }
+  };
 
-  const { data: disputes = [] } = useQuery({
-    queryKey: ["admin-disputes"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("disputes")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: tab === "disputes",
-  });
-
-  const { data: tickets = [] } = useQuery({
-    queryKey: ["admin-tickets"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("support_tickets")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: tab === "tickets",
-  });
-
-  const { data: businesses = [] } = useQuery({
-    queryKey: ["admin-businesses"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("business_cards")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: tab === "businesses",
-  });
-
-  const { data: users = [] } = useQuery({
-    queryKey: ["admin-users"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: tab === "users",
-  });
-
-  const { data: events = [] } = useQuery({
-    queryKey: ["admin-events"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: tab === "events",
-  });
-
-  const { data: vouchers = [] } = useQuery({
-    queryKey: ["admin-vouchers"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vouchers")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: tab === "vouchers",
-  });
-
-  const { data: ads = [] } = useQuery({
-    queryKey: ["admin-ads"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ad_campaigns")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: tab === "ads",
-  });
-
-  const { data: reviews = [] } = useQuery({
-    queryKey: ["admin-reviews"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("reviews")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: tab === "reviews",
-  });
+  // ─── Listings ───────────────────────────────────────────────────────────
+  const { data: businesses = [] } = useGetAdminBusinessesQuery(undefined, { skip: tab !== "businesses" });
+  const [approveCard] = useApproveBusinessCardMutation();
+  const [rejectCard] = useRejectBusinessCardMutation();
+  const [bizFilter, setBizFilter] = useState("all");
 
   const filteredBusinesses = useMemo(() => {
-    if (!globalSearch.trim()) return businesses;
+    let list = businesses;
+    if (bizFilter !== "all") {
+      list = list.filter((b: any) => b.approval_status === bizFilter);
+    }
+    if (!globalSearch.trim()) return list;
     const q = globalSearch.toLowerCase();
-    return businesses.filter(
+    return list.filter(
       (b: any) =>
         b.full_name?.toLowerCase().includes(q) ||
         (b.company_name || "").toLowerCase().includes(q)
     );
-  }, [globalSearch, businesses]);
+  }, [globalSearch, businesses, bizFilter]);
 
-  const updateApproval = async (table: string, id: string, approval_status: string) => {
-    const { error } = await supabase.from(table as any).update({ approval_status }).eq("id", id);
-    if (error) {
-      toast.error("Update failed");
-      return;
+  const handleApproveCard = async (id: number) => {
+    try {
+      await approveCard(id).unwrap();
+      toast.success("Business card approved");
+    } catch {
+      toast.error("Failed to approve card");
     }
-    toast.success("Updated");
-    queryClient.invalidateQueries();
   };
+
+  const handleRejectCard = async (id: number) => {
+    try {
+      await rejectCard(id).unwrap();
+      toast.success("Business card rejected");
+    } catch {
+      toast.error("Failed to reject card");
+    }
+  };
+
+  const { data: events = [] } = useGetAdminEventsQuery(undefined, { skip: tab !== "events" });
+  const { data: vouchers = [] } = useGetAdminVouchersQuery(undefined, { skip: tab !== "vouchers" });
+  const { data: reviews = [] } = useGetAdminReviewsQuery(undefined, { skip: tab !== "reviews" });
+
+  // ─── Pending counts for tab badges ──────────────────────────────────────
+  const pendingAdsCount = useMemo(() =>
+    allAds.filter((a: any) => a.approval_status === "pending").length
+  , [allAds]);
 
   return (
     <View className="flex-1 bg-background">
@@ -328,20 +211,19 @@ const AdminPanel = () => {
       </ScrollView>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4">
+        {/* ─── Overview ─────────────────────────────────────────────────── */}
         {tab === "overview" && (
           <View className="flex-row flex-wrap gap-2">
             {[
-              { label: "Businesses", value: stats?.businesses ?? 0, emoji: "🏢" },
-              { label: "Events", value: stats?.events ?? 0, emoji: "🎉" },
-              { label: "Vouchers", value: stats?.vouchers ?? 0, emoji: "🎟️" },
-              { label: "Bookings", value: stats?.bookings ?? 0, emoji: "📅" },
-              { label: "Ads", value: stats?.ads ?? 0, emoji: "📣" },
-              { label: "Reviews", value: stats?.reviews ?? 0, emoji: "⭐" },
-              { label: "Subs", value: stats?.subscriptions ?? 0, emoji: "💎" },
-              { label: "Tickets", value: stats?.tickets ?? 0, emoji: "🎫" },
+              { label: "Businesses", value: stats?.businessCards ?? 0 },
+              { label: "Events", value: stats?.events ?? 0 },
+              { label: "Vouchers", value: stats?.vouchers ?? 0 },
+              { label: "Bookings", value: stats?.bookings ?? 0 },
+              { label: "Ad Campaigns", value: stats?.adCampaigns ?? 0 },
+              { label: "Reviews", value: stats?.reviews ?? 0 },
+              { label: "Users", value: stats?.users ?? 0 },
             ].map((s) => (
               <View key={s.label} className="w-[48%] rounded-xl border border-border bg-card p-3 items-center">
-                <Text className="text-lg">{s.emoji}</Text>
                 <Text className="text-lg font-bold text-foreground">{s.value}</Text>
                 <Text className="text-[10px] text-muted-foreground">{s.label}</Text>
               </View>
@@ -349,93 +231,178 @@ const AdminPanel = () => {
           </View>
         )}
 
-        {tab === "approvals" && (
-          <View className="gap-4">
-            <Text className="text-sm font-bold text-foreground">Pending Cards</Text>
-            {pendingCards.map((c: any) => (
-              <View key={c.id} className="rounded-xl border border-border bg-card p-3">
-                <Text className="text-sm font-semibold text-foreground">{c.full_name}</Text>
-                <Text className="text-xs text-muted-foreground">{c.company_name}</Text>
-                <View className="flex-row gap-2 mt-2">
-                  <Button size="sm" className="flex-1 rounded-lg" onPress={() => updateApproval("business_cards", c.id, "approved")}>
-                    <CheckCircle size={14} color="#ffffff" /> Approve
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1 rounded-lg text-destructive" onPress={() => updateApproval("business_cards", c.id, "rejected")}>
-                    <XCircle size={14} color="#ef4444" /> Reject
-                  </Button>
-                </View>
-              </View>
-            ))}
+        {/* ─── Ads ──────────────────────────────────────────────────────── */}
+        {tab === "ads" && (
+          <View className="gap-3">
+            <View className="flex-row gap-2 mb-2">
+              {["all", "pending", "approved", "rejected"].map((f) => (
+                <Pressable
+                  key={f}
+                  onPress={() => setAdsFilter(f)}
+                  className={`px-3 py-1.5 rounded-lg ${adsFilter === f ? "bg-primary" : "bg-muted"}`}
+                >
+                  <Text className={`text-[11px] font-semibold capitalize ${adsFilter === f ? "text-primary-foreground" : "text-muted-foreground"}`}>
+                    {f}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
 
-            <Text className="text-sm font-bold text-foreground mt-4">Pending Events</Text>
-            {pendingEvents.map((e: any) => (
-              <View key={e.id} className="rounded-xl border border-border bg-card p-3">
-                <Text className="text-sm font-semibold text-foreground">{e.title}</Text>
-                <Text className="text-xs text-muted-foreground">{e.venue}</Text>
-                <View className="flex-row gap-2 mt-2">
-                  <Button size="sm" className="flex-1 rounded-lg" onPress={() => updateApproval("events", e.id, "approved")}>
-                    <CheckCircle size={14} color="#ffffff" /> Approve
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1 rounded-lg text-destructive" onPress={() => updateApproval("events", e.id, "rejected")}>
-                    <XCircle size={14} color="#ef4444" /> Reject
-                  </Button>
-                </View>
-              </View>
-            ))}
+            {adsLoading ? (
+              <Text className="text-sm text-muted-foreground text-center py-8">Loading ads...</Text>
+            ) : adsError ? (
+              <Text className="text-sm text-red-500 text-center py-8">Failed to load ads. Check backend connection.</Text>
+            ) : filteredAds.length === 0 ? (
+              <Text className="text-sm text-muted-foreground text-center py-8">No ads found</Text>
+            ) : null}
 
-            <Text className="text-sm font-bold text-foreground mt-4">Pending Ads</Text>
-            {pendingAds.map((a: any) => (
+            {filteredAds.map((a: any) => (
               <View key={a.id} className="rounded-xl border border-border bg-card p-3">
-                <Text className="text-sm font-semibold text-foreground">{a.title}</Text>
-                <Text className="text-xs text-muted-foreground capitalize">{a.ad_type}</Text>
-                <View className="flex-row gap-2 mt-2">
-                  <Button size="sm" className="flex-1 rounded-lg" onPress={() => updateApproval("ad_campaigns", a.id, "approved")}>
-                    <CheckCircle size={14} color="#ffffff" /> Approve
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1 rounded-lg text-destructive" onPress={() => updateApproval("ad_campaigns", a.id, "rejected")}>
-                    <XCircle size={14} color="#ef4444" /> Reject
-                  </Button>
+                <View className="flex-row items-start justify-between mb-1">
+                  <View className="flex-row items-center gap-2 flex-1">
+                    {a.creative_url ? (
+                      <Image source={{ uri: a.creative_url }} style={{ height: 36, width: 36, borderRadius: 8 }} />
+                    ) : null}
+                    <View className="flex-1">
+                      <Text className="text-sm font-semibold text-foreground">{a.title}</Text>
+                      <Text className="text-xs text-muted-foreground capitalize">{a.ad_type} · ₹{a.daily_budget}/day · {a.duration_days}d</Text>
+                    </View>
+                  </View>
+                  <Badge
+                    className={`text-[9px] ${
+                      a.approval_status === "approved"
+                        ? "bg-green-500/10 text-green-600"
+                        : a.approval_status === "rejected"
+                        ? "bg-red-500/10 text-red-600"
+                        : "bg-yellow-500/10 text-yellow-600"
+                    }`}
+                  >
+                    {a.approval_status}
+                  </Badge>
                 </View>
+                {a.user ? (
+                  <Text className="text-[10px] text-muted-foreground">By {a.user.name} ({a.user.phone})</Text>
+                ) : null}
+                {a.business ? (
+                  <Text className="text-[10px] text-muted-foreground">Business: {a.business.company_name}</Text>
+                ) : null}
+                <View className="flex-row items-center gap-3 mt-1.5">
+                  <Text className="text-[10px] text-muted-foreground">{a.impressions ?? 0} views</Text>
+                  <Text className="text-[10px] text-muted-foreground">{a.clicks ?? 0} clicks</Text>
+                  <Text className="text-[10px] text-muted-foreground">₹{a.spent ?? 0} spent</Text>
+                </View>
+                {a.approval_status === "pending" && (
+                  <View className="flex-row gap-2 mt-2">
+                    <Button size="sm" className="flex-1 rounded-lg" onPress={() => handleApproveAd(a.id)}>
+                      <CheckCircle size={14} color="#ffffff" /> Approve
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 rounded-lg text-destructive" onPress={() => handleRejectAd(a.id)}>
+                      <XCircle size={14} color="#ef4444" /> Reject
+                    </Button>
+                  </View>
+                )}
               </View>
             ))}
           </View>
         )}
 
+        {/* ─── Users ────────────────────────────────────────────────────── */}
         {tab === "users" && (
           <View className="gap-3">
             {users.map((u: any) => (
               <View key={u.id} className="rounded-xl border border-border bg-card p-3">
-                <Text className="text-sm font-semibold text-foreground">{u.full_name || "Unnamed"}</Text>
-                <Text className="text-xs text-muted-foreground">{u.id}</Text>
+                <Text className="text-sm font-semibold text-foreground">{u.name || "Unnamed"}</Text>
+                <Text className="text-xs text-muted-foreground">{u.phone} · {u.email || "no email"}</Text>
+                <View className="flex-row gap-1 mt-1">
+                  {u.user_roles?.map((r: any) => (
+                    <Badge key={r.role} className="text-[9px]">{r.role}</Badge>
+                  ))}
+                </View>
               </View>
             ))}
           </View>
         )}
 
+        {/* ─── Businesses ───────────────────────────────────────────────── */}
         {tab === "businesses" && (
           <View className="gap-3">
+            <View className="flex-row gap-2 mb-2">
+              {["all", "pending", "approved", "rejected"].map((f) => (
+                <Pressable
+                  key={f}
+                  onPress={() => setBizFilter(f)}
+                  className={`px-3 py-1.5 rounded-lg ${bizFilter === f ? "bg-primary" : "bg-muted"}`}
+                >
+                  <Text className={`text-[11px] font-semibold capitalize ${bizFilter === f ? "text-primary-foreground" : "text-muted-foreground"}`}>
+                    {f}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {filteredBusinesses.length === 0 ? (
+              <Text className="text-sm text-muted-foreground text-center py-8">No business cards found</Text>
+            ) : null}
+
             {filteredBusinesses.map((b: any) => (
               <View key={b.id} className="rounded-xl border border-border bg-card p-3">
-                <Text className="text-sm font-semibold text-foreground">{b.full_name}</Text>
-                <Text className="text-xs text-muted-foreground">{b.company_name}</Text>
-                <Badge className="text-[9px] mt-2">{b.approval_status || "pending"}</Badge>
+                <View className="flex-row items-start justify-between mb-1">
+                  <View className="flex-1">
+                    <Text className="text-sm font-semibold text-foreground">{b.full_name}</Text>
+                    <Text className="text-xs text-muted-foreground">{b.company_name || "No company"}</Text>
+                    {b.category ? (
+                      <Text className="text-[10px] text-muted-foreground mt-0.5">{b.category}</Text>
+                    ) : null}
+                  </View>
+                  <Badge
+                    className={`text-[9px] ${
+                      b.approval_status === "approved"
+                        ? "bg-green-500/10 text-green-600"
+                        : b.approval_status === "rejected"
+                        ? "bg-red-500/10 text-red-600"
+                        : "bg-yellow-500/10 text-yellow-600"
+                    }`}
+                  >
+                    {b.approval_status || "pending"}
+                  </Badge>
+                </View>
+                {b.user ? (
+                  <Text className="text-[10px] text-muted-foreground">By {b.user.name} ({b.user.phone})</Text>
+                ) : null}
+                <View className="flex-row items-center gap-3 mt-1">
+                  <Text className="text-[10px] text-muted-foreground">
+                    {b.is_live ? "🟢 Live" : "🔴 Offline"}
+                  </Text>
+                  <Text className="text-[10px] text-muted-foreground">{b.phone}</Text>
+                </View>
+                {b.approval_status === "pending" && (
+                  <View className="flex-row gap-2 mt-2">
+                    <Button size="sm" className="flex-1 rounded-lg" onPress={() => handleApproveCard(b.id)}>
+                      <CheckCircle size={14} color="#ffffff" /> Approve
+                    </Button>
+                    <Button size="sm" variant="outline" className="flex-1 rounded-lg text-destructive" onPress={() => handleRejectCard(b.id)}>
+                      <XCircle size={14} color="#ef4444" /> Reject
+                    </Button>
+                  </View>
+                )}
               </View>
             ))}
           </View>
         )}
 
+        {/* ─── Events ───────────────────────────────────────────────────── */}
         {tab === "events" && (
           <View className="gap-3">
             {events.map((e: any) => (
               <View key={e.id} className="rounded-xl border border-border bg-card p-3">
                 <Text className="text-sm font-semibold text-foreground">{e.title}</Text>
                 <Text className="text-xs text-muted-foreground">{e.venue}</Text>
-                <Badge className="text-[9px] mt-2">{e.approval_status || "pending"}</Badge>
               </View>
             ))}
           </View>
         )}
 
+        {/* ─── Vouchers ─────────────────────────────────────────────────── */}
         {tab === "vouchers" && (
           <View className="gap-3">
             {vouchers.map((v: any) => (
@@ -448,18 +415,7 @@ const AdminPanel = () => {
           </View>
         )}
 
-        {tab === "ads" && (
-          <View className="gap-3">
-            {ads.map((a: any) => (
-              <View key={a.id} className="rounded-xl border border-border bg-card p-3">
-                <Text className="text-sm font-semibold text-foreground">{a.title}</Text>
-                <Text className="text-xs text-muted-foreground capitalize">{a.ad_type}</Text>
-                <Badge className="text-[9px] mt-2">{a.approval_status}</Badge>
-              </View>
-            ))}
-          </View>
-        )}
-
+        {/* ─── Reviews ──────────────────────────────────────────────────── */}
         {tab === "reviews" && (
           <View className="gap-3">
             {reviews.map((r: any) => (
@@ -468,91 +424,11 @@ const AdminPanel = () => {
                   {r.comment?.slice(0, 60) || "No comment"}
                 </Text>
                 <Text className="text-xs text-muted-foreground mt-1">Rating: {r.rating}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {tab === "reports" && (
-          <View className="gap-3">
-            {reports.map((r: any) => (
-              <View key={r.id} className="rounded-xl border border-border bg-card p-3">
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-sm font-medium text-foreground">{r.reason}</Text>
-                  <Badge variant={r.status === "resolved" ? "secondary" : "default"} className="text-[9px]">
-                    {r.status}
-                  </Badge>
-                </View>
-                {r.details ? (
-                  <Text className="text-xs text-muted-foreground mt-1">{r.details}</Text>
+                {r.user ? (
+                  <Text className="text-[10px] text-muted-foreground">By {r.user.name}</Text>
                 ) : null}
               </View>
             ))}
-          </View>
-        )}
-
-        {tab === "disputes" && (
-          <View className="gap-3">
-            {disputes.map((d: any) => (
-              <View key={d.id} className="rounded-xl border border-border bg-card p-3">
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-sm font-medium text-foreground">{d.dispute_type} dispute</Text>
-                  <Badge className="text-[9px]">{d.status}</Badge>
-                </View>
-                <Text className="text-xs text-foreground mt-1">{d.description}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {tab === "tickets" && (
-          <View className="gap-3">
-            {tickets.map((t: any) => (
-              <View key={t.id} className="rounded-xl border border-border bg-card p-3">
-                <View className="flex-row items-center justify-between">
-                  <Text className="text-sm font-medium text-foreground">{t.subject}</Text>
-                  <Badge className="text-[9px] capitalize">{t.status}</Badge>
-                </View>
-                <Text className="text-xs text-muted-foreground mt-1">{t.description?.slice(0, 80)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {tab === "notifications" && (
-          <View className="gap-3">
-            <View className="rounded-xl border border-border bg-card p-4 gap-3">
-              <Text className="text-sm font-bold text-foreground">Broadcast Notification</Text>
-              <Input placeholder="Notification title" value={broadcastTitle} onChangeText={setBroadcastTitle} className="rounded-xl" />
-              <Textarea
-                placeholder="Description (optional)"
-                value={broadcastDesc}
-                onChangeText={setBroadcastDesc}
-                className="rounded-xl"
-              />
-              <Button
-                size="sm"
-                className="rounded-xl gap-1"
-                onPress={async () => {
-                  if (!broadcastTitle.trim()) return;
-                  const { error } = await supabase.from("notifications").insert({
-                    title: broadcastTitle,
-                    description: broadcastDesc || null,
-                    type: "broadcast",
-                  } as any);
-                  if (error) {
-                    toast.error("Failed to broadcast");
-                    return;
-                  }
-                  toast.success("Broadcast sent");
-                  setBroadcastTitle("");
-                  setBroadcastDesc("");
-                  queryClient.invalidateQueries({ queryKey: ["notifications"] });
-                }}
-              >
-                <Bell size={14} color="#ffffff" /> Broadcast
-              </Button>
-            </View>
           </View>
         )}
       </ScrollView>
@@ -561,4 +437,3 @@ const AdminPanel = () => {
 };
 
 export default AdminDashboard;
-
