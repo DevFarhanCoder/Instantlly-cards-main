@@ -20,11 +20,11 @@ import {
 import { Button } from "../ui/button";
 import { colors } from "../../theme/colors";
 import {
-  recordAdClick,
   useActiveAds,
   useRecordImpression,
+  useRecordClick,
 } from "../../hooks/useActiveAds";
-import { supabase } from "../../integrations/supabase/client";
+import { useGetCardQuery } from "../../store/api/businessCardsApi";
 
 interface BannerAdSlotProps {
   variant?: "inline" | "sticky";
@@ -32,12 +32,12 @@ interface BannerAdSlotProps {
 }
 
 const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
-  const { data: ads = [] } = useActiveAds(adType || "banner");
+  const { data: ads = [] } = useActiveAds(adType);
   const navigation = useNavigation<any>();
   const [index, setIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [dismissed, setDismissed] = useState(false);
-  const [businessCard, setBusinessCard] = useState<any>(null);
+  const recordClick = useRecordClick();
 
   const activeAds = useMemo(
     () => ads.filter((a) => a.status === "active"),
@@ -56,23 +56,13 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
 
   useRecordImpression(ad?.id);
 
-  useEffect(() => {
-    if (!expanded || !ad?.business_card_id) {
-      setBusinessCard(null);
-      return;
-    }
-    supabase
-      .from("business_cards")
-      .select("*")
-      .eq("id", ad.business_card_id)
-      .single()
-      .then(({ data }) => setBusinessCard(data));
-  }, [expanded, ad?.business_card_id]);
+  const cardId = expanded && ad?.business_card_id ? Number(ad.business_card_id) : 0;
+  const { data: businessCard } = useGetCardQuery(cardId, { skip: !cardId });
 
   if (activeAds.length === 0 || dismissed) return null;
 
   const handleClick = () => {
-    if (ad) recordAdClick(ad.id);
+    if (ad) recordClick(ad.id);
     setExpanded(true);
   };
 

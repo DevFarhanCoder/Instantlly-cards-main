@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useListPromotionsQuery, useListPromotionsNearbyQuery, useGetPromotionQuery } from "../store/api/promotionsApi";
-import { useGetCardQuery } from "../store/api/businessCardsApi";
+import { useGetCardQuery, useListCardsQuery } from "../store/api/businessCardsApi";
 
 export interface DirectoryCard {
   id: string;
@@ -223,16 +223,9 @@ export function useDirectoryFeed(options?: { pageSize?: number; category?: strin
   const [items, setItems] = useState<DirectoryCard[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const lastKeyRef = useRef<string>("");
-  const refetchRef = useRef<(() => void) | null>(null);  const useNearby = Boolean(options?.lat && options?.lng) || Boolean(options?.city || options?.state);
-  
-  console.log('[useDirectoryFeed] Hook params:', {
-    category: options?.category,
-    page,
-    pageSize,
-    useNearby,
-    skip: options?.skip
-  });
-  
+  const refetchRef = useRef<(() => void) | null>(null);
+  const useNearby = Boolean(options?.lat && options?.lng) || Boolean(options?.city || options?.state);
+
   const nearbyQuery = useListPromotionsNearbyQuery(
     {
       page,
@@ -245,99 +238,105 @@ export function useDirectoryFeed(options?: { pageSize?: number; category?: strin
       city: options?.city,
       state: options?.state,
     },
-    { 
+    {
       skip: options?.skip ?? !useNearby,
       refetchOnMountOrArgChange: true,
     }
   );
   const normalQuery = useListPromotionsQuery(
     { page, limit: pageSize, category: options?.category, search: options?.search },
-    { 
-      skip: options?.skip,  // Always run normal query (unless explicitly skipped)
+    {
+      skip: options?.skip,
       refetchOnMountOrArgChange: true,
     }
   );
-  
+
+  // Also fetch approved+live business cards for the same category
+  const cardsQuery = useListCardsQuery(
+    { page, limit: pageSize, category: options?.category, search: options?.search },
+    {
+      skip: options?.skip,
+      refetchOnMountOrArgChange: true,
+    }
+  );
+
   // If nearby returns no results but normal query has results, use normal query
-  const shouldFallbackToNormal = useNearby && 
-    nearbyQuery.data && 
-    (nearbyQuery.data.data || []).length === 0 && 
-    normalQuery.data && 
+  const shouldFallbackToNormal = useNearby &&
+    nearbyQuery.data &&
+    (nearbyQuery.data.data || []).length === 0 &&
+    normalQuery.data &&
     (normalQuery.data.data || []).length > 0;
-  
+
   const query = shouldFallbackToNormal ? normalQuery : (useNearby ? nearbyQuery : normalQuery);
-  
-  console.log('[useDirectoryFeed] Query selection:', {
-    useNearby,
-    shouldFallbackToNormal,
-    usingQuery: shouldFallbackToNormal ? 'normal' : (useNearby ? 'nearby' : 'normal'),
-    nearbyResults: nearbyQuery.data?.data?.length ?? 'no data',
-    normalResults: normalQuery.data?.data?.length ?? 'no data'
-  });
-  
+
   // Store refetch function in ref to avoid dependency issues
   refetchRef.current = query.refetch;
 
   useEffect(() => {
     const key = `${options?.category ?? ""}::${options?.search ?? ""}`;
     if (lastKeyRef.current !== key) {
-      console.log('[useDirectoryFeed] Category changed:', { from: lastKeyRef.current, to: key });
       const isInitialMount = lastKeyRef.current === "";
       lastKeyRef.current = key;
       setPage(1);
       setItems([]);
       setHasMore(true);
-      // Force refetch when category changes (but not on initial mount)
       if (!isInitialMount && key && refetchRef.current) {
-        console.log('[useDirectoryFeed] Triggering refetch for new category');
         refetchRef.current();
       }
     }
   }, [options?.category, options?.search]);
 
   useEffect(() => {
-    console.log('[useDirectoryFeed] Query data changed:', {
-      hasData: !!query.data,
-      dataLength: query.data?.data?.length ?? 0,
-      isLoading: query.isLoading,
-      isFetching: query.isFetching,
-      page,
-      category: options?.category
-    });
-    
-    if (!query.data) {
-      // If no data and not loading, ensure items are cleared
-      if (!query.isLoading && !query.isFetching) {
+    const promoData = query.data?.data || [];
+    const cardData = cardsQuery.data?.data || [];
+
+    if (!query.data && !cardsQuery.data) {
+      if (!query.isLoading && !query.isFetching && !cardsQuery.isLoading && !cardsQuery.isFetching) {
         setItems([]);
       }
       return;
     }
-    const mapped = (query.data.data || []).map(mapPromotionToDirectoryCard);
-    setHasMore(mapped.length >= pageSize);
+
+    // Map promotions
+    const promoMapped = promoData.map(mapPromotionToDirectoryCard);
+
+    // Map business cards, but skip any that already have a promotion (dedup by business_card_id)
+    const promoCardIds = new Set(
+      promoMapped
+        .map((p) => p.business_card_id)
+        .filter(Boolean)
+    );
+    const cardMapped = cardData
+      .filter((c: any) => !promoCardIds.has(String(c.id)))
+      .map(mapCardToDirectoryCard);
+
+    const merged = [...promoMapped, ...cardMapped];
+    const totalFetched = promoData.length + cardData.length;
+    setHasMore(totalFetched >= pageSize);
+
     if (page === 1) {
-      console.log('[useDirectoryFeed] Setting items for page 1:', mapped.length);
-      setItems(mapped);
+      setItems(merged);
       return;
     }
     setItems((prev) => {
       const map = new Map(prev.map((c) => [c.id, c]));
-      mapped.forEach((c) => map.set(c.id, c));
+      merged.forEach((c) => map.set(c.id, c));
       return Array.from(map.values());
     });
-  }, [query.data, page, pageSize, query.isLoading, query.isFetching, options?.category]);
+  }, [query.data, cardsQuery.data, page, pageSize, query.isLoading, query.isFetching, cardsQuery.isLoading, cardsQuery.isFetching]);
 
   const loadMore = () => {
-    if (query.isFetching || !hasMore) return;
+    if (query.isFetching || cardsQuery.isFetching || !hasMore) return;
     setPage((p) => p + 1);
   };
 
   return {
     data: items,
-    isLoading: query.isLoading && page === 1,
-    isFetching: query.isFetching,
+    isLoading: (query.isLoading || cardsQuery.isLoading) && page === 1,
+    isFetching: query.isFetching || cardsQuery.isFetching,
     hasMore,
     loadMore,
-    error: query.error,
+    error: query.error || cardsQuery.error,
     refetch: query.refetch,
   };
 }

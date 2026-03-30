@@ -1,12 +1,14 @@
-import { ScrollView, Text, View, Pressable, Image } from "react-native";
+import { ScrollView, Text, View, Pressable, Image, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
   ArrowLeft,
   Eye,
+  IndianRupee,
   MousePointerClick,
   Pause,
   Play,
   Plus,
+  Trash2,
   TrendingUp,
   Trophy,
 } from "lucide-react-native";
@@ -14,7 +16,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Skeleton } from "../components/ui/skeleton";
 import { Progress } from "../components/ui/progress";
-import { useAdCampaigns, useUpdateAdCampaign, type AdCampaign } from "../hooks/useAds";
+import { useAdCampaigns, useUpdateAdCampaign, useDeleteAdCampaign, type AdCampaign } from "../hooks/useAds";
 import { useAdVariants } from "../hooks/useActiveAds";
 
 const statusColors: Record<string, string> = {
@@ -23,13 +25,25 @@ const statusColors: Record<string, string> = {
   completed: "bg-muted text-muted-foreground",
 };
 
+const approvalColors: Record<string, string> = {
+  approved: "bg-green-500/10 text-green-600",
+  pending: "bg-orange-500/10 text-orange-600",
+  rejected: "bg-red-500/10 text-red-600",
+};
+
+const approvalLabels: Record<string, string> = {
+  approved: "Approved",
+  pending: "Pending Approval",
+  rejected: "Rejected",
+};
+
 const typeEmoji: Record<string, string> = {
   banner: "🖼️",
   featured: "⭐",
   sponsored: "💳",
 };
 
-const VariantStats = ({ campaignId }: { campaignId: string }) => {
+const VariantStats = ({ campaignId }: { campaignId: number }) => {
   const { data: variants = [] } = useAdVariants(campaignId);
   if (variants.length < 2) return null;
 
@@ -68,15 +82,29 @@ const AdDashboard = () => {
   const navigation = useNavigation<any>();
   const { data: campaigns = [], isLoading } = useAdCampaigns();
   const updateCampaign = useUpdateAdCampaign();
+  const deleteCampaign = useDeleteAdCampaign();
 
   const totalImpressions = campaigns.reduce((s, a) => s + a.impressions, 0);
   const totalClicks = campaigns.reduce((s, a) => s + a.clicks, 0);
   const totalSpent = campaigns.reduce((s, a) => s + a.spent, 0);
   const ctr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(1) : "0";
+  const cpc = totalClicks > 0 ? (totalSpent / totalClicks).toFixed(1) : "—";
+  const cpm = totalImpressions > 0 ? ((totalSpent / totalImpressions) * 1000).toFixed(1) : "—";
 
   const toggleStatus = (ad: AdCampaign) => {
     const newStatus = ad.status === "active" ? "paused" : "active";
     updateCampaign.mutate({ id: ad.id, status: newStatus });
+  };
+
+  const handleDelete = (ad: AdCampaign) => {
+    Alert.alert("Delete Campaign", `Delete "${ad.title}"? This cannot be undone.`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => deleteCampaign.mutateAsync(ad.id).catch(() => {}),
+      },
+    ]);
   };
 
   return (
@@ -99,7 +127,9 @@ const AdDashboard = () => {
             { label: "Impressions", value: totalImpressions.toLocaleString(), icon: Eye, color: "#2563eb" },
             { label: "Clicks", value: totalClicks.toLocaleString(), icon: MousePointerClick, color: "#0f766e" },
             { label: "CTR", value: `${ctr}%`, icon: TrendingUp, color: "#16a34a" },
-            { label: "Spent", value: `₹${totalSpent.toLocaleString()}`, icon: TrendingUp, color: "#ca8a04" },
+            { label: "CPC", value: cpc === "—" ? "—" : `₹${cpc}`, icon: MousePointerClick, color: "#7c3aed" },
+            { label: "CPM", value: cpm === "—" ? "—" : `₹${cpm}`, icon: IndianRupee, color: "#dc2626" },
+            { label: "Spent", value: `₹${totalSpent.toLocaleString()}`, icon: IndianRupee, color: "#ca8a04" },
           ].map((s) => (
             <View key={s.label} className="w-[48%] rounded-xl border border-border bg-card p-3">
               <View className="flex-row items-center gap-1.5 mb-1">
@@ -131,7 +161,7 @@ const AdDashboard = () => {
             <View className="gap-3">
               {campaigns.map((ad) => {
                 const budgetPct =
-                  ad.total_budget > 0 ? Math.min((ad.spent / ad.total_budget) * 100, 100) : 0;
+                  (ad.total_budget ?? 0) > 0 ? Math.min((ad.spent / ad.total_budget!) * 100, 100) : 0;
                 return (
                   <View key={ad.id} className="rounded-xl border border-border bg-card p-4">
                     <View className="flex-row items-start justify-between mb-2">
@@ -147,19 +177,41 @@ const AdDashboard = () => {
                         </View>
                       </View>
                       <View className="items-end gap-1">
-                        <Badge className={`border-none text-[10px] ${statusColors[ad.status] || statusColors.active}`}>
-                          {ad.status}
-                        </Badge>
-                        <Badge variant="outline" className="text-[10px]">{ad.approval_status}</Badge>
+                        {ad.approval_status !== "approved" ? (
+                          <Badge className={`border-none text-[10px] ${approvalColors[ad.approval_status] || approvalColors.pending}`}>
+                            {approvalLabels[ad.approval_status] || ad.approval_status}
+                          </Badge>
+                        ) : (
+                          <Badge className={`border-none text-[10px] ${statusColors[ad.status] || statusColors.active}`}>
+                            {ad.status}
+                          </Badge>
+                        )}
                       </View>
                     </View>
 
-                    <View className="flex-row justify-between mb-3">
+                    <View className="flex-row justify-between mb-1">
                       {[
                         { label: "Views", value: ad.impressions.toLocaleString() },
                         { label: "Clicks", value: ad.clicks.toLocaleString() },
                         { label: "Spent", value: `₹${ad.spent.toLocaleString()}` },
                       ].map((s) => (
+                        <View key={s.label} className="items-center flex-1">
+                          <Text className="text-xs text-muted-foreground">{s.label}</Text>
+                          <Text className="text-sm font-semibold text-foreground">{s.value}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <View className="flex-row justify-between mb-3">
+                      {(() => {
+                        const adCtr = ad.impressions > 0 ? ((ad.clicks / ad.impressions) * 100).toFixed(1) : "0";
+                        const adCpc = ad.clicks > 0 ? (ad.spent / ad.clicks).toFixed(1) : "—";
+                        const adCpm = ad.impressions > 0 ? ((ad.spent / ad.impressions) * 1000).toFixed(1) : "—";
+                        return [
+                          { label: "CTR", value: `${adCtr}%` },
+                          { label: "CPC", value: adCpc === "—" ? "—" : `₹${adCpc}` },
+                          { label: "CPM", value: adCpm === "—" ? "—" : `₹${adCpm}` },
+                        ];
+                      })().map((s) => (
                         <View key={s.label} className="items-center flex-1">
                           <Text className="text-xs text-muted-foreground">{s.label}</Text>
                           <Text className="text-sm font-semibold text-foreground">{s.value}</Text>
@@ -176,23 +228,45 @@ const AdDashboard = () => {
 
                     <VariantStats campaignId={ad.id} />
 
-                    {ad.status !== "completed" && (
+                    {ad.status !== "completed" && ad.approval_status === "approved" && (
+                      <View className="flex-row gap-2 mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-1 rounded-lg text-xs"
+                          onPress={() => toggleStatus(ad)}
+                          disabled={updateCampaign.isPending}
+                        >
+                          {ad.status === "active" ? (
+                            <>
+                              <Pause size={12} color="#111827" /> Pause
+                            </>
+                          ) : (
+                            <>
+                              <Play size={12} color="#111827" /> Resume
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 rounded-lg text-xs"
+                          onPress={() => handleDelete(ad)}
+                          disabled={deleteCampaign.isPending}
+                        >
+                          <Trash2 size={12} color="#ef4444" />
+                        </Button>
+                      </View>
+                    )}
+                    {(ad.status === "completed" || ad.approval_status !== "approved") && (
                       <Button
                         variant="outline"
                         size="sm"
                         className="w-full gap-1 rounded-lg text-xs mt-2"
-                        onPress={() => toggleStatus(ad)}
-                        disabled={updateCampaign.isPending}
+                        onPress={() => handleDelete(ad)}
+                        disabled={deleteCampaign.isPending}
                       >
-                        {ad.status === "active" ? (
-                          <>
-                            <Pause size={12} color="#111827" /> Pause
-                          </>
-                        ) : (
-                          <>
-                            <Play size={12} color="#111827" /> Resume
-                          </>
-                        )}
+                        <Trash2 size={12} color="#ef4444" /> Delete
                       </Button>
                     )}
                   </View>
