@@ -20,7 +20,13 @@ export const promotionsApi = baseApi.injectEndpoints({
         if (typeof radius === 'number') params.set('radius', String(radius));
         if (city) params.set('city', city);
         if (state) params.set('state', state);
-        return `/promotions/nearby?${params.toString()}`;
+        const url = `/promotions/nearby?${params.toString()}`;
+        console.log('[listPromotionsNearby API] Request:', { url, category, page, limit });
+        return url;
+      },
+      transformResponse: (response: { data: any[]; page: number; limit?: number }) => {
+        console.log('[listPromotionsNearby API] Response:', { dataLength: response.data.length, page: response.page });
+        return response;
       },
       providesTags: ['Promotion'],
     }),
@@ -37,7 +43,13 @@ export const promotionsApi = baseApi.injectEndpoints({
         if (listing_type) params.set('listing_type', listing_type);
         if (status) params.set('status', status);
         if (typeof is_active === 'boolean') params.set('is_active', String(is_active));
-        return `/promotions?${params.toString()}`;
+        const url = `/promotions?${params.toString()}`;
+        console.log('[listPromotions API] Request:', { url, category, page, limit });
+        return url;
+      },
+      transformResponse: (response: { data: any[]; page: number; limit?: number }) => {
+        console.log('[listPromotions API] Response:', { dataLength: response.data.length, page: response.page });
+        return response;
       },
       providesTags: ['Promotion'],
     }),

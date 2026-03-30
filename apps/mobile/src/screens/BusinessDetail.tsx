@@ -430,68 +430,80 @@ const BusinessDetail = () => {
         </View>
       </ScrollView>
 
-      <View className="border-t border-border bg-card px-4 py-3 flex-row gap-2">
-        <Button
-          className="flex-1 gap-1.5 rounded-xl py-5"
-          onPress={async () => {
-            trackCardEvent(businessId || card.id, "message_click");
-            if (!user) {
-              toast.error("Please sign in to message");
-              navigation.navigate("Auth");
-              return;
-            }
-            await createConversation.mutateAsync({
-              businessId: businessId || card.id,
-              businessName: card.full_name,
-              businessAvatar: card.logo_url || "🏢",
-            });
-            navigation.navigate("Messaging");
-          }}
-        >
-          <MessageCircle size={14} color="#ffffff" /> Message
-        </Button>
-        <Button
-          variant="outline"
-          className="flex-1 gap-1.5 rounded-xl py-5"
-          onPress={() => {
-            trackCardEvent(businessId || card.id, "phone_click");
-            Linking.openURL(`tel:${card.phone}`);
-          }}
-        >
-          <Phone size={14} color={colors.foreground} /> Call
-        </Button>
-        {card.whatsapp && (
+      <View className="border-t border-border bg-card px-4 py-3">
+        {/* Top Row - Primary Actions */}
+        <View className="flex-row gap-2 mb-2">
+          <Button
+            className="flex-1 gap-1.5 rounded-xl py-3.5"
+            onPress={async () => {
+              trackCardEvent(businessId || card.id, "message_click");
+              if (!user) {
+                toast.error("Please sign in to message");
+                navigation.navigate("Auth");
+                return;
+              }
+              await createConversation.mutateAsync({
+                businessId: businessId || card.id,
+                businessName: card.full_name,
+                businessAvatar: card.logo_url || "🏢",
+              });
+              navigation.navigate("Messaging");
+            }}
+          >
+            <MessageCircle size={16} color="#ffffff" />
+            <Text className="text-xs font-semibold text-white">Message</Text>
+          </Button>
           <Button
             variant="outline"
-            className="gap-1.5 rounded-xl py-5"
-            onPress={() =>
-              Linking.openURL(`https://wa.me/${card.whatsapp!.replace(/[^0-9]/g, "")}`)
-            }
+            className="flex-1 gap-1.5 rounded-xl py-3.5"
+            onPress={() => {
+              trackCardEvent(businessId || card.id, "phone_click");
+              Linking.openURL(`tel:${card.phone}`);
+            }}
           >
-            <MessageCircle size={14} color={colors.foreground} /> WA
+            <Phone size={16} color={colors.foreground} />
+            <Text className="text-xs font-semibold text-foreground">Call</Text>
           </Button>
-        )}
-        <Button
-          variant="outline"
-          className="gap-1.5 rounded-xl py-5"
-          onPress={() => setShowBooking(true)}
-        >
-          <CalendarCheck size={14} color={colors.foreground} /> Book
-        </Button>
-        <Button
-          variant="outline"
-          className="gap-1.5 rounded-xl py-5"
-          onPress={() => {
-            if (!user) {
-              toast.error("Please sign in");
-              navigation.navigate("Auth");
-              return;
-            }
-            setShowDisputeDialog(true);
-          }}
-        >
-          <Flag size={14} color={colors.foreground} />
-        </Button>
+        </View>
+        
+        {/* Bottom Row - Secondary Actions */}
+        <View className="flex-row gap-2">
+          {card.whatsapp && (
+            <Button
+              variant="outline"
+              className="flex-1 gap-1.5 rounded-xl py-3.5"
+              onPress={() =>
+                Linking.openURL(`https://wa.me/${card.whatsapp!.replace(/[^0-9]/g, "")}`)
+              }
+            >
+              <MessageCircle size={16} color="#25D366" />
+              <Text className="text-xs font-semibold text-foreground">WhatsApp</Text>
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            className="flex-1 gap-1.5 rounded-xl py-3.5"
+            onPress={() => setShowBooking(true)}
+          >
+            <CalendarCheck size={16} color={colors.foreground} />
+            <Text className="text-xs font-semibold text-foreground">Book</Text>
+          </Button>
+          <Button
+            variant="outline"
+            className={`gap-1.5 rounded-xl py-3.5 ${card.whatsapp ? '' : 'flex-1'}`}
+            onPress={() => {
+              if (!user) {
+                toast.error("Please sign in");
+                navigation.navigate("Auth");
+                return;
+              }
+              setShowDisputeDialog(true);
+            }}
+          >
+            <Flag size={16} color={colors.foreground} />
+            <Text className="text-xs font-semibold text-foreground">Report</Text>
+          </Button>
+        </View>
       </View>
 
       <Dialog open={showReviewDialog} onOpenChange={setShowReviewDialog}>

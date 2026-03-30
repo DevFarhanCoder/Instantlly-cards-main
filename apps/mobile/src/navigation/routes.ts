@@ -4,6 +4,7 @@ export type RootStackParamList = {
   CardCreate: { cardId?: string; plan?: string } | undefined;
   BusinessDetail: { id: string } | undefined;
   CategoryDetail: { id: string } | undefined;
+  SubcategoryDetail: { subcategory: string; categoryName: string; categoryIcon: string } | undefined;
   Messaging: undefined;
   Vouchers: undefined;
   VoucherDetail: { id: string } | undefined;
