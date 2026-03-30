@@ -222,7 +222,17 @@ export function useDirectoryFeed(options?: { pageSize?: number; category?: strin
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<DirectoryCard[]>([]);
   const [hasMore, setHasMore] = useState(true);
-  const lastKeyRef = useRef<string>("");  const useNearby = Boolean(options?.lat && options?.lng) || Boolean(options?.city || options?.state);
+  const lastKeyRef = useRef<string>("");
+  const refetchRef = useRef<(() => void) | null>(null);  const useNearby = Boolean(options?.lat && options?.lng) || Boolean(options?.city || options?.state);
+  
+  console.log('[useDirectoryFeed] Hook params:', {
+    category: options?.category,
+    page,
+    pageSize,
+    useNearby,
+    skip: options?.skip
+  });
+  
   const nearbyQuery = useListPromotionsNearbyQuery(
     {
       page,
@@ -235,29 +245,77 @@ export function useDirectoryFeed(options?: { pageSize?: number; category?: strin
       city: options?.city,
       state: options?.state,
     },
-    { skip: options?.skip ?? !useNearby }
+    { 
+      skip: options?.skip ?? !useNearby,
+      refetchOnMountOrArgChange: true,
+    }
   );
   const normalQuery = useListPromotionsQuery(
     { page, limit: pageSize, category: options?.category, search: options?.search },
-    { skip: options?.skip ?? useNearby }
+    { 
+      skip: options?.skip,  // Always run normal query (unless explicitly skipped)
+      refetchOnMountOrArgChange: true,
+    }
   );
-  const query = useNearby ? nearbyQuery : normalQuery;
+  
+  // If nearby returns no results but normal query has results, use normal query
+  const shouldFallbackToNormal = useNearby && 
+    nearbyQuery.data && 
+    (nearbyQuery.data.data || []).length === 0 && 
+    normalQuery.data && 
+    (normalQuery.data.data || []).length > 0;
+  
+  const query = shouldFallbackToNormal ? normalQuery : (useNearby ? nearbyQuery : normalQuery);
+  
+  console.log('[useDirectoryFeed] Query selection:', {
+    useNearby,
+    shouldFallbackToNormal,
+    usingQuery: shouldFallbackToNormal ? 'normal' : (useNearby ? 'nearby' : 'normal'),
+    nearbyResults: nearbyQuery.data?.data?.length ?? 'no data',
+    normalResults: normalQuery.data?.data?.length ?? 'no data'
+  });
+  
+  // Store refetch function in ref to avoid dependency issues
+  refetchRef.current = query.refetch;
 
   useEffect(() => {
     const key = `${options?.category ?? ""}::${options?.search ?? ""}`;
     if (lastKeyRef.current !== key) {
+      console.log('[useDirectoryFeed] Category changed:', { from: lastKeyRef.current, to: key });
+      const isInitialMount = lastKeyRef.current === "";
       lastKeyRef.current = key;
       setPage(1);
       setItems([]);
       setHasMore(true);
+      // Force refetch when category changes (but not on initial mount)
+      if (!isInitialMount && key && refetchRef.current) {
+        console.log('[useDirectoryFeed] Triggering refetch for new category');
+        refetchRef.current();
+      }
     }
   }, [options?.category, options?.search]);
 
   useEffect(() => {
-    if (!query.data) return;
+    console.log('[useDirectoryFeed] Query data changed:', {
+      hasData: !!query.data,
+      dataLength: query.data?.data?.length ?? 0,
+      isLoading: query.isLoading,
+      isFetching: query.isFetching,
+      page,
+      category: options?.category
+    });
+    
+    if (!query.data) {
+      // If no data and not loading, ensure items are cleared
+      if (!query.isLoading && !query.isFetching) {
+        setItems([]);
+      }
+      return;
+    }
     const mapped = (query.data.data || []).map(mapPromotionToDirectoryCard);
     setHasMore(mapped.length >= pageSize);
     if (page === 1) {
+      console.log('[useDirectoryFeed] Setting items for page 1:', mapped.length);
       setItems(mapped);
       return;
     }
@@ -266,7 +324,7 @@ export function useDirectoryFeed(options?: { pageSize?: number; category?: strin
       mapped.forEach((c) => map.set(c.id, c));
       return Array.from(map.values());
     });
-  }, [query.data, page, pageSize]);
+  }, [query.data, page, pageSize, query.isLoading, query.isFetching, options?.category]);
 
   const loadMore = () => {
     if (query.isFetching || !hasMore) return;

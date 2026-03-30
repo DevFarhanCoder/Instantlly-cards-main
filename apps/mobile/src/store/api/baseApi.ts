@@ -88,6 +88,8 @@ export const baseApi = createApi({
     'Review',
     'Group',
     'SharedCard',
+    'Booking',
+    'Event',
   ],
   endpoints: () => ({}),
 });

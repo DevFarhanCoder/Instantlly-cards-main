@@ -17,6 +17,7 @@ import AdCreate from "../screens/AdCreate";
 import AdDashboard from "../screens/AdDashboard";
 import BusinessDetail from "../screens/BusinessDetail";
 import CategoryDetail from "../screens/CategoryDetail";
+import SubcategoryDetail from "../screens/SubcategoryDetail";
 import NearbyBusinesses from "../screens/NearbyBusinesses";
 import BusinessDashboard from "../screens/BusinessDashboard";
 import BusinessAnalytics from "../screens/BusinessAnalytics";
@@ -37,6 +38,10 @@ import PublicCard from "../screens/PublicCard";
 import MyPasses from "../screens/MyPasses";
 import MyFavourites from "../screens/MyFavourites";
 import TrackBooking from "../screens/TrackBooking";
+import BookingDetail from "../screens/BookingDetail";
+import EventEdit from "../screens/EventEdit";
+import EventRegistrations from "../screens/EventRegistrations";
+import PassDetail from "../screens/PassDetail";
 import VoucherCreate from "../screens/VoucherCreate";
 import AppLayout from "../components/layout/AppLayout";
 import type { RootStackParamList } from "./routes";
@@ -82,6 +87,7 @@ const MyCardsScreen        = withLayout(MyCards);
 const CardCreateScreen     = withLayout(CardCreate);
 const BusinessDetailScreen = withLayout(BusinessDetail);
 const CategoryDetailScreen = withLayout(CategoryDetail);
+const SubcategoryDetailScreen = withLayout(SubcategoryDetail);
 const MessagingScreen      = withLayout(Messaging);
 const VouchersScreen       = withLayout(Vouchers);
 const VoucherDetailScreen  = withLayout(VoucherDetail);
@@ -110,6 +116,10 @@ const PrivacySecurityScreen = withLayout(PrivacySecurity);
 const ReferAndEarnScreen   = withLayout(ReferAndEarn);
 const MyFavouritesScreen   = withLayout(MyFavourites);
 const TrackBookingScreen   = withLayout(TrackBooking);
+const BookingDetailScreen  = withLayout(BookingDetail);
+const EventEditScreen      = withLayout(EventEdit);
+const EventRegistrationsScreen = withLayout(EventRegistrations);
+const PassDetailScreen = withLayout(PassDetail);
 const SupportScreen        = withLayout(Support);
 const NearbyBusinessesScreen = withLayout(NearbyBusinesses);
 const LoyaltyPointsScreen  = withLayout(LoyaltyPoints);
@@ -128,6 +138,7 @@ const AppNavigator = () => {
         <Stack.Screen name="CardCreate"        component={CardCreateScreen} />
         <Stack.Screen name="BusinessDetail"    component={BusinessDetailScreen} />
         <Stack.Screen name="CategoryDetail"    component={CategoryDetailScreen} />
+        <Stack.Screen name="SubcategoryDetail" component={SubcategoryDetailScreen} />
         <Stack.Screen name="Messaging"         component={MessagingScreen} />
         <Stack.Screen name="Vouchers"          component={VouchersScreen} />
         <Stack.Screen name="VoucherDetail"     component={VoucherDetailScreen} />
@@ -156,6 +167,10 @@ const AppNavigator = () => {
         <Stack.Screen name="ReferAndEarn"      component={ReferAndEarnScreen} />
         <Stack.Screen name="MyFavourites"      component={MyFavouritesScreen} />
         <Stack.Screen name="TrackBooking"      component={TrackBookingScreen} />
+        <Stack.Screen name="BookingDetail"     component={BookingDetailScreen} />
+        <Stack.Screen name="EventEdit"         component={EventEditScreen} />
+        <Stack.Screen name="EventRegistrations" component={EventRegistrationsScreen} />
+        <Stack.Screen name="PassDetail"        component={PassDetailScreen} />
         <Stack.Screen name="Support"           component={SupportScreen} />
         <Stack.Screen name="NearbyBusinesses"  component={NearbyBusinessesScreen} />
         <Stack.Screen name="LoyaltyPoints"     component={LoyaltyPointsScreen} />

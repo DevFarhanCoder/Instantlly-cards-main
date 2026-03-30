@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import {
@@ -7,6 +7,7 @@ import {
   Clock,
   MapPin,
   Users,
+  CheckCircle,
 } from "lucide-react-native";
 import QRCode from "react-native-qrcode-svg";
 import { Badge } from "../components/ui/badge";
@@ -14,38 +15,35 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { useEvent, useRegisterForEvent, EventRegistration } from "../hooks/useEvents";
+import { useAuth } from "../hooks/useAuth";
+import { useEvent, useRegisterForEvent, useMyRegistrations } from "../hooks/useEvents";
 import { toast } from "../lib/toast";
-import { cn } from "../lib/utils";
-
-const categoryEmoji: Record<string, string> = {
-  Awards: "🏆",
-  Conference: "🎤",
-  Networking: "🤝",
-  Festival: "🎪",
-  Wellness: "🧘",
-  Workshop: "🔧",
-  Music: "🎵",
-  Sports: "⚽",
-};
 
 const EventDetail = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const id = route?.params?.id as string | undefined;
+  const id = route?.params?.id;
   const { data: event, isLoading } = useEvent(id || "");
   const registerMutation = useRegisterForEvent();
+  const { user } = useAuth();
+  const { registrations } = useMyRegistrations();
 
-  const [showForm, setShowForm] = useState(false);
-  const [registration, setRegistration] = useState<EventRegistration | null>(null);
-  const [form, setForm] = useState({ full_name: "", email: "", phone: "" });
-
-  const eventEmoji = useMemo(
-    () => (event ? categoryEmoji[event.category] || "🎉" : "🎉"),
-    [event]
+  // Check if user already registered for this event
+  const existingPass = registrations.find(
+    (r: any) => String(r.event_id) === String(id)
   );
 
+  const [showForm, setShowForm] = useState(false);
+  const [showPriceConfirm, setShowPriceConfirm] = useState(false);
+  const [registration, setRegistration] = useState<any>(null);
+  const [form, setForm] = useState({ full_name: "", email: "", phone: "" });
+
   const handleRegister = async () => {
+    if (!user) {
+      toast.error("Please sign in to register");
+      navigation.navigate("Auth");
+      return;
+    }
     if (!form.full_name || !form.email) {
       toast.error("Please fill in your name and email");
       return;
@@ -58,10 +56,34 @@ const EventDetail = () => {
         phone: form.phone || undefined,
       });
       setRegistration(result);
-      toast.success("🎉 Registration successful! Your QR pass is ready");
+      toast.success("Registration successful! Your QR pass is ready");
     } catch (err: any) {
-      toast.error(err?.message || "Registration failed");
+      // Handle 409 — already registered
+      if (err?.status === 409 || err?.data?.error === "Already registered") {
+        toast.error("You are already registered for this event");
+        return;
+      }
+      toast.error(err?.data?.error || err?.message || "Registration failed");
     }
+  };
+
+  const handleRegisterPress = () => {
+    if (!user) {
+      toast.error("Please sign in to register");
+      navigation.navigate("Auth");
+      return;
+    }
+    // For paid events, show price confirmation first
+    if (event && event.ticket_price && event.ticket_price > 0) {
+      setShowPriceConfirm(true);
+    } else {
+      setShowForm(true);
+    }
+  };
+
+  const handleConfirmPaid = () => {
+    setShowPriceConfirm(false);
+    setShowForm(true);
   };
 
   if (isLoading) {
@@ -84,6 +106,7 @@ const EventDetail = () => {
     );
   }
 
+  // Show QR pass after fresh registration
   if (registration) {
     return (
       <View className="flex-1 bg-background">
@@ -121,27 +144,17 @@ const EventDetail = () => {
               </View>
               <View className="gap-2 rounded-xl bg-muted p-4">
                 <View className="flex-row items-center gap-2">
-                  <Text className="text-sm font-medium text-foreground">Name:</Text>
-                  <Text className="text-sm text-muted-foreground">
-                    {registration.full_name}
-                  </Text>
-                </View>
-                <View className="flex-row items-center gap-2">
-                  <Text className="text-sm font-medium text-foreground">Email:</Text>
-                  <Text className="text-sm text-muted-foreground">
-                    {registration.email}
-                  </Text>
-                </View>
-                <View className="flex-row items-center gap-2">
                   <Calendar size={14} color="#6a7181" />
                   <Text className="text-sm text-muted-foreground">
-                    {event.date} • {event.time}
+                    {new Date(event.date).toLocaleDateString()} • {event.time}
                   </Text>
                 </View>
-                <View className="flex-row items-center gap-2">
-                  <MapPin size={14} color="#6a7181" />
-                  <Text className="text-sm text-muted-foreground">{event.venue}</Text>
-                </View>
+                {event.location && (
+                  <View className="flex-row items-center gap-2">
+                    <MapPin size={14} color="#6a7181" />
+                    <Text className="text-sm text-muted-foreground">{event.location}</Text>
+                  </View>
+                )}
               </View>
               <Text className="text-center text-xs text-muted-foreground">
                 Show this QR code at the event entrance for verification
@@ -152,6 +165,8 @@ const EventDetail = () => {
       </View>
     );
   }
+
+  const isFree = !event.ticket_price || event.ticket_price === 0;
 
   return (
     <View className="flex-1 bg-background">
@@ -166,7 +181,7 @@ const EventDetail = () => {
       </View>
 
       <View className="h-48 bg-primary/10 items-center justify-center">
-        <Text className="text-7xl">{eventEmoji}</Text>
+        <Text className="text-7xl">🎉</Text>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 -mt-6">
@@ -174,16 +189,13 @@ const EventDetail = () => {
           <CardContent className="p-5 gap-4">
             <View>
               <View className="flex-row items-center gap-2 mb-2">
-                <Badge className="bg-primary/10 text-primary border-none text-xs">
-                  {event.category}
-                </Badge>
-                {event.is_free ? (
+                {isFree ? (
                   <Badge className="bg-success/10 text-success border-none text-xs">
                     FREE
                   </Badge>
                 ) : (
                   <Badge className="bg-accent/10 text-accent border-none text-xs font-bold">
-                    ₹{event.price}
+                    ₹{event.ticket_price}
                   </Badge>
                 )}
               </View>
@@ -197,41 +209,102 @@ const EventDetail = () => {
             <View className="gap-2.5 rounded-xl bg-muted p-4">
               <View className="flex-row items-center gap-3">
                 <Calendar size={16} color="#2563eb" />
-                <Text className="text-sm text-foreground">{event.date}</Text>
+                <Text className="text-sm text-foreground">
+                  {new Date(event.date).toLocaleDateString()}
+                </Text>
               </View>
               <View className="flex-row items-center gap-3">
                 <Clock size={16} color="#2563eb" />
                 <Text className="text-sm text-foreground">{event.time}</Text>
               </View>
-              <View className="flex-row items-center gap-3">
-                <MapPin size={16} color="#2563eb" />
-                <Text className="text-sm text-foreground">{event.venue}</Text>
-              </View>
+              {event.location && (
+                <View className="flex-row items-center gap-3">
+                  <MapPin size={16} color="#2563eb" />
+                  <Text className="text-sm text-foreground">{event.location}</Text>
+                </View>
+              )}
               {event.max_attendees && (
                 <View className="flex-row items-center gap-3">
                   <Users size={16} color="#2563eb" />
                   <Text className="text-sm text-foreground">
-                    {event.max_attendees} seats
+                    {event.max_attendees} seats ({event.attendee_count || 0} registered)
                   </Text>
                 </View>
               )}
-              {event.organizer_name && (
+              {event.business && (
                 <View className="flex-row items-center gap-3">
                   <Text className="text-sm text-muted-foreground">Organized by</Text>
                   <Text className="text-sm font-medium text-foreground">
-                    {event.organizer_name}
+                    {event.business.company_name || event.business.full_name}
                   </Text>
                 </View>
               )}
             </View>
 
-            {!showForm ? (
-              <Button className="w-full" size="lg" onPress={() => setShowForm(true)}>
-                Register Now →
+            {/* Already registered — show pass */}
+            {existingPass ? (
+              <View className="gap-3">
+                <View className="flex-row items-center gap-2 bg-success/10 rounded-xl p-4">
+                  <CheckCircle size={20} color="#16a34a" />
+                  <View className="flex-1">
+                    <Text className="text-sm font-bold text-success">Already Registered</Text>
+                    <Text className="text-xs text-muted-foreground">
+                      You have a pass for this event
+                    </Text>
+                  </View>
+                </View>
+                {existingPass.qr_code && (
+                  <View className="items-center bg-muted/30 rounded-xl p-4 gap-2 border border-dashed border-border">
+                    <QRCode value={existingPass.qr_code} size={160} />
+                    <Text className="text-[10px] text-muted-foreground font-mono">
+                      {existingPass.qr_code}
+                    </Text>
+                  </View>
+                )}
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onPress={() => navigation.navigate("MyPasses")}
+                >
+                  View All Passes
+                </Button>
+              </View>
+            ) : showPriceConfirm ? (
+              /* Price confirmation for paid events */
+              <View className="gap-3 rounded-xl border border-border bg-card p-4">
+                <Text className="font-semibold text-foreground text-center">Confirm Registration</Text>
+                <View className="items-center py-3">
+                  <Text className="text-3xl font-bold text-primary">₹{event.ticket_price}</Text>
+                  <Text className="text-xs text-muted-foreground mt-1">Ticket Price</Text>
+                </View>
+                <Text className="text-xs text-muted-foreground text-center">
+                  Payment will be collected at the venue. By proceeding, you confirm your intent to attend.
+                </Text>
+                <Button className="w-full" size="lg" onPress={handleConfirmPaid}>
+                  Proceed to Register
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onPress={() => setShowPriceConfirm(false)}
+                >
+                  Cancel
+                </Button>
+              </View>
+            ) : !showForm ? (
+              <Button className="w-full" size="lg" onPress={handleRegisterPress}>
+                {isFree ? "Register Now →" : `Register — ₹${event.ticket_price}`}
               </Button>
             ) : (
               <View className="gap-3">
                 <Text className="font-semibold text-foreground">Registration Details</Text>
+                {!isFree && (
+                  <View className="flex-row items-center gap-2 bg-primary/5 rounded-lg px-3 py-2">
+                    <Text className="text-xs text-muted-foreground">Ticket:</Text>
+                    <Text className="text-sm font-bold text-primary">₹{event.ticket_price}</Text>
+                    <Text className="text-xs text-muted-foreground">(pay at venue)</Text>
+                  </View>
+                )}
                 <View className="gap-2">
                   <Label>Full Name *</Label>
                   <Input
@@ -267,7 +340,9 @@ const EventDetail = () => {
                 >
                   {registerMutation.isPending
                     ? "Registering..."
-                    : "Confirm Registration 🎟️"}
+                    : isFree
+                    ? "Confirm Registration"
+                    : `Confirm & Register — ₹${event.ticket_price}`}
                 </Button>
               </View>
             )}
@@ -279,4 +354,3 @@ const EventDetail = () => {
 };
 
 export default EventDetail;
-
