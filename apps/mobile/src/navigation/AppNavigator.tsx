@@ -17,6 +17,7 @@ import AdCreate from "../screens/AdCreate";
 import AdDashboard from "../screens/AdDashboard";
 import BusinessDetail from "../screens/BusinessDetail";
 import CategoryDetail from "../screens/CategoryDetail";
+import SubcategoryDetail from "../screens/SubcategoryDetail";
 import NearbyBusinesses from "../screens/NearbyBusinesses";
 import BusinessDashboard from "../screens/BusinessDashboard";
 import BusinessAnalytics from "../screens/BusinessAnalytics";
@@ -86,6 +87,7 @@ const MyCardsScreen        = withLayout(MyCards);
 const CardCreateScreen     = withLayout(CardCreate);
 const BusinessDetailScreen = withLayout(BusinessDetail);
 const CategoryDetailScreen = withLayout(CategoryDetail);
+const SubcategoryDetailScreen = withLayout(SubcategoryDetail);
 const MessagingScreen      = withLayout(Messaging);
 const VouchersScreen       = withLayout(Vouchers);
 const VoucherDetailScreen  = withLayout(VoucherDetail);
@@ -136,6 +138,7 @@ const AppNavigator = () => {
         <Stack.Screen name="CardCreate"        component={CardCreateScreen} />
         <Stack.Screen name="BusinessDetail"    component={BusinessDetailScreen} />
         <Stack.Screen name="CategoryDetail"    component={CategoryDetailScreen} />
+        <Stack.Screen name="SubcategoryDetail" component={SubcategoryDetailScreen} />
         <Stack.Screen name="Messaging"         component={MessagingScreen} />
         <Stack.Screen name="Vouchers"          component={VouchersScreen} />
         <Stack.Screen name="VoucherDetail"     component={VoucherDetailScreen} />
