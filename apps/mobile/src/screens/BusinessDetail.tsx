@@ -37,6 +37,7 @@ import LeadForm from "../components/business/LeadForm";
 import { useFavorites } from "../contexts/FavoritesContext";
 import { useReviews } from "../hooks/useReviews";
 import { useAuth } from "../hooks/useAuth";
+import { useBookings } from "../hooks/useBookings";
 import { useCreateConversation } from "../hooks/useMessages";
 import { useDirectoryCard } from "../hooks/useDirectoryCards";
 import { Skeleton } from "../components/ui/skeleton";
@@ -61,6 +62,7 @@ const BusinessDetail = () => {
   const [showShareCard, setShowShareCard] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const { user } = useAuth();
+  const { createBooking } = useBookings();
   const createConversation = useCreateConversation();
   const { data: card, isLoading } = useDirectoryCard(id || "");
   const businessId = card?.business_card_id ?? card?.id ?? "";
@@ -581,6 +583,20 @@ const BusinessDetail = () => {
         businessName={card.full_name}
         businessLogo={card.logo_url || "🏢"}
         businessId={businessId || card.id}
+        isSignedIn={!!user}
+        onRequireAuth={() => navigation.navigate("Auth")}
+        onSubmit={async (payload) => {
+          await createBooking({
+            business_id: typeof payload.business_id === 'string' ? parseInt(payload.business_id, 10) : payload.business_id,
+            business_name: payload.business_name,
+            mode: payload.mode as any,
+            booking_date: payload.booking_date,
+            booking_time: payload.booking_time,
+            customer_name: payload.customer_name,
+            customer_phone: payload.customer_phone,
+            notes: payload.notes,
+          });
+        }}
       />
       <ShareCardModal
         open={showShareCard}

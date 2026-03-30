@@ -27,8 +27,11 @@ const TrackBooking = () => {
   const renderBooking = (booking: any, i: number) => {
     const status = statusConfig[booking.status] || statusConfig.pending;
     return (
-      <View key={booking.id} className="rounded-xl border border-border bg-card p-4 gap-2">
-        <View className="flex-row items-start justify-between">
+      <Pressable
+        key={booking.id}
+        onPress={() => navigation.navigate("BookingDetail", { id: booking.id })}
+        className="rounded-xl border border-border bg-card p-4 gap-2"
+      >        <View className="flex-row items-start justify-between">
           <View className="min-w-0">
             <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
               {booking.business_name}
@@ -77,7 +80,7 @@ const TrackBooking = () => {
             <RefreshCw size={12} color="#111827" /> Re-book
           </Button>
         )}
-      </View>
+      </Pressable>
     );
   };
 

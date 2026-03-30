@@ -32,6 +32,10 @@ export type RootStackParamList = {
   ReferAndEarn: undefined;
   MyFavourites: undefined;
   TrackBooking: undefined;
+  BookingDetail: { id: string | number } | undefined;
+  EventEdit: { id: string | number } | undefined;
+  EventRegistrations: { id: string | number } | undefined;
+  PassDetail: { passId: string | number } | undefined;
   Support: undefined;
   NearbyBusinesses: undefined;
   LoyaltyPoints: undefined;

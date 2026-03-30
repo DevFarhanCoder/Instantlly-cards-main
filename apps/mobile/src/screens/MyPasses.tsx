@@ -1,6 +1,5 @@
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { useQuery } from "@tanstack/react-query";
 import QRCode from "react-native-qrcode-svg";
 import { CalendarDays, Clock, LogOut, MapPin, Ticket, CheckCircle2 } from "lucide-react-native";
 import { format } from "date-fns";
@@ -8,26 +7,12 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import { useAuth } from "../hooks/useAuth";
-import { supabase } from "../integrations/supabase/client";
+import { useMyRegistrations } from "../hooks/useEvents";
 
 const MyPasses = () => {
   const navigation = useNavigation<any>();
   const { user, signOut, loading: authLoading } = useAuth();
-
-  const { data: passes, isLoading } = useQuery({
-    queryKey: ["my-passes", user?.email],
-    queryFn: async () => {
-      if (!user?.email) return [];
-      const { data, error } = await supabase
-        .from("event_registrations")
-        .select("*, events(*)")
-        .eq("email", user.email)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: !!user?.email,
-  });
+  const { registrations: passes, isLoading } = useMyRegistrations();
 
   if (authLoading) {
     return (
@@ -59,7 +44,7 @@ const MyPasses = () => {
       <View className="bg-primary px-4 py-4 flex-row items-center justify-between">
         <View>
           <Text className="text-lg font-bold text-primary-foreground">My Passes</Text>
-          <Text className="text-xs text-primary-foreground/70">{user.email}</Text>
+          <Text className="text-xs text-primary-foreground/70">{(user as any).email}</Text>
         </View>
         <Button
           variant="ghost"
@@ -85,52 +70,57 @@ const MyPasses = () => {
             </Button>
           </View>
         ) : (
-          passes.map((pass, i) => (
-            <Card key={pass.id} className="overflow-hidden">
-              <CardContent className="p-0">
-                <View className="p-4 gap-2">
-                  <View className="flex-row items-start justify-between">
-                    <Text className="font-bold text-foreground">{pass.events?.title}</Text>
-                    {pass.is_verified ? (
-                      <Badge className="bg-success/10 text-success border-success/30 flex-row items-center gap-1">
-                        <CheckCircle2 size={12} color="#16a34a" /> Verified
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">Pending</Badge>
-                    )}
+          passes.map((pass: any) => (
+            <Pressable
+              key={pass.id}
+              onPress={() => navigation.navigate("PassDetail", { passId: pass.id })}
+            >
+              <Card className="overflow-hidden">
+                <CardContent className="p-0">
+                  <View className="p-4 gap-2">
+                    <View className="flex-row items-start justify-between">
+                      <Text className="font-bold text-foreground flex-1 mr-2">{pass.event?.title}</Text>
+                      <Badge variant="secondary">Registered</Badge>
+                    </View>
+                    <View className="flex-row flex-wrap gap-3">
+                      {pass.event?.date && (
+                        <View className="flex-row items-center gap-1">
+                          <CalendarDays size={12} color="#6a7181" />
+                          <Text className="text-xs text-muted-foreground">
+                            {format(new Date(pass.event.date), "MMM d, yyyy")}
+                          </Text>
+                        </View>
+                      )}
+                      {pass.event?.time && (
+                        <View className="flex-row items-center gap-1">
+                          <Clock size={12} color="#6a7181" />
+                          <Text className="text-xs text-muted-foreground">{pass.event.time}</Text>
+                        </View>
+                      )}
+                      {(pass.event?.location) && (
+                        <View className="flex-row items-center gap-1">
+                          <MapPin size={12} color="#6a7181" />
+                          <Text className="text-xs text-muted-foreground">{pass.event.location}</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
-                  <View className="flex-row flex-wrap gap-3">
-                    {pass.events?.date && (
-                      <View className="flex-row items-center gap-1">
-                        <CalendarDays size={12} color="#6a7181" />
-                        <Text className="text-xs text-muted-foreground">
-                          {format(new Date(pass.events.date), "MMM d, yyyy")}
-                        </Text>
-                      </View>
-                    )}
-                    {pass.events?.time && (
-                      <View className="flex-row items-center gap-1">
-                        <Clock size={12} color="#6a7181" />
-                        <Text className="text-xs text-muted-foreground">{pass.events.time}</Text>
-                      </View>
-                    )}
-                    {pass.events?.venue && (
-                      <View className="flex-row items-center gap-1">
-                        <MapPin size={12} color="#6a7181" />
-                        <Text className="text-xs text-muted-foreground">{pass.events.venue}</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
 
-                <View className="border-t border-dashed border-border bg-muted/30 p-4 items-center gap-2">
-                  <QRCode value={pass.qr_code} size={140} />
-                  <Text className="text-[10px] text-muted-foreground font-mono text-center">
-                    {pass.qr_code}
-                  </Text>
-                </View>
-              </CardContent>
-            </Card>
+                  {pass.qr_code ? (
+                    <View className="border-t border-dashed border-border bg-muted/30 p-4 items-center gap-2">
+                      <QRCode value={pass.qr_code} size={100} />
+                      <Text className="text-[10px] text-primary font-medium">
+                        Tap to view full pass
+                      </Text>
+                    </View>
+                  ) : (
+                    <View className="border-t border-dashed border-border bg-muted/30 p-3 items-center">
+                      <Text className="text-xs text-muted-foreground">Tap to view details</Text>
+                    </View>
+                  )}
+                </CardContent>
+              </Card>
+            </Pressable>
           ))
         )}
       </ScrollView>
@@ -139,4 +129,3 @@ const MyPasses = () => {
 };
 
 export default MyPasses;
-

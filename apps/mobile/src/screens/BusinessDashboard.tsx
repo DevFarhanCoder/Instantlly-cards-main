@@ -25,6 +25,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { useAuth } from "../hooks/useAuth";
 import { useBusinessCards } from "../hooks/useBusinessCards";
 import { supabase } from "../integrations/supabase/client";
+import { useListBusinessBookingsQuery, useUpdateBookingStatusMutation } from "../store/api/bookingsApi";
+import { useListMyEventsQuery } from "../store/api/eventsApi";
 import BookingCalendar from "../components/business/BookingCalendar";
 import BusinessHoursEditor from "../components/business/BusinessHoursEditor";
 import LeadsManager from "../components/business/LeadsManager";
@@ -45,49 +47,31 @@ const BusinessDashboard = () => {
   const cardIds = cards.map((c) => c.id);
   const primaryCard = cards[0];
 
-  const { data: incomingBookings = [], isLoading: bookingsLoading } = useQuery({
-    queryKey: ["business-bookings", cardIds],
-    queryFn: async () => {
-      if (cardIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("bookings")
-        .select("*")
-        .in("business_id", cardIds)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: !!user && cardIds.length > 0,
-  });
+  const primaryCardId = primaryCard?.id;
+  const numericCardId = typeof primaryCardId === 'string' ? parseInt(primaryCardId, 10) : primaryCardId;
+  const { data: bookingsData, isLoading: bookingsLoading } = useListBusinessBookingsQuery(
+    { businessId: numericCardId! },
+    { skip: !numericCardId }
+  );
+  const incomingBookings: any[] = bookingsData?.data ?? [];
 
-  const { data: myEvents = [] } = useQuery({
-    queryKey: ["business-events", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: !!user,
-  });
+  const { data: myEvents = [] } = useListMyEventsQuery(undefined, { skip: !user });
 
   const eventIds = myEvents.map((e) => e.id);
+  const eventIdStrings = eventIds.map(String);
   const { data: eventRegistrations = [] } = useQuery({
     queryKey: ["business-event-registrations", eventIds],
     queryFn: async () => {
-      if (eventIds.length === 0) return [];
+      if (eventIdStrings.length === 0) return [];
       const { data, error } = await supabase
         .from("event_registrations")
         .select("*")
-        .in("event_id", eventIds)
+        .in("event_id", eventIdStrings)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as any[];
     },
-    enabled: eventIds.length > 0,
+    enabled: eventIdStrings.length > 0,
   });
 
   const { data: myVouchers = [] } = useQuery({
@@ -166,16 +150,15 @@ const BusinessDashboard = () => {
     enabled: !!user && cardIds.length > 0,
   });
 
-  const updateBookingStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from("bookings").update({ status }).eq("id", id);
-      if (error) throw error;
+  const [updateBookingStatusTrigger] = useUpdateBookingStatusMutation();
+  const updateBookingStatus = {
+    mutate: ({ id, status }: { id: any; status: string }) => {
+      const numId = typeof id === 'string' ? parseInt(id, 10) : id;
+      updateBookingStatusTrigger({ id: numId, status }).then(() => {
+        toast.success("Booking updated!");
+      });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["business-bookings"] });
-      toast.success("Booking updated!");
-    },
-  });
+  };
 
   const updateVoucherStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -407,25 +390,35 @@ const BusinessDashboard = () => {
               </View>
             ) : (
               myEvents.map((e: any) => {
-                const regs = eventRegistrations.filter((r: any) => r.event_id === e.id);
+                const regs = eventRegistrations.filter((r: any) => String(r.event_id) === String(e.id));
                 return (
                   <View key={e.id} className="rounded-xl border border-border bg-card p-4 gap-2">
                     <View className="flex-row items-start justify-between">
-                      <Pressable onPress={() => navigation.navigate("EventDetail", { id: e.id })}>
+                      <Pressable onPress={() => navigation.navigate("EventDetail", { id: e.id })} className="flex-1">
                         <Text className="text-sm font-bold text-foreground">{e.title}</Text>
-                        <Text className="text-xs text-muted-foreground">{e.venue} • {e.date}</Text>
+                        <Text className="text-xs text-muted-foreground">{e.location || ''} • {e.date ? new Date(e.date).toLocaleDateString() : ''}</Text>
                       </Pressable>
                       <Pressable onPress={() => deleteEvent.mutate(e.id)}>
                         <Trash2 size={16} color="#ef4444" />
                       </Pressable>
                     </View>
-                    <View className="flex-row items-center gap-2">
-                      <Text className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                        <Users size={12} color="#2563eb" /> {regs.length} registrations
-                      </Text>
-                      {e.max_attendees && (
-                        <Text className="text-[10px] text-muted-foreground">/ {e.max_attendees} max</Text>
-                      )}
+                    <Pressable onPress={() => navigation.navigate("EventRegistrations", { id: e.id })}>
+                      <View className="flex-row items-center gap-2">
+                        <Text className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                          <Users size={12} color="#2563eb" /> {e._count?.registrations ?? regs.length} registrations
+                        </Text>
+                        {e.max_attendees && (
+                          <Text className="text-[10px] text-muted-foreground">/ {e.max_attendees} max</Text>
+                        )}
+                      </View>
+                    </Pressable>
+                    <View className="flex-row gap-2 mt-1">
+                      <Button size="sm" variant="outline" className="flex-1 rounded-lg text-xs" onPress={() => navigation.navigate("EventEdit", { id: e.id })}>
+                        Edit
+                      </Button>
+                      <Button size="sm" variant="outline" className="flex-1 rounded-lg text-xs" onPress={() => navigation.navigate("EventRegistrations", { id: e.id })}>
+                        Attendees
+                      </Button>
                     </View>
                   </View>
                 );

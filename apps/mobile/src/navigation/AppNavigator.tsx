@@ -37,6 +37,10 @@ import PublicCard from "../screens/PublicCard";
 import MyPasses from "../screens/MyPasses";
 import MyFavourites from "../screens/MyFavourites";
 import TrackBooking from "../screens/TrackBooking";
+import BookingDetail from "../screens/BookingDetail";
+import EventEdit from "../screens/EventEdit";
+import EventRegistrations from "../screens/EventRegistrations";
+import PassDetail from "../screens/PassDetail";
 import VoucherCreate from "../screens/VoucherCreate";
 import AppLayout from "../components/layout/AppLayout";
 import type { RootStackParamList } from "./routes";
@@ -110,6 +114,10 @@ const PrivacySecurityScreen = withLayout(PrivacySecurity);
 const ReferAndEarnScreen   = withLayout(ReferAndEarn);
 const MyFavouritesScreen   = withLayout(MyFavourites);
 const TrackBookingScreen   = withLayout(TrackBooking);
+const BookingDetailScreen  = withLayout(BookingDetail);
+const EventEditScreen      = withLayout(EventEdit);
+const EventRegistrationsScreen = withLayout(EventRegistrations);
+const PassDetailScreen = withLayout(PassDetail);
 const SupportScreen        = withLayout(Support);
 const NearbyBusinessesScreen = withLayout(NearbyBusinesses);
 const LoyaltyPointsScreen  = withLayout(LoyaltyPoints);
@@ -156,6 +164,10 @@ const AppNavigator = () => {
         <Stack.Screen name="ReferAndEarn"      component={ReferAndEarnScreen} />
         <Stack.Screen name="MyFavourites"      component={MyFavouritesScreen} />
         <Stack.Screen name="TrackBooking"      component={TrackBookingScreen} />
+        <Stack.Screen name="BookingDetail"     component={BookingDetailScreen} />
+        <Stack.Screen name="EventEdit"         component={EventEditScreen} />
+        <Stack.Screen name="EventRegistrations" component={EventRegistrationsScreen} />
+        <Stack.Screen name="PassDetail"        component={PassDetailScreen} />
         <Stack.Screen name="Support"           component={SupportScreen} />
         <Stack.Screen name="NearbyBusinesses"  component={NearbyBusinessesScreen} />
         <Stack.Screen name="LoyaltyPoints"     component={LoyaltyPointsScreen} />
