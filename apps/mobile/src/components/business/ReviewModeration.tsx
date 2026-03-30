@@ -108,7 +108,7 @@ const ReviewModeration = ({ cardIds }: ReviewModerationProps) => {
   }
 
   return (
-    <View className="space-y-3">
+    <View className="gap-3">
       <View className="rounded-xl border border-border bg-card p-4 items-center">
         <Text className="text-3xl font-bold text-foreground">{avgRating}</Text>
         <View className="flex-row justify-center gap-0.5 mt-1">
@@ -150,7 +150,7 @@ const ReviewModeration = ({ cardIds }: ReviewModerationProps) => {
         return (
           <View
             key={r.id}
-            className={`rounded-xl border bg-card p-3 space-y-2 ${
+            className={`rounded-xl border bg-card p-3 gap-2 ${
               r.is_flagged ? "border-destructive/40" : spamFlag ? "border-amber-400/40" : "border-border"
             }`}
           >
@@ -202,7 +202,7 @@ const ReviewModeration = ({ cardIds }: ReviewModerationProps) => {
                 </Text>
               </View>
             ) : replyingTo === r.id ? (
-              <View className="mt-2 space-y-2">
+              <View className="mt-2 gap-2">
                 <Textarea
                   placeholder="Write your reply..."
                   value={replyText}

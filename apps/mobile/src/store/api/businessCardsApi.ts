@@ -40,6 +40,14 @@ export const businessCardsApi = baseApi.injectEndpoints({
       query: () => '/cards/shared',
       providesTags: ['SharedCard'],
     }),
+    uploadImage: builder.mutation<{ url: string }, FormData>({
+      query: (formData) => ({
+        url: '/uploads/image',
+        method: 'POST',
+        body: formData,
+        formData: true,
+      }),
+    }),
   }),
 });
 
@@ -52,4 +60,5 @@ export const {
   useDeleteCardMutation,
   useShareCardMutation,
   useGetSharedCardsQuery,
+  useUploadImageMutation,
 } = businessCardsApi;

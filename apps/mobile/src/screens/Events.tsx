@@ -135,7 +135,7 @@ const Events = () => {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4 space-y-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5">
         <View className="relative">
           <View className="absolute left-3 top-3.5">
             <Search size={16} color="#9aa2b1" />
@@ -282,11 +282,11 @@ const Events = () => {
           </Text>
 
           {isLoading ? (
-            <View className="space-y-3">
+            <View className="gap-3">
               {[1, 2, 3].map((i) => (
                 <View key={i} className="flex-row gap-3 bg-card rounded-xl overflow-hidden">
                   <Skeleton className="w-24 h-28" />
-                  <View className="py-3 pr-3 space-y-2 flex-1">
+                  <View className="py-3 pr-3 gap-2 flex-1">
                     <Skeleton className="h-4 w-3/4" />
                     <Skeleton className="h-3 w-1/2" />
                     <Skeleton className="h-3 w-2/3" />
@@ -300,7 +300,7 @@ const Events = () => {
               <Text className="text-sm text-muted-foreground">No events found</Text>
             </View>
           ) : (
-            <View className="space-y-3">
+            <View className="gap-3">
               {upcomingEvents.map((event) => (
                 <Pressable
                   key={event.id}

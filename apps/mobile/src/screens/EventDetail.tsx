@@ -96,7 +96,7 @@ const EventDetail = () => {
             <Text className="font-medium text-primary-foreground">Back to Events</Text>
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-8">
+        <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-8">
           <Card className="overflow-hidden">
             <View className="bg-success/10 p-6 items-center">
               <Text className="text-5xl">🎉</Text>
@@ -107,7 +107,7 @@ const EventDetail = () => {
                 {event.title}
               </Text>
             </View>
-            <CardContent className="p-6 space-y-6">
+            <CardContent className="p-6 gap-6">
               <View className="items-center">
                 <View className="bg-white p-4 rounded-2xl shadow-md">
                   <QRCode value={registration.qr_code} size={200} />
@@ -119,7 +119,7 @@ const EventDetail = () => {
                   {registration.qr_code}
                 </Text>
               </View>
-              <View className="space-y-2 rounded-xl bg-muted p-4">
+              <View className="gap-2 rounded-xl bg-muted p-4">
                 <View className="flex-row items-center gap-2">
                   <Text className="text-sm font-medium text-foreground">Name:</Text>
                   <Text className="text-sm text-muted-foreground">
@@ -169,9 +169,9 @@ const EventDetail = () => {
         <Text className="text-7xl">{eventEmoji}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 -mt-6">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 -mt-6">
         <Card>
-          <CardContent className="p-5 space-y-4">
+          <CardContent className="p-5 gap-4">
             <View>
               <View className="flex-row items-center gap-2 mb-2">
                 <Badge className="bg-primary/10 text-primary border-none text-xs">
@@ -194,7 +194,7 @@ const EventDetail = () => {
               <Text className="text-sm text-muted-foreground">{event.description}</Text>
             )}
 
-            <View className="space-y-2.5 rounded-xl bg-muted p-4">
+            <View className="gap-2.5 rounded-xl bg-muted p-4">
               <View className="flex-row items-center gap-3">
                 <Calendar size={16} color="#2563eb" />
                 <Text className="text-sm text-foreground">{event.date}</Text>
@@ -230,9 +230,9 @@ const EventDetail = () => {
                 Register Now →
               </Button>
             ) : (
-              <View className="space-y-3">
+              <View className="gap-3">
                 <Text className="font-semibold text-foreground">Registration Details</Text>
-                <View className="space-y-2">
+                <View className="gap-2">
                   <Label>Full Name *</Label>
                   <Input
                     placeholder="Enter your full name"
@@ -240,7 +240,7 @@ const EventDetail = () => {
                     onChangeText={(v) => setForm({ ...form, full_name: v })}
                   />
                 </View>
-                <View className="space-y-2">
+                <View className="gap-2">
                   <Label>Email *</Label>
                   <Input
                     placeholder="your@email.com"
@@ -250,7 +250,7 @@ const EventDetail = () => {
                     autoCapitalize="none"
                   />
                 </View>
-                <View className="space-y-2">
+                <View className="gap-2">
                   <Label>Phone (Optional)</Label>
                   <Input
                     placeholder="+91 98765 43210"

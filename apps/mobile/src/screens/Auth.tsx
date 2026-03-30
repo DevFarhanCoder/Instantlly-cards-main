@@ -231,7 +231,7 @@ const Auth = ({ navigation }: Props) => {
 
           {/* Login Card */}
           <Card className="w-full max-w-md border-0 shadow-xl rounded-3xl bg-white">
-            <CardContent className="p-6 space-y-4">
+            <CardContent className="p-6 gap-4">
               {/* Customer/Business Toggle */}
               <View className="flex-row gap-2">
                 <Pressable
@@ -270,10 +270,10 @@ const Auth = ({ navigation }: Props) => {
               </View>
 
               {/* Form Fields */}
-              <View className="space-y-3">
+              <View className="gap-3">
                 {/* Name Field (Sign Up Only) */}
                 {isSignUp && (
-                  <View className="space-y-1.5">
+                  <View className="gap-1.5">
                     <Text className="text-sm font-bold text-gray-900">
                       {roleTab === 'business' ? 'Business Name' : 'Full Name'}
                     </Text>
@@ -291,7 +291,7 @@ const Auth = ({ navigation }: Props) => {
                 )}
 
                 {/* Phone Number Field */}
-                <View className="space-y-1.5">
+                <View className="gap-1.5">
                   <Text className="text-sm font-bold text-gray-900">Phone Number</Text>
                   <View className="relative">
                     <Input
@@ -321,7 +321,7 @@ const Auth = ({ navigation }: Props) => {
                 </View>
 
                 {/* Password Field */}
-                <View className="space-y-1.5">
+                <View className="gap-1.5">
                   <Text className="text-sm font-bold text-gray-900">Password</Text>
                   <View className="relative">
                     <Input
@@ -352,7 +352,7 @@ const Auth = ({ navigation }: Props) => {
 
                 {/* Confirm Password Field (Sign Up Only) */}
                 {isSignUp && (
-                  <View className="space-y-1.5">
+                  <View className="gap-1.5">
                     <Text className="text-sm font-bold text-gray-900">Confirm Password</Text>
                     <View className="relative">
                       <Input
@@ -396,7 +396,7 @@ const Auth = ({ navigation }: Props) => {
 
               {/* Quick Demo Section (Sign In Only) */}
               {!isSignUp && (
-                <View className="space-y-2 pt-1">
+                <View className="gap-2 pt-1">
                   <View className="flex-row items-center gap-2">
                     <View className="h-px flex-1 bg-gray-300" />
                     <Text className="text-xs text-gray-600 font-bold tracking-wider">QUICK DEMO</Text>

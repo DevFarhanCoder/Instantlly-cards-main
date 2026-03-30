@@ -108,7 +108,7 @@ const Dashboard = () => {
         <Text className="text-lg font-bold text-foreground">My Dashboard</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4 space-y-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5">
         <View className="flex-row gap-3">
           {[
             { label: "Active", value: pendingBookings.length, emoji: "⏳" },
@@ -156,12 +156,12 @@ const Dashboard = () => {
                   Cancelled ({cancelledBookings.length})
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="all" className="space-y-2 mt-3">
+              <TabsContent value="all" className="gap-2 mt-3">
                 {bookings.map((b) => (
                   <BookingCard key={b.id} b={b} />
                 ))}
               </TabsContent>
-              <TabsContent value="active" className="space-y-2 mt-3">
+              <TabsContent value="active" className="gap-2 mt-3">
                 {pendingBookings.length === 0 ? (
                   <Text className="text-xs text-muted-foreground text-center py-4">
                     No active bookings
@@ -170,7 +170,7 @@ const Dashboard = () => {
                   pendingBookings.map((b) => <BookingCard key={b.id} b={b} />)
                 )}
               </TabsContent>
-              <TabsContent value="completed" className="space-y-2 mt-3">
+              <TabsContent value="completed" className="gap-2 mt-3">
                 {completedBookings.length === 0 ? (
                   <Text className="text-xs text-muted-foreground text-center py-4">
                     No completed bookings
@@ -179,7 +179,7 @@ const Dashboard = () => {
                   completedBookings.map((b) => <BookingCard key={b.id} b={b} />)
                 )}
               </TabsContent>
-              <TabsContent value="cancelled" className="space-y-2 mt-3">
+              <TabsContent value="cancelled" className="gap-2 mt-3">
                 {cancelledBookings.length === 0 ? (
                   <Text className="text-xs text-muted-foreground text-center py-4">
                     No cancelled bookings

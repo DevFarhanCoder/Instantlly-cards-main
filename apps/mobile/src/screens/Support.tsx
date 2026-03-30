@@ -83,10 +83,10 @@ const Support = () => {
         <Text className="text-lg font-bold text-foreground">Help & Support</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4 space-y-6">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-6">
         <View>
           <Text className="text-sm font-semibold text-foreground mb-3">❓ Frequently Asked</Text>
-          <View className="space-y-2">
+          <View className="gap-2">
             {faqItems.map((faq, i) => (
               <View key={i} className="rounded-xl border border-border bg-card overflow-hidden">
                 <Pressable
@@ -107,7 +107,7 @@ const Support = () => {
 
         <View>
           <Text className="text-sm font-semibold text-foreground mb-3">📩 Raise a Ticket</Text>
-          <View className="space-y-3 rounded-xl border border-border bg-card p-4">
+          <View className="gap-3 rounded-xl border border-border bg-card p-4">
             <Input
               placeholder="Subject"
               value={subject}
@@ -134,7 +134,7 @@ const Support = () => {
         {tickets.length > 0 && (
           <View>
             <Text className="text-sm font-semibold text-foreground mb-3">🎫 Your Tickets</Text>
-            <View className="space-y-2">
+            <View className="gap-2">
               {tickets.map((ticket: any) => {
                 const status = statusConfig[ticket.status] || statusConfig.open;
                 return (

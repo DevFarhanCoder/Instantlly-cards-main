@@ -98,7 +98,7 @@ const PaymentMethods = () => {
         <Text className="text-lg font-bold text-foreground">Payment Methods</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5">
         <View className="rounded-xl border border-border bg-card p-4">
           <Text className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             Accepted Payment Types
@@ -118,7 +118,7 @@ const PaymentMethods = () => {
           </View>
         </View>
 
-        <View className="mt-4 space-y-3">
+        <View className="mt-4 gap-3">
           <View className="flex-row items-center justify-between">
             <Text className="text-sm font-bold text-foreground">Saved Methods</Text>
             <Button
@@ -182,7 +182,7 @@ const PaymentMethods = () => {
           )}
         </View>
 
-        <View className="mt-5 rounded-xl bg-muted/50 p-4 space-y-1">
+        <View className="mt-5 rounded-xl bg-muted/50 p-4 gap-1">
           <Text className="text-xs font-semibold text-foreground">🔒 Payment Security</Text>
           <Text className="text-xs text-muted-foreground">
             All payments are processed securely. We never store your full card details.
@@ -196,7 +196,7 @@ const PaymentMethods = () => {
           <DialogHeader>
             <DialogTitle>Add Payment Method</DialogTitle>
           </DialogHeader>
-          <View className="space-y-4">
+          <View className="gap-4">
             <View className="flex-row gap-2">
               {([["upi", "📱 UPI"], ["card", "💳 Card"]] as const).map(([type, label]) => (
                 <Pressable
@@ -216,7 +216,7 @@ const PaymentMethods = () => {
             </View>
 
             {newType === "upi" ? (
-              <View className="space-y-2">
+              <View className="gap-2">
                 <Label>UPI ID</Label>
                 <Input
                   placeholder="yourname@upi"
@@ -226,7 +226,7 @@ const PaymentMethods = () => {
                 />
               </View>
             ) : (
-              <View className="space-y-2">
+              <View className="gap-2">
                 <Label>Card Number</Label>
                 <Input
                   placeholder="1234 5678 9012 3456"

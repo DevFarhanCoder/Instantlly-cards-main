@@ -173,8 +173,8 @@ const BusinessAnalytics = () => {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4">
-        <View className="rounded-2xl border border-border bg-primary/5 p-4 space-y-3">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4">
+        <View className="rounded-2xl border border-border bg-primary/5 p-4 gap-3">
           <View className="flex-row items-center gap-2">
             <TrendingUp size={16} color="#2563eb" />
             <Text className="text-sm font-bold text-foreground">This Week's Summary</Text>
@@ -202,7 +202,7 @@ const BusinessAnalytics = () => {
             <TabsTrigger value="performance" className="flex-1 text-xs">Performance</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4 mt-3">
+          <TabsContent value="overview" className="gap-4 mt-3">
             <View className="flex-row gap-2">
               {[
                 { icon: Eye, label: "Total Views", value: views },
@@ -232,7 +232,7 @@ const BusinessAnalytics = () => {
 
             <View className="rounded-xl border border-border bg-card p-4">
               <Text className="text-sm font-bold text-foreground mb-3">14-Day Trend</Text>
-              <View className="space-y-2">
+              <View className="gap-2">
                 {dailyData.map((d) => (
                   <View key={d.day} className="flex-row items-center gap-2">
                     <Text className="text-[10px] text-muted-foreground w-10">{d.day}</Text>
@@ -246,7 +246,7 @@ const BusinessAnalytics = () => {
             </View>
           </TabsContent>
 
-          <TabsContent value="engagement" className="space-y-4 mt-3">
+          <TabsContent value="engagement" className="gap-4 mt-3">
             <View className="rounded-xl border border-border bg-card p-4">
               <Text className="text-sm font-bold text-foreground mb-3">Activity Breakdown</Text>
               {[
@@ -265,7 +265,7 @@ const BusinessAnalytics = () => {
 
             <View className="rounded-xl border border-border bg-card p-4">
               <Text className="text-sm font-bold text-foreground mb-3">Peak Activity Hours</Text>
-              <View className="space-y-2">
+              <View className="gap-2">
                 {hourlyData.map((h) => (
                   <View key={h.hour} className="flex-row items-center gap-2">
                     <Text className="text-[10px] text-muted-foreground w-12">{h.hour}</Text>
@@ -279,7 +279,7 @@ const BusinessAnalytics = () => {
             </View>
           </TabsContent>
 
-          <TabsContent value="performance" className="space-y-4 mt-3">
+          <TabsContent value="performance" className="gap-4 mt-3">
             <View className="flex-row flex-wrap gap-2">
               {[
                 { icon: CalendarCheck, label: "Total Bookings", value: bookings.length, sub: `${completedBookings} completed` },
@@ -296,7 +296,7 @@ const BusinessAnalytics = () => {
               ))}
             </View>
 
-            <View className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <View className="rounded-xl border border-border bg-card p-4 gap-3">
               <Text className="text-sm font-bold text-foreground">Conversion Funnel</Text>
               {[
                 { label: "Profile Views", value: views, pct: 100 },
@@ -316,7 +316,7 @@ const BusinessAnalytics = () => {
                   pct: views > 0 ? Math.round((bookings.length / views) * 100) : 0,
                 },
               ].map((step) => (
-                <View key={step.label} className="space-y-1">
+                <View key={step.label} className="gap-1">
                   <View className="flex-row justify-between">
                     <Text className="text-xs text-foreground">{step.label}</Text>
                     <Text className="text-xs text-muted-foreground">
@@ -340,7 +340,7 @@ const BusinessAnalytics = () => {
                   </Text>
                 </View>
               ) : (
-                <View className="space-y-2">
+                <View className="gap-2">
                   {leads.slice(0, 5).map((lead: any) => (
                     <View key={lead.id} className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3">
                       <View className="h-9 w-9 items-center justify-center rounded-full bg-muted">

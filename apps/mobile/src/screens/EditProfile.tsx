@@ -122,7 +122,7 @@ const EditProfile = () => {
         <Text className="text-lg font-bold text-foreground">Edit Profile</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-6">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-6">
         <View className="items-center">
           <View className="relative">
             <View className="h-24 w-24 items-center justify-center rounded-full bg-primary text-3xl font-bold text-primary-foreground overflow-hidden">
@@ -146,8 +146,8 @@ const EditProfile = () => {
           <Text className="text-xs text-muted-foreground mt-2">{user.email}</Text>
         </View>
 
-        <View className="mt-6 space-y-4">
-          <View className="space-y-2">
+        <View className="mt-6 gap-4">
+          <View className="gap-2">
             <Label>Full Name</Label>
             <Input
               placeholder="Enter your full name"
@@ -157,7 +157,7 @@ const EditProfile = () => {
             />
           </View>
 
-          <View className="space-y-2">
+          <View className="gap-2">
             <Label>Phone Number</Label>
             <Input
               placeholder="+91 98765 43210"
@@ -168,7 +168,7 @@ const EditProfile = () => {
             />
           </View>
 
-          <View className="space-y-2">
+          <View className="gap-2">
             <Label>About</Label>
             <Textarea
               placeholder="Tell others about yourself..."
@@ -180,7 +180,7 @@ const EditProfile = () => {
             <Text className="text-[10px] text-muted-foreground text-right">{about.length}/500</Text>
           </View>
 
-          <View className="space-y-2">
+          <View className="gap-2">
             <Label>Gender</Label>
             <Select value={gender} onValueChange={setGender}>
               <SelectTrigger className="rounded-xl h-12">
@@ -195,13 +195,13 @@ const EditProfile = () => {
             </Select>
           </View>
 
-          <View className="space-y-2">
+          <View className="gap-2">
             <Label>Email</Label>
             <Input value={profile?.email || user.email || ""} editable={false} className="rounded-xl bg-muted" />
             <Text className="text-[10px] text-muted-foreground">Email cannot be changed</Text>
           </View>
 
-          <View className="space-y-2">
+          <View className="gap-2">
             <Label>Member Since</Label>
             <Input
               value={new Date(profile?.created_at || Date.now()).toLocaleDateString("en-IN", {

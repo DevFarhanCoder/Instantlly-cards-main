@@ -60,7 +60,7 @@ const EventScanner = () => {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-6 space-y-6">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-6 gap-6">
         <View className="items-center">
           <View className="h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 mb-4">
             <QrCode size={40} color="#2563eb" />
@@ -90,7 +90,7 @@ const EventScanner = () => {
 
         {mode === "camera" && (
           <Card>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-4 gap-3">
               {!permission?.granted ? (
                 <View className="items-center gap-3 py-6">
                   <Text className="text-sm text-muted-foreground text-center">
@@ -131,8 +131,8 @@ const EventScanner = () => {
 
         {mode === "manual" && (
           <Card>
-            <CardContent className="p-5 space-y-4">
-              <View className="space-y-2">
+            <CardContent className="p-5 gap-4">
+              <View className="gap-2">
                 <Text className="text-sm font-medium text-foreground">QR Code</Text>
                 <View className="flex-row gap-2">
                   <Input
@@ -157,7 +157,7 @@ const EventScanner = () => {
           <View>
             {result.success ? (
               <Card className="border-success/50 bg-success/5">
-                <CardContent className="p-5 space-y-3">
+                <CardContent className="p-5 gap-3">
                   <View className="flex-row items-center gap-3">
                     <CheckCircle2 size={32} color="#16a34a" />
                     <View>
@@ -167,7 +167,7 @@ const EventScanner = () => {
                       </Text>
                     </View>
                   </View>
-                  <View className="space-y-1.5 rounded-lg bg-success/10 p-3">
+                  <View className="gap-1.5 rounded-lg bg-success/10 p-3">
                     <Text className="text-sm">
                       <Text className="font-medium">Name: </Text>
                       {result.data.full_name}

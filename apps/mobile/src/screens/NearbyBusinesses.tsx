@@ -72,8 +72,8 @@ const NearbyBusinesses = () => {
           </Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4">
-          <View className="space-y-3">
+        <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4">
+          <View className="gap-3">
             {sorted.map((card: any) => (
               <Pressable
                 key={card.id}

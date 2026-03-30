@@ -50,7 +50,7 @@ const LeadForm = ({ businessCardId, businessName }: LeadFormProps) => {
   }
 
   return (
-    <View className="rounded-xl border border-border bg-card p-4 space-y-4">
+    <View className="rounded-xl border border-border bg-card p-4 gap-4">
       <View className="flex-row items-center gap-2">
         <MessageSquare size={16} color="#2563eb" />
         <Text className="text-sm font-semibold text-foreground">Send an Inquiry</Text>
@@ -58,7 +58,7 @@ const LeadForm = ({ businessCardId, businessName }: LeadFormProps) => {
       <Text className="text-xs text-muted-foreground mt-1">
         Get in touch with {businessName} directly
       </Text>
-      <View className="space-y-4">
+      <View className="gap-4">
         <View className="relative">
           <View className="absolute left-3 top-3">
             <User size={14} color="#6a7181" />

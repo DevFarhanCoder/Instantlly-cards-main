@@ -355,7 +355,7 @@ const Profile = () => {
         <Text className="text-lg font-bold text-foreground">Profile</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} className="px-4 py-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5">
         <View className="flex-row items-center gap-4">
           <View className="h-16 w-16 items-center justify-center rounded-full bg-primary overflow-hidden">
             {avatarUrl ? (

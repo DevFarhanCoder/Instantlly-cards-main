@@ -58,7 +58,7 @@ const StaffManager = ({ businessCardId }: Props) => {
           No team members added yet
         </Text>
       ) : (
-        <View className="space-y-2">
+        <View className="gap-2">
           {staff.map((s: any) => (
             <View
               key={s.id}
@@ -86,7 +86,7 @@ const StaffManager = ({ businessCardId }: Props) => {
           <DialogHeader>
             <DialogTitle>Add Team Member</DialogTitle>
           </DialogHeader>
-          <View className="space-y-3">
+          <View className="gap-3">
             <Input
               placeholder="Full name"
               value={name}

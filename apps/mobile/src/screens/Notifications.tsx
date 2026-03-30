@@ -155,7 +155,7 @@ const Notifications = () => {
               <Text className="text-sm text-muted-foreground mt-2">No notifications</Text>
             </View>
           ) : (
-            <View className="space-y-2">
+            <View className="gap-2">
               {filtered.map((n) => {
                 const Icon = typeIcon[n.type] || Bell;
                 return (
@@ -205,7 +205,7 @@ const Notifications = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="preferences" className="mt-3 space-y-3">
+        <TabsContent value="preferences" className="mt-3 gap-3">
           <Text className="text-xs text-muted-foreground">
             Choose which notifications you want to receive.
           </Text>

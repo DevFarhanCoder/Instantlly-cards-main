@@ -131,8 +131,8 @@ const PrivacySecurity = () => {
         <Text className="text-lg font-bold text-foreground">Privacy & Security</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-5">
-        <View className="space-y-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5">
+        <View className="gap-5">
           <View>
             <View className="flex-row items-center gap-2 mb-3">
               <Lock size={16} color="#2563eb" />
@@ -257,8 +257,8 @@ const PrivacySecurity = () => {
           <DialogHeader>
             <DialogTitle>Change Password</DialogTitle>
           </DialogHeader>
-          <View className="space-y-4">
-            <View className="space-y-2">
+          <View className="gap-4">
+            <View className="gap-2">
               <Label>Current Password</Label>
               <View className="relative">
                 <Input
@@ -280,7 +280,7 @@ const PrivacySecurity = () => {
                 </Pressable>
               </View>
             </View>
-            <View className="space-y-2">
+            <View className="gap-2">
               <Label>New Password</Label>
               <View className="relative">
                 <Input
@@ -302,7 +302,7 @@ const PrivacySecurity = () => {
                 </Pressable>
               </View>
             </View>
-            <View className="space-y-2">
+            <View className="gap-2">
               <Label>Confirm New Password</Label>
               <Input
                 secureTextEntry

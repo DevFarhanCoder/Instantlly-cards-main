@@ -82,7 +82,7 @@ const Subscription = () => {
         <Text className="text-lg font-bold text-foreground">Subscription Plans</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4 space-y-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5">
         <View className="flex-row items-center justify-center">
           <View className="flex-row rounded-xl bg-muted p-1">
             {(["monthly", "annual"] as const).map((b) => (
@@ -107,7 +107,7 @@ const Subscription = () => {
           </View>
         </View>
 
-        <View className="space-y-4">
+        <View className="gap-4">
           {plans.map((plan) => {
             const price =
               billing === "annual" && plan.price > 0 ? Math.round(plan.price * 0.8) : plan.price;
@@ -142,7 +142,7 @@ const Subscription = () => {
                   </View>
                 </View>
 
-                <View className="space-y-1.5 mb-4">
+                <View className="gap-1.5 mb-4">
                   {plan.features.map((f) => (
                     <View key={f} className="flex-row items-center gap-2">
                       <Check size={14} color="#16a34a" />

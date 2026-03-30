@@ -120,7 +120,7 @@ export default function BusinessHoursEditor({ businessCardId }: Props) {
   }
 
   return (
-    <View className="space-y-4">
+    <View className="gap-4">
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-2">
           <Clock size={16} color={colors.primary} />
@@ -137,7 +137,7 @@ export default function BusinessHoursEditor({ businessCardId }: Props) {
         )}
       </View>
 
-      <View className="space-y-2">
+      <View className="gap-2">
         {hours.map((h) => (
           <View
             key={h.day_of_week}

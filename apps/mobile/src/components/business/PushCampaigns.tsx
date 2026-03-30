@@ -76,7 +76,7 @@ const PushCampaigns = ({ businessCardId }: Props) => {
       <Text className="text-xs text-muted-foreground mb-3">
         Send a notification to all your followers with your latest offer or update.
       </Text>
-      <View className="space-y-3">
+      <View className="gap-3">
         <Input
           placeholder="Promotion title"
           value={title}

@@ -435,13 +435,13 @@ const CategoryDetail = () => {
       )}
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 260 }}
+        contentContainerStyle={{ paddingBottom: 16 }}
         className="px-4 py-4"
         onScroll={handleScroll}
         scrollEventThrottle={200}
       >
         {isLoading ? (
-          <View className="space-y-3">
+          <View className="gap-3">
             {[1, 2, 3].map((i) => (
               <Skeleton key={i} className="h-40 w-full rounded-2xl" />
             ))}
@@ -454,7 +454,7 @@ const CategoryDetail = () => {
                 : "No businesses in this category yet"}
             </Text>
 
-            <View className="space-y-3">
+            <View className="gap-3">
               {filteredCards.length === 0 ? (
                 <View className="items-center py-16">
                   <Text className="text-5xl mb-3">📭</Text>

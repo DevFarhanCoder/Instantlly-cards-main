@@ -94,7 +94,7 @@ export default function PhotoGalleryManager({ businessCardId }: Props) {
   };
 
   return (
-    <View className="space-y-4">
+    <View className="gap-4">
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-2">
           <ImagePlus size={16} color={colors.primary} />
@@ -103,7 +103,7 @@ export default function PhotoGalleryManager({ businessCardId }: Props) {
         <Text className="text-[10px] text-muted-foreground">{photos.length} photos</Text>
       </View>
 
-      <View className="rounded-xl border border-dashed border-border bg-muted/30 p-4 space-y-3">
+      <View className="rounded-xl border border-dashed border-border bg-muted/30 p-4 gap-3">
         <Input
           placeholder="Caption (optional)"
           value={caption}

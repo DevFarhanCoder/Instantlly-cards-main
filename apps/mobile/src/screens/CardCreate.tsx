@@ -43,7 +43,7 @@ import { useGetCategoryTreeQuery } from "../store/api/categoriesApi";
 import type { CategoryTreeNode } from "../store/api/categoriesApi";
 import { useAuth } from "../hooks/useAuth";
 import { useBusinessCards } from "../hooks/useBusinessCards";
-import { supabase } from "../integrations/supabase/client";
+import { useUploadImageMutation } from "../store/api/businessCardsApi";
 import { toast } from "../lib/toast";
 import { cn } from "../lib/utils";
 import { colors } from "../theme/colors";
@@ -332,6 +332,7 @@ const CardCreate = () => {
   const cardId = route?.params?.cardId as string | undefined;
   const { user } = useAuth();
   const { cards, createCard, updateCard } = useBusinessCards();
+  const [uploadImage] = useUploadImageMutation();
   const { data: categoryTree = [] } = useGetCategoryTreeQuery();
   const categoryOptions = useMemo(() => {
     // Flatten the tree for display in the category trigger text
@@ -458,6 +459,7 @@ const CardCreate = () => {
 
   const updateField = useCallback((field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  }, []);
 
   const formatDateInput = (text: string): string => {
     const numericOnly = text.replace(/[^\d]/g, "");
@@ -467,7 +469,7 @@ const CardCreate = () => {
       formatted += numericOnly[i];
     }
     return formatted;
-  }, []);
+  };
 
   const markTouched = useCallback((field: string) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
@@ -553,20 +555,15 @@ const CardCreate = () => {
     if (!logoAsset || !user) return null;
     setUploading(true);
     try {
-      const ext = (logoAsset.fileName || logoAsset.uri.split(".").pop() || "jpg")
-        .split(".")
-        .pop();
-      const path = `${user.id}/${Date.now()}.${ext}`;
-      const response = await fetch(logoAsset.uri);
-      const blob = await response.blob();
-      const { error } = await supabase.storage
-        .from("business-logos")
-        .upload(path, blob, { upsert: true } as any);
-      if (error) throw error;
-      const { data: urlData } = supabase.storage
-        .from("business-logos")
-        .getPublicUrl(path);
-      return urlData.publicUrl;
+      const fileName = logoAsset.fileName || `${Date.now()}.jpg`;
+      const formData = new FormData();
+      formData.append("file", {
+        uri: logoAsset.uri,
+        name: fileName,
+        type: logoAsset.mimeType || "image/jpeg",
+      } as any);
+      const result = await uploadImage(formData).unwrap();
+      return result.url;
     } catch {
       toast.error("Logo upload failed");
       return null;
@@ -1022,7 +1019,7 @@ const CardCreate = () => {
                 size="sm"
                 className="shrink-0 rounded-xl"
                 onPress={handleAutoLocation}
-                className="flex-row items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5"
+                // className="flex-row items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5"
               >
                 {"\u{1F4CD}"} Auto
               </Button>
@@ -1078,18 +1075,50 @@ const CardCreate = () => {
           </View>
           <View style={{ gap: 6 }}>
             <Label className={labelClass}>Company Phone</Label>
-            <View className="flex-row gap-2 items-center">
+            {form.companyPhones.map((cp, idx) => (
+              <View key={idx} className="flex-row gap-2 items-center">
+                <Pressable
+                  onPress={() => setShowCompanyPhoneCountryPicker(true)}
+                  className="h-14 flex-row items-center justify-center gap-1 rounded-xl bg-muted/50 px-3 min-w-[90px]"
+                >
+                  <Text className="text-base text-muted-foreground">
+                    {COUNTRY_CODES.find((c) => c.code === companyPhoneCountry)?.flag}{" "}
+                    {companyPhoneCountry}
+                  </Text>
+                  <ChevronDown size={14} color="#6b7280" />
+                </Pressable>
+                <Input
+                  placeholder="Company number"
+                  value={cp}
+                  onChangeText={(v) => {
+                    const updated = [...form.companyPhones];
+                    updated[idx] = v;
+                    updateField("companyPhones", updated);
+                  }}
+                  keyboardType="phone-pad"
+                  className={cn("flex-1", inputClass)}
+                />
+                {form.companyPhones.length > 1 && (
+                  <Pressable
+                    onPress={() => {
+                      const updated = form.companyPhones.filter((_, i) => i !== idx);
+                      updateField("companyPhones", updated);
+                    }}
+                  >
+                    <X size={18} color="#ef4444" />
+                  </Pressable>
+                )}
+              </View>
+            ))}
+            {form.companyPhones.length < 3 && (
               <Pressable
                 onPress={() => setForm({ ...form, companyPhones: [...form.companyPhones, ""] })}
-                className="flex-row items-center justify-center gap-2 rounded-xl bg-primary/10 py-4 mt-2"
+                className="flex-row items-center justify-center gap-2 rounded-xl bg-primary/10 py-3 mt-1"
               >
-                <Text className="text-base text-muted-foreground">
-                  {COUNTRY_CODES.find((c) => c.code === companyPhoneCountry)?.flag}{" "}
-                  {companyPhoneCountry}
-                </Text>
-                <ChevronDown size={14} color="#6b7280" />
+                <Plus size={16} color="#2563eb" />
+                <Text className="text-sm font-medium text-primary">Add another number</Text>
               </Pressable>
-            </View>
+            )}
           </View>
           <View style={{ gap: 6 }}>
             <Label className={labelClass}>Company Email</Label>

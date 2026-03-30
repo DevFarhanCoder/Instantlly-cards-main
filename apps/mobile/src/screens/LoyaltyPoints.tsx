@@ -83,7 +83,7 @@ const LoyaltyPoints = () => {
         <Text className="text-lg font-bold text-foreground">Loyalty Points</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4 space-y-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5">
         {/* Points card — solid background; absolute inset-0 collapses in RN without explicit height */}
         <View style={{ backgroundColor: '#d97706', borderRadius: 16, overflow: 'hidden' }}>
           <View className="p-6">
@@ -116,9 +116,9 @@ const LoyaltyPoints = () => {
             <TrendingUp size={16} color="#2563eb" />
             <Text className="text-sm font-bold text-foreground">How to Earn Points</Text>
           </View>
-          <View className="flex-row flex-wrap gap-2">
+          <View className="flex-row gap-2">
             {earningRules.map((rule) => (
-              <View key={rule.action} className="w-[31%] rounded-xl border border-border bg-card p-3 items-center">
+              <View key={rule.action} className="flex-1 rounded-xl border border-border bg-card p-3 items-center">
                 <Text className="text-2xl">{rule.emoji}</Text>
                 <Text className="text-xs font-semibold text-foreground mt-1">+{rule.points}</Text>
                 <Text className="text-[10px] text-muted-foreground mt-0.5 text-center">
@@ -134,7 +134,7 @@ const LoyaltyPoints = () => {
             <Gift size={16} color="#2563eb" />
             <Text className="text-sm font-bold text-foreground">Redeem Rewards</Text>
           </View>
-          <View className="space-y-2">
+          <View className="gap-2">
             {pointsRewards.map((reward) => (
               <View key={reward.id} className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3">
                 <Text className="text-2xl">{reward.emoji}</Text>
@@ -175,7 +175,7 @@ const LoyaltyPoints = () => {
               </Text>
             </View>
           ) : (
-            <View className="space-y-1.5">
+            <View className="gap-1.5">
               {transactions.map((tx) => (
                 <View key={tx.id} className="flex-row items-center gap-3 rounded-xl bg-muted/30 px-3 py-2.5">
                   <View

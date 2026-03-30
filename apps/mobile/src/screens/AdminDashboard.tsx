@@ -327,7 +327,7 @@ const AdminPanel = () => {
         </View>
       </ScrollView>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4">
         {tab === "overview" && (
           <View className="flex-row flex-wrap gap-2">
             {[
@@ -350,7 +350,7 @@ const AdminPanel = () => {
         )}
 
         {tab === "approvals" && (
-          <View className="space-y-4">
+          <View className="gap-4">
             <Text className="text-sm font-bold text-foreground">Pending Cards</Text>
             {pendingCards.map((c: any) => (
               <View key={c.id} className="rounded-xl border border-border bg-card p-3">
@@ -402,7 +402,7 @@ const AdminPanel = () => {
         )}
 
         {tab === "users" && (
-          <View className="space-y-3">
+          <View className="gap-3">
             {users.map((u: any) => (
               <View key={u.id} className="rounded-xl border border-border bg-card p-3">
                 <Text className="text-sm font-semibold text-foreground">{u.full_name || "Unnamed"}</Text>
@@ -413,7 +413,7 @@ const AdminPanel = () => {
         )}
 
         {tab === "businesses" && (
-          <View className="space-y-3">
+          <View className="gap-3">
             {filteredBusinesses.map((b: any) => (
               <View key={b.id} className="rounded-xl border border-border bg-card p-3">
                 <Text className="text-sm font-semibold text-foreground">{b.full_name}</Text>
@@ -425,7 +425,7 @@ const AdminPanel = () => {
         )}
 
         {tab === "events" && (
-          <View className="space-y-3">
+          <View className="gap-3">
             {events.map((e: any) => (
               <View key={e.id} className="rounded-xl border border-border bg-card p-3">
                 <Text className="text-sm font-semibold text-foreground">{e.title}</Text>
@@ -437,7 +437,7 @@ const AdminPanel = () => {
         )}
 
         {tab === "vouchers" && (
-          <View className="space-y-3">
+          <View className="gap-3">
             {vouchers.map((v: any) => (
               <View key={v.id} className="rounded-xl border border-border bg-card p-3">
                 <Text className="text-sm font-semibold text-foreground">{v.title}</Text>
@@ -449,7 +449,7 @@ const AdminPanel = () => {
         )}
 
         {tab === "ads" && (
-          <View className="space-y-3">
+          <View className="gap-3">
             {ads.map((a: any) => (
               <View key={a.id} className="rounded-xl border border-border bg-card p-3">
                 <Text className="text-sm font-semibold text-foreground">{a.title}</Text>
@@ -461,7 +461,7 @@ const AdminPanel = () => {
         )}
 
         {tab === "reviews" && (
-          <View className="space-y-3">
+          <View className="gap-3">
             {reviews.map((r: any) => (
               <View key={r.id} className="rounded-xl border border-border bg-card p-3">
                 <Text className="text-sm font-semibold text-foreground">
@@ -474,7 +474,7 @@ const AdminPanel = () => {
         )}
 
         {tab === "reports" && (
-          <View className="space-y-3">
+          <View className="gap-3">
             {reports.map((r: any) => (
               <View key={r.id} className="rounded-xl border border-border bg-card p-3">
                 <View className="flex-row items-center justify-between">
@@ -492,7 +492,7 @@ const AdminPanel = () => {
         )}
 
         {tab === "disputes" && (
-          <View className="space-y-3">
+          <View className="gap-3">
             {disputes.map((d: any) => (
               <View key={d.id} className="rounded-xl border border-border bg-card p-3">
                 <View className="flex-row items-center justify-between">
@@ -506,7 +506,7 @@ const AdminPanel = () => {
         )}
 
         {tab === "tickets" && (
-          <View className="space-y-3">
+          <View className="gap-3">
             {tickets.map((t: any) => (
               <View key={t.id} className="rounded-xl border border-border bg-card p-3">
                 <View className="flex-row items-center justify-between">
@@ -520,8 +520,8 @@ const AdminPanel = () => {
         )}
 
         {tab === "notifications" && (
-          <View className="space-y-3">
-            <View className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <View className="gap-3">
+            <View className="rounded-xl border border-border bg-card p-4 gap-3">
               <Text className="text-sm font-bold text-foreground">Broadcast Notification</Text>
               <Input placeholder="Notification title" value={broadcastTitle} onChangeText={setBroadcastTitle} className="rounded-xl" />
               <Textarea

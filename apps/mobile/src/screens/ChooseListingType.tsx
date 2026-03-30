@@ -74,7 +74,7 @@ const ChooseListingType = () => {
         <Text className="text-lg font-bold text-foreground">Choose Listing Type</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-5 space-y-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5 gap-4">
         {listingPlans.map((plan) => {
           const Icon = plan.icon;
           const isSelected = selected === plan.id;
@@ -120,7 +120,7 @@ const ChooseListingType = () => {
 
               <View className="my-4 border-t border-border" />
 
-              <View className="space-y-3">
+              <View className="gap-3">
                 {plan.features.map((f) => (
                   <View key={f} className="flex-row items-center gap-2.5">
                     <CheckCircle2
@@ -170,7 +170,7 @@ const ChooseListingType = () => {
 
         <View>
           <Text className="text-sm text-muted-foreground mb-3">Choose your ad format</Text>
-          <View className="space-y-3">
+          <View className="gap-3">
             {[
               { emoji: "🖼️", name: "Banner Ad", desc: "Display across Home, Events & Vouchers pages" },
               { emoji: "⭐", name: "Featured Listing", desc: "Appear at the top of category & search results" },
@@ -193,7 +193,7 @@ const ChooseListingType = () => {
           </View>
         </View>
 
-        <View className="space-y-3 pt-2">
+        <View className="gap-3 pt-2">
           {trustPoints.map((tp) => {
             const Icon = tp.icon;
             return (
@@ -210,7 +210,7 @@ const ChooseListingType = () => {
       </ScrollView>
 
       {selected && (
-        <View className="absolute bottom-56 left-0 right-0 border-t border-border bg-card px-4 py-3">
+        <View className="border-t border-border bg-card px-4 py-3">
           <Pressable
             className="w-full flex-row items-center justify-center gap-2 rounded-xl bg-primary py-6"
             onPress={handleContinue}

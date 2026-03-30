@@ -16,7 +16,7 @@ export const FormField = ({
 };
 
 export const FormItem = ({ className, children }: { className?: string; children: React.ReactNode }) => (
-  <View className={cn("space-y-2", className)}>{children}</View>
+  <View className={cn("gap-2", className)}>{children}</View>
 );
 
 export const FormLabel = ({ className, children }: { className?: string; children: React.ReactNode }) => (

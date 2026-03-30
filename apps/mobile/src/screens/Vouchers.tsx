@@ -95,7 +95,7 @@ const Vouchers = () => {
         </Text>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 260 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }}>
         <View className="px-4 py-4 gap-5">
           <View className="relative">
             <View className="absolute left-3 top-1/2 -translate-y-1/2">
