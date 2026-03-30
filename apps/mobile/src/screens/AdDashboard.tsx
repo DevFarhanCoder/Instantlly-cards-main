@@ -41,7 +41,7 @@ const VariantStats = ({ campaignId }: { campaignId: string }) => {
   , variants[0]);
 
   return (
-    <View className="mt-2 space-y-1.5">
+    <View className="mt-2 gap-1.5">
       <Text className="text-[10px] font-semibold text-muted-foreground uppercase">A/B Variants</Text>
       {variants.map((v) => {
         const ctr = v.impressions > 0 ? ((v.clicks / v.impressions) * 100).toFixed(1) : "0";
@@ -93,7 +93,7 @@ const AdDashboard = () => {
         </Button>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5">
         <View className="flex-row flex-wrap gap-3">
           {[
             { label: "Impressions", value: totalImpressions.toLocaleString(), icon: Eye, color: "#2563eb" },
@@ -114,7 +114,7 @@ const AdDashboard = () => {
         <View className="mt-5">
           <Text className="text-base font-semibold text-foreground mb-3">Your Campaigns</Text>
           {isLoading ? (
-            <View className="space-y-3">
+            <View className="gap-3">
               {[1, 2, 3].map((i) => (
                 <Skeleton key={i} className="h-40 w-full rounded-xl" />
               ))}
@@ -128,7 +128,7 @@ const AdDashboard = () => {
               </Button>
             </View>
           ) : (
-            <View className="space-y-3">
+            <View className="gap-3">
               {campaigns.map((ad) => {
                 const budgetPct =
                   ad.total_budget > 0 ? Math.min((ad.spent / ad.total_budget) * 100, 100) : 0;

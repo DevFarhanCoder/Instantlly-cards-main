@@ -87,7 +87,7 @@ const MyVouchers = () => {
         <Text className="text-lg font-bold text-foreground">My Vouchers</Text>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 260 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }}>
         <View className="px-4 py-4 gap-4">
           <View className="rounded-2xl border border-border bg-primary/5 p-4">
             <View className="flex-row items-center justify-between">

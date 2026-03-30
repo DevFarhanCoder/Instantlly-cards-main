@@ -156,7 +156,7 @@ const BusinessDetail = () => {
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-background p-4 space-y-4">
+      <View className="flex-1 bg-background p-4 gap-4">
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-24 w-full rounded-2xl" />
         <Skeleton className="h-40 w-full rounded-2xl" />
@@ -200,7 +200,7 @@ const BusinessDetail = () => {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5">
         <View className="flex-row items-start gap-4">
           <View className="h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 overflow-hidden">
             {card.logo_url ? (
@@ -285,9 +285,9 @@ const BusinessDetail = () => {
           </View>
         )}
 
-        <View className="rounded-xl border border-border bg-card p-4 space-y-3 mt-4">
+        <View className="rounded-xl border border-border bg-card p-4 gap-3 mt-4">
           <Text className="text-sm font-semibold text-foreground">Contact Information</Text>
-          <View className="space-y-2">
+          <View className="gap-2">
             <Text className="text-sm text-foreground">📞 {card.phone}</Text>
             {card.email && <Text className="text-sm text-foreground">✉️ {card.email}</Text>}
             {card.whatsapp && (
@@ -302,12 +302,48 @@ const BusinessDetail = () => {
             )}
             {card.location && <Text className="text-sm text-foreground">📍 {card.location}</Text>}
             {card.website && <Text className="text-sm text-foreground">🌐 {card.website}</Text>}
-            {card.business_hours && <Text className="text-sm text-foreground">🕒 {card.business_hours}</Text>}
+            {card.business_hours && (() => {
+              let parsed: any = card.business_hours;
+              if (typeof parsed === "string") {
+                try { parsed = JSON.parse(parsed); } catch { /* keep as string */ }
+              }
+              if (typeof parsed === "string") {
+                return <Text className="text-sm text-foreground">🕒 {parsed}</Text>;
+              }
+              if (typeof parsed === "object" && parsed !== null) {
+                const dayOrder = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+                const entries = Object.entries(parsed as Record<string, any>).sort(
+                  ([a], [b]) => dayOrder.indexOf(a.toLowerCase()) - dayOrder.indexOf(b.toLowerCase())
+                );
+                const formatHours = (val: any): string => {
+                  if (typeof val === "string") return val;
+                  if (typeof val === "object" && val !== null) {
+                    if (val.is_closed || val.closed) return "Closed";
+                    const open = val.open_time || val.open || "";
+                    const close = val.close_time || val.close || "";
+                    return open && close ? `${open} - ${close}` : "Hours not set";
+                  }
+                  return String(val);
+                };
+                return (
+                  <View className="gap-1.5">
+                    <Text className="text-sm font-medium text-foreground">🕒 Business Hours</Text>
+                    {entries.map(([day, hours]) => (
+                      <View key={day} className="flex-row justify-between pl-6 pr-2">
+                        <Text className="text-xs text-muted-foreground capitalize">{day}</Text>
+                        <Text className="text-xs text-foreground">{formatHours(hours)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                );
+              }
+              return <Text className="text-sm text-foreground">🕒 {String(parsed)}</Text>;
+            })()}
           </View>
         </View>
 
         {card.services && card.services.length > 0 && (
-          <View className="space-y-2 mt-4">
+          <View className="gap-2 mt-4">
             <Text className="text-sm font-semibold text-foreground">Services</Text>
             <View className="flex-row flex-wrap gap-2">
               {card.services.map((s) => (
@@ -337,7 +373,7 @@ const BusinessDetail = () => {
           <Text className="mt-2 text-xs text-muted-foreground">Scan to save this card</Text>
         </View>
 
-        <View className="space-y-3 mt-5">
+        <View className="gap-3 mt-5">
           <View className="flex-row items-center justify-between">
             <Text className="text-sm font-semibold text-foreground">Reviews</Text>
             <Button
@@ -394,7 +430,7 @@ const BusinessDetail = () => {
         </View>
       </ScrollView>
 
-      <View className="absolute bottom-56 left-0 right-0 border-t border-border bg-card px-4 py-3 flex-row gap-2">
+      <View className="border-t border-border bg-card px-4 py-3 flex-row gap-2">
         <Button
           className="flex-1 gap-1.5 rounded-xl py-5"
           onPress={async () => {
@@ -463,7 +499,7 @@ const BusinessDetail = () => {
           <DialogHeader>
             <DialogTitle>Write a Review</DialogTitle>
           </DialogHeader>
-          <View className="space-y-4">
+          <View className="gap-4">
             <View>
               <Text className="text-xs font-semibold text-foreground mb-2">Your Rating</Text>
               <View className="flex-row gap-1">
@@ -570,7 +606,7 @@ const BusinessDetail = () => {
           <DialogHeader>
             <DialogTitle>Report Business</DialogTitle>
           </DialogHeader>
-          <View className="space-y-3">
+          <View className="gap-3">
             <Select value={reportReason} onValueChange={setReportReason}>
               <SelectTrigger>
                 <SelectValue placeholder="Select reason" />
@@ -621,7 +657,7 @@ const BusinessDetail = () => {
           <DialogHeader>
             <DialogTitle>File a Dispute</DialogTitle>
           </DialogHeader>
-          <View className="space-y-3">
+          <View className="gap-3">
             <Select value={disputeType} onValueChange={setDisputeType}>
               <SelectTrigger>
                 <SelectValue />

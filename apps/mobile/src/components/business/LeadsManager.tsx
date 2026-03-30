@@ -64,7 +64,7 @@ const LeadsManager = ({ businessCardId }: LeadsManagerProps) => {
   };
 
   return (
-    <View className="space-y-3">
+    <View className="gap-3">
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-2">
           <Users size={16} color={colors.primary} />
@@ -129,7 +129,7 @@ const LeadsManager = ({ businessCardId }: LeadsManagerProps) => {
           return (
             <View
               key={lead.id}
-              className="rounded-xl border border-border bg-card p-3 space-y-2"
+              className="rounded-xl border border-border bg-card p-3 gap-2"
             >
               <View className="flex-row items-start justify-between">
                 <View>

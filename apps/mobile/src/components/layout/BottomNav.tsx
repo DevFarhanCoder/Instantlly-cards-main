@@ -373,10 +373,6 @@ const BottomNav = () => {
 
 const styles = StyleSheet.create({
   nav: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
     backgroundColor: colors.card,
     borderTopWidth: 1,
     borderTopColor: colors.border,

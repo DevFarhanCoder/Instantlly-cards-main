@@ -95,7 +95,7 @@ const ReferAndEarn = () => {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5">
         <View className="rounded-2xl bg-primary/10 p-5 items-center">
           <Text className="text-5xl">{isBusiness ? "🚀" : "🎉"}</Text>
           <Text className="mt-2 text-xl font-bold text-foreground">
@@ -187,7 +187,7 @@ const ReferAndEarn = () => {
           <Text className="text-sm font-semibold text-foreground mb-3">
             Reward Milestones
           </Text>
-          <View className="space-y-3">
+          <View className="gap-3">
             {rewards.map((r) => {
               const achieved = completedCount >= r.target;
               const isHighlight = "highlight" in r && r.highlight;

@@ -48,15 +48,8 @@ jest.mock("../store/api/categoriesApi", () => ({
   }),
 }));
 
-jest.mock("../integrations/supabase/client", () => ({
-  supabase: {
-    storage: {
-      from: jest.fn(() => ({
-        upload: jest.fn().mockResolvedValue({ error: null }),
-        getPublicUrl: jest.fn(() => ({ data: { publicUrl: "https://example.com/logo.png" } })),
-      })),
-    },
-  },
+jest.mock("../store/api/businessCardsApi", () => ({
+  useUploadImageMutation: () => [jest.fn().mockReturnValue({ unwrap: () => Promise.resolve({ url: "https://cdn.example.com/logo.png" }) })],
 }));
 
 jest.mock("../lib/toast", () => ({

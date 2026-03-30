@@ -171,7 +171,7 @@ const MyCards = () => {
         </Pressable>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 260 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: cards.length > 0 ? 80 : 16 }}>
         {isLoading ? (
           <View className="px-4 py-4 gap-4">
             {[1, 2].map((i) => (
@@ -179,7 +179,7 @@ const MyCards = () => {
             ))}
           </View>
         ) : cards.length === 0 ? (
-          <View className="pb-32">
+          <View>
             <BusinessOnboarding />
             <View className="items-center px-6 pt-16">
               <View className="mb-6 h-24 w-24 items-center justify-center rounded-3xl bg-muted">
@@ -195,12 +195,13 @@ const MyCards = () => {
                 className="mt-6 rounded-xl"
                 onPress={() => navigation.navigate("CardCreate")}
               >
-                <Plus size={14} color="#ffffff" /> Create Card
+                <Plus size={14} color="#ffffff" />
+                <Text className="text-sm font-medium text-primary-foreground">Create Card</Text>
               </Button>
             </View>
           </View>
         ) : (
-          <View className="px-4 py-4 gap-4 pb-32">
+          <View className="px-4 py-4 gap-4">
             <BusinessOnboarding />
             {cards.map((card) => (
               <View
@@ -333,13 +334,13 @@ const MyCards = () => {
       </ScrollView>
 
       {cards.length > 0 && (
-        <View className="absolute bottom-48 right-4 flex-row items-center gap-3">
-          <View className="rounded-xl bg-foreground/90 px-4 py-2.5">
+        <View className="absolute bottom-6 right-4 flex-row items-center gap-3" style={{ zIndex: 10 }}>
+          <View className="rounded-xl bg-foreground/90 px-4 py-2.5 shadow-lg">
             <Text className="text-xs font-medium text-primary-foreground">
               Share your cards with groups!
             </Text>
           </View>
-          <Pressable className="h-14 w-14 items-center justify-center rounded-full bg-primary/80">
+          <Pressable className="h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg">
             <Users size={22} color="#ffffff" />
           </Pressable>
         </View>

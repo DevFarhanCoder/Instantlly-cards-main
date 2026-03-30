@@ -71,13 +71,13 @@ const MyPasses = () => {
         </Button>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-6 space-y-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-6 gap-4">
         {isLoading ? (
           <View className="items-center py-10">
             <Text className="text-sm text-muted-foreground">Loading...</Text>
           </View>
         ) : !passes?.length ? (
-          <View className="items-center py-10 space-y-3">
+          <View className="items-center py-10 gap-3">
             <Ticket size={48} color="#c0c4cc" />
             <Text className="text-muted-foreground">No event passes yet</Text>
             <Button variant="outline" onPress={() => navigation.navigate("Events")}>
@@ -88,7 +88,7 @@ const MyPasses = () => {
           passes.map((pass, i) => (
             <Card key={pass.id} className="overflow-hidden">
               <CardContent className="p-0">
-                <View className="p-4 space-y-2">
+                <View className="p-4 gap-2">
                   <View className="flex-row items-start justify-between">
                     <Text className="font-bold text-foreground">{pass.events?.title}</Text>
                     {pass.is_verified ? (

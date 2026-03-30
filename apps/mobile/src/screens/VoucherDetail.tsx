@@ -14,15 +14,15 @@ import { differenceInDays } from "date-fns";
 import { colors } from "../theme/colors";
 
 const emojiMap: Record<string, string> = {
-  travel: "ðŸ–ï¸",
-  beauty: "ðŸ’†",
-  food: "ðŸ½ï¸",
-  health: "ðŸ’ª",
-  shopping: "ðŸ›ï¸",
-  entertainment: "ðŸŽ¬",
-  activities: "ðŸ„",
-  education: "ðŸ“š",
-  general: "ðŸŽ",
+  travel: "🏖️",
+  beauty: "💆",
+  food: "🍽️",
+  health: "💪",
+  shopping: "🛍️",
+  entertainment: "🎬",
+  activities: "🏄",
+  education: "📚",
+  general: "🎁",
 };
 
 const VoucherDetail = () => {
@@ -49,7 +49,7 @@ const VoucherDetail = () => {
   if (!voucher) {
     return (
       <View className="flex-1 items-center justify-center">
-        <Text className="text-5xl mb-3">ðŸ”</Text>
+        <Text className="text-5xl mb-3">🔍</Text>
         <Text className="text-muted-foreground">Voucher not found</Text>
         <Button variant="outline" className="mt-3" onPress={() => navigation.goBack()}>
           Go back
@@ -97,10 +97,10 @@ const VoucherDetail = () => {
         </Pressable>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 260 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }}>
         <View className="px-4 py-5 gap-5">
           <View className="relative h-48 items-center justify-center rounded-2xl bg-muted overflow-hidden">
-            <Text className="text-7xl">{emojiMap[voucher.category] || "ðŸŽ"}</Text>
+            <Text className="text-7xl">{emojiMap[voucher.category] || "🎁"}</Text>
             {voucher.discount_label && (
               <Badge className="absolute left-3 top-3 bg-primary text-primary-foreground border-none text-sm px-3 py-1">
                 {voucher.discount_label}
@@ -130,10 +130,10 @@ const VoucherDetail = () => {
 
           <View className="flex-row flex-wrap gap-3">
             {[
-              { icon: "âœ…", label: "Instant Delivery" },
-              { icon: "ðŸ”„", label: "Easy Refund" },
-              { icon: "ðŸ“±", label: "Mobile Voucher" },
-              { icon: "ðŸŽ‰", label: "Gift Ready" },
+              { icon: "✅", label: "Instant Delivery" },
+              { icon: "🔄", label: "Easy Refund" },
+              { icon: "📱", label: "Mobile Voucher" },
+              { icon: "🎉", label: "Gift Ready" },
             ].map((f) => (
               <View key={f.label} className="w-[48%] flex-row items-center gap-2 rounded-xl border border-border bg-card p-3">
                 <Text>{f.icon}</Text>
@@ -174,17 +174,16 @@ const VoucherDetail = () => {
         </View>
       </ScrollView>
 
-      <View className="absolute bottom-56 left-0 right-0 border-t border-border bg-card px-4 py-3">
-        <Pressable
+      <View className="border-t border-border bg-card px-4 py-3">
+        <Button
+          className="w-full rounded-xl py-4"
           onPress={() => setShowPurchase(true)}
           disabled={claimVoucher.isPending}
-          className="w-full items-center justify-center rounded-xl bg-primary py-6"
-          style={claimVoucher.isPending ? { opacity: 0.6 } : undefined}
         >
           <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: "700" }}>
             Buy Now — ₹{voucher.discounted_price.toLocaleString()}
           </Text>
-        </Pressable>
+        </Button>
       </View>
 
       <Dialog open={showPurchase} onOpenChange={setShowPurchase}>

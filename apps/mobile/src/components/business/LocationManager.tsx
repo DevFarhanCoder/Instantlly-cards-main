@@ -38,7 +38,7 @@ const LocationManager = ({ businessCardId }: LocationManagerProps) => {
   };
 
   return (
-    <View className="space-y-3">
+    <View className="gap-3">
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-1.5">
           <Building2 size={16} color={colors.foreground} />
@@ -103,7 +103,7 @@ const LocationManager = ({ businessCardId }: LocationManagerProps) => {
           <DialogHeader>
             <DialogTitle>Add Branch Location</DialogTitle>
           </DialogHeader>
-          <View className="space-y-3">
+          <View className="gap-3">
             <Input
               placeholder="Branch name *"
               value={form.branch_name}

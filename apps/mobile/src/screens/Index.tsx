@@ -206,7 +206,7 @@ const Index = () => {
     <View className="flex-1 bg-background">
       <ScrollView
         className="bg-background"
-        contentContainerStyle={{ paddingBottom: 260 }}
+        contentContainerStyle={{ paddingBottom: 16 }}
         onScroll={handleScroll}
         scrollEventThrottle={200}
       >
@@ -602,7 +602,7 @@ const Index = () => {
         style={{
           position: "absolute",
           right: 16,
-          bottom: 140,
+          bottom: 20,
           height: 56,
           width: 56,
           borderRadius: 28,

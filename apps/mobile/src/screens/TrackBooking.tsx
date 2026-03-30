@@ -27,7 +27,7 @@ const TrackBooking = () => {
   const renderBooking = (booking: any, i: number) => {
     const status = statusConfig[booking.status] || statusConfig.pending;
     return (
-      <View key={booking.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
+      <View key={booking.id} className="rounded-xl border border-border bg-card p-4 gap-2">
         <View className="flex-row items-start justify-between">
           <View className="min-w-0">
             <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
@@ -90,9 +90,9 @@ const TrackBooking = () => {
         <Text className="text-lg font-bold text-foreground">Track Bookings</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4 space-y-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5">
         {isLoading ? (
-          <View className="space-y-3">
+          <View className="gap-3">
             {[1, 2, 3].map((i) => (
               <View key={i} className="h-24 rounded-xl bg-muted" />
             ))}
@@ -115,7 +115,7 @@ const TrackBooking = () => {
                 <Text className="text-sm font-semibold text-foreground mb-3">
                   Active ({activeBookings.length})
                 </Text>
-                <View className="space-y-3">
+                <View className="gap-3">
                   {activeBookings.map(renderBooking)}
                 </View>
               </View>
@@ -126,7 +126,7 @@ const TrackBooking = () => {
                 <Text className="text-sm font-semibold text-foreground mb-3">
                   Past ({pastBookings.length})
                 </Text>
-                <View className="space-y-3">
+                <View className="gap-3">
                   {pastBookings.map(renderBooking)}
                 </View>
               </View>

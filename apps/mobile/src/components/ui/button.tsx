@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, Text, PressableProps } from "react-native";
+import { Pressable, Text, View, PressableProps } from "react-native";
 import { cn } from "../../lib/utils";
 import { colors } from "../../theme/colors";
 
@@ -52,9 +52,9 @@ const variantClasses: Record<ButtonVariant, { container: string; text: string }>
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
-  default: "h-10 px-4 py-2",
-  sm: "h-9 px-3",
-  lg: "h-11 px-8",
+  default: "px-5 py-3",
+  sm: "px-4 py-2",
+  lg: "px-8 py-4",
   icon: "h-10 w-10",
 };
 
@@ -147,6 +147,8 @@ const Button = React.forwardRef<React.ElementRef<typeof Pressable>, ButtonProps>
       }
       if (!React.isValidElement(child)) return child;
       if (child.type === Text) return child;
+      // Only recurse into View and Fragment — leave SVG icons and other elements untouched
+      if (child.type !== View && child.type !== React.Fragment) return child;
       const childProps: any = child.props ?? {};
       if (childProps.children == null) return child;
       const wrappedChildren = React.Children.map(childProps.children, wrapTextNodes);

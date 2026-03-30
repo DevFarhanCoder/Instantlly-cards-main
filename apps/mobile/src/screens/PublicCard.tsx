@@ -36,7 +36,7 @@ const PublicCard = () => {
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-background p-4 space-y-4">
+      <View className="flex-1 bg-background p-4 gap-4">
         <Skeleton className="h-8 w-32" />
         <Skeleton className="h-24 w-full rounded-2xl" />
         <Skeleton className="h-40 w-full rounded-2xl" />
@@ -83,7 +83,7 @@ const PublicCard = () => {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-5 space-y-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5 gap-5">
         <View className="flex-row items-start gap-4">
           <View className="h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 overflow-hidden">
             {card.logo_url ? (
@@ -122,9 +122,9 @@ const PublicCard = () => {
           </View>
         )}
 
-        <View className="rounded-xl border border-border bg-card p-4 space-y-3">
+        <View className="rounded-xl border border-border bg-card p-4 gap-3">
           <Text className="text-sm font-semibold text-foreground">Contact Information</Text>
-          <View className="space-y-2">
+          <View className="gap-2">
             <View className="flex-row items-center gap-2">
               <Phone size={14} color="#6a7181" />
               <Text className="text-sm text-foreground">{card.phone}</Text>
@@ -150,10 +150,30 @@ const PublicCard = () => {
               </Pressable>
             )}
             {card.business_hours && (
-              <View className="flex-row items-center gap-2">
-                <Clock size={14} color="#6a7181" />
-                <Text className="text-sm text-foreground">{card.business_hours}</Text>
-              </View>
+              typeof card.business_hours === "string" ? (
+                <View className="flex-row items-center gap-2">
+                  <Clock size={14} color="#6a7181" />
+                  <Text className="text-sm text-foreground">{card.business_hours}</Text>
+                </View>
+              ) : typeof card.business_hours === "object" ? (
+                <View className="gap-1">
+                  <View className="flex-row items-center gap-2">
+                    <Clock size={14} color="#6a7181" />
+                    <Text className="text-sm font-medium text-foreground">Business Hours</Text>
+                  </View>
+                  {Object.entries(card.business_hours as Record<string, string>).map(([day, hours]) => (
+                    <View key={day} className="flex-row justify-between pl-6 pr-2">
+                      <Text className="text-xs text-muted-foreground capitalize">{day}</Text>
+                      <Text className="text-xs text-foreground">{String(hours)}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View className="flex-row items-center gap-2">
+                  <Clock size={14} color="#6a7181" />
+                  <Text className="text-sm text-foreground">{String(card.business_hours)}</Text>
+                </View>
+              )
             )}
             {card.established_year && (
               <View className="flex-row items-center gap-2">
@@ -165,9 +185,9 @@ const PublicCard = () => {
         </View>
 
         {(card.company_phone || card.company_email || card.company_address) && (
-          <View className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <View className="rounded-xl border border-border bg-card p-4 gap-3">
             <Text className="text-sm font-semibold text-foreground">Company Details</Text>
-            <View className="space-y-2">
+            <View className="gap-2">
               {card.company_phone && (
                 <View className="flex-row items-center gap-2">
                   <Phone size={14} color="#6a7181" />
@@ -191,7 +211,7 @@ const PublicCard = () => {
         )}
 
         {card.services && card.services.length > 0 && (
-          <View className="space-y-2">
+          <View className="gap-2">
             <Text className="text-sm font-semibold text-foreground">Services</Text>
             <View className="flex-row flex-wrap gap-2">
               {card.services.map((s) => (
@@ -204,7 +224,7 @@ const PublicCard = () => {
         )}
 
         {socialLinks.length > 0 && (
-          <View className="space-y-2">
+          <View className="gap-2">
             <Text className="text-sm font-semibold text-foreground">Social Media</Text>
             <View className="flex-row gap-3">
               {socialLinks.map(({ url, label, icon: Icon }) => (
@@ -239,7 +259,7 @@ const PublicCard = () => {
         </View>
       </ScrollView>
 
-      <View className="absolute bottom-48 left-0 right-0 border-t border-border bg-card px-4 py-3 flex-row gap-2">
+      <View className="border-t border-border bg-card px-4 py-3 flex-row gap-2">
         <Button
           className="flex-1 gap-1.5 rounded-xl py-4"
           onPress={() => openUrl(`tel:${card.phone}`)}

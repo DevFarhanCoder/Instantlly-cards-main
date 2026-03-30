@@ -112,7 +112,7 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
   const cards = tab === "Sent" ? demoSentCards : demoReceivedCards;
 
   return (
-    <ScrollView className="px-4 pt-4 pb-24">
+    <ScrollView className="px-4 pt-4 pb-4">
       <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {tab === "Sent" ? "📤 Cards You've Shared" : "📥 Cards Shared With You"}
       </Text>
@@ -370,7 +370,7 @@ const Messaging = () => {
         <ScrollView
           ref={scrollRef}
           className="flex-1 px-4 py-4"
-          contentContainerStyle={{ paddingBottom: 260, gap: 12 }}
+          contentContainerStyle={{ paddingBottom: 16, gap: 12 }}
           onContentSizeChange={scrollToBottom}
         >
           {dbMessages.map((msg) => {
@@ -443,7 +443,7 @@ const Messaging = () => {
           </ScrollView>
         </View>
 
-        <View className="absolute bottom-48 left-0 right-0 border-t border-border bg-card px-4 py-3">
+        <View className="border-t border-border bg-card px-4 py-3">
           <View className="flex-row gap-2">
             <Input
               placeholder="Type a message..."
@@ -571,7 +571,7 @@ const Messaging = () => {
           </Text>
         </View>
       ) : (
-        <ScrollView className="px-4 pt-3 pb-24">
+        <ScrollView className="px-4 pt-3 pb-4">
           <View className="gap-1">
             {displayConversations.map((conv) => (
               <Pressable

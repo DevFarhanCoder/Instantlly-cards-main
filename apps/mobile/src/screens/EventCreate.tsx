@@ -105,9 +105,9 @@ const EventCreate = () => {
         <Text className="text-lg font-bold text-foreground">Create Event</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-5 space-y-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5 gap-4">
         {cards.length > 0 && (
-          <View className="space-y-2">
+          <View className="gap-2">
             <Label>Link to Business Card</Label>
             <Select
               value={form.business_card_id}
@@ -127,7 +127,7 @@ const EventCreate = () => {
           </View>
         )}
 
-        <View className="space-y-2">
+        <View className="gap-2">
           <Label>Event Title *</Label>
           <Input
             placeholder="e.g. Digital Marketing Summit 2026"
@@ -136,7 +136,7 @@ const EventCreate = () => {
           />
         </View>
 
-        <View className="space-y-2">
+        <View className="gap-2">
           <Label>Description</Label>
           <Textarea
             placeholder="What's this event about?"
@@ -146,7 +146,7 @@ const EventCreate = () => {
           />
         </View>
 
-        <View className="space-y-2">
+        <View className="gap-2">
           <Label>Category *</Label>
           <Select value={form.category} onValueChange={(v) => update("category", v)}>
             <SelectTrigger className="rounded-xl">
@@ -163,7 +163,7 @@ const EventCreate = () => {
         </View>
 
         <View className="flex-row gap-3">
-          <View className="flex-1 space-y-2">
+          <View className="flex-1 gap-2">
             <Label className="flex-row items-center gap-1">
               <Calendar size={14} color="#6a7181" /> Date *
             </Label>
@@ -173,7 +173,7 @@ const EventCreate = () => {
               onChangeText={(v) => update("date", v)}
             />
           </View>
-          <View className="flex-1 space-y-2">
+          <View className="flex-1 gap-2">
             <Label className="flex-row items-center gap-1">
               <Clock size={14} color="#6a7181" /> Time *
             </Label>
@@ -185,7 +185,7 @@ const EventCreate = () => {
           </View>
         </View>
 
-        <View className="space-y-2">
+        <View className="gap-2">
           <Label className="flex-row items-center gap-1">
             <MapPin size={14} color="#6a7181" /> Venue *
           </Label>
@@ -207,7 +207,7 @@ const EventCreate = () => {
         </View>
 
         {!form.is_free && (
-          <View className="space-y-2">
+          <View className="gap-2">
             <Label>Ticket Price (₹)</Label>
             <Input
               placeholder="500"
@@ -218,7 +218,7 @@ const EventCreate = () => {
           </View>
         )}
 
-        <View className="space-y-2">
+        <View className="gap-2">
           <Label>Organizer Name</Label>
           <Input
             placeholder="e.g. John Doe or Company Name"
@@ -227,7 +227,7 @@ const EventCreate = () => {
           />
         </View>
 
-        <View className="space-y-2">
+        <View className="gap-2">
           <Label className="flex-row items-center gap-1">
             <Users size={14} color="#6a7181" /> Max Attendees
           </Label>
@@ -240,7 +240,7 @@ const EventCreate = () => {
         </View>
       </ScrollView>
 
-      <View className="absolute bottom-48 left-0 right-0 border-t border-border bg-card px-4 py-3">
+      <View className="border-t border-border bg-card px-4 py-3">
         <Button
           className="w-full rounded-xl py-3"
           onPress={handleSubmit}

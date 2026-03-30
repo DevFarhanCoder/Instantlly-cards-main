@@ -98,9 +98,9 @@ const VoucherCreate = () => {
         <Text className="text-lg font-bold text-foreground">Create Voucher</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-5 space-y-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5 gap-4">
         {cards.length > 0 && (
-          <View className="space-y-2">
+          <View className="gap-2">
             <Label>Link to Business Card</Label>
             <Select value={form.business_card_id} onValueChange={(v) => update("business_card_id", v)}>
               <SelectTrigger>
@@ -117,17 +117,17 @@ const VoucherCreate = () => {
           </View>
         )}
 
-        <View className="space-y-2">
+        <View className="gap-2">
           <Label>Voucher Title *</Label>
           <Input placeholder="e.g. Spa Day Package" value={form.title} onChangeText={(v) => update("title", v)} />
         </View>
 
-        <View className="space-y-2">
+        <View className="gap-2">
           <Label>Subtitle</Label>
           <Input placeholder="e.g. 90-min premium spa experience" value={form.subtitle} onChangeText={(v) => update("subtitle", v)} />
         </View>
 
-        <View className="space-y-2">
+        <View className="gap-2">
           <Label>Category</Label>
           <Select value={form.category} onValueChange={(v) => update("category", v)}>
             <SelectTrigger>
@@ -144,7 +144,7 @@ const VoucherCreate = () => {
         </View>
 
         <View className="flex-row gap-3">
-          <View className="flex-1 space-y-2">
+          <View className="flex-1 gap-2">
             <Label>Original Price (₹) *</Label>
             <Input
               placeholder="5000"
@@ -153,7 +153,7 @@ const VoucherCreate = () => {
               onChangeText={(v) => update("original_price", v)}
             />
           </View>
-          <View className="flex-1 space-y-2">
+          <View className="flex-1 gap-2">
             <Label>Discounted Price (₹) *</Label>
             <Input
               placeholder="2500"
@@ -173,7 +173,7 @@ const VoucherCreate = () => {
           </View>
         )}
 
-        <View className="space-y-2">
+        <View className="gap-2">
           <Label>Discount Label</Label>
           <Input
             placeholder="e.g. 50% OFF (auto-calculated if empty)"
@@ -182,7 +182,7 @@ const VoucherCreate = () => {
           />
         </View>
 
-        <View className="space-y-2">
+        <View className="gap-2">
           <Label>Terms & Conditions</Label>
           <Textarea
             placeholder="e.g. Valid Mon-Fri only. Cannot be combined with other offers."
@@ -193,7 +193,7 @@ const VoucherCreate = () => {
         </View>
 
         <View className="flex-row gap-3">
-          <View className="flex-1 space-y-2">
+          <View className="flex-1 gap-2">
             <Label>Max Claims</Label>
             <Input
               placeholder="Unlimited"
@@ -202,7 +202,7 @@ const VoucherCreate = () => {
               onChangeText={(v) => update("max_claims", v)}
             />
           </View>
-          <View className="flex-1 space-y-2">
+          <View className="flex-1 gap-2">
             <Label>Expires On</Label>
             <Input
               placeholder="YYYY-MM-DD"
@@ -221,7 +221,7 @@ const VoucherCreate = () => {
         </View>
       </ScrollView>
 
-      <View className="absolute bottom-48 left-0 right-0 border-t border-border bg-card px-4 py-3">
+      <View className="border-t border-border bg-card px-4 py-3">
         <Button className="w-full rounded-xl py-4" onPress={handleSubmit} disabled={createVoucher.isPending}>
           {createVoucher.isPending ? "Creating..." : "Create Voucher"}
         </Button>

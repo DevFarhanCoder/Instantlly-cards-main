@@ -56,7 +56,7 @@ const NetworkCards = () => {
   if (!user) return null;
 
   return (
-    <View className="space-y-3">
+    <View className="gap-3">
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-2">
           <Users size={16} color={colors.primary} />
@@ -149,7 +149,7 @@ const NetworkCards = () => {
           <DialogHeader>
             <DialogTitle>Add Contact</DialogTitle>
           </DialogHeader>
-          <View className="space-y-3">
+          <View className="gap-3">
             <Input
               placeholder="Contact name (optional)"
               value={manualName}

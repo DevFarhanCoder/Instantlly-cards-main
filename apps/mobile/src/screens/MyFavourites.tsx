@@ -33,9 +33,9 @@ const MyFavourites = () => {
         <Text className="ml-auto text-xs text-muted-foreground">{favorites.length} saved</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4">
         {isLoading ? (
-          <View className="space-y-3">
+          <View className="gap-3">
             {[1, 2, 3].map((i) => (
               <View key={i} className="h-20 rounded-xl bg-muted" />
             ))}
@@ -49,7 +49,7 @@ const MyFavourites = () => {
             </Text>
           </View>
         ) : (
-          <View className="space-y-3">
+          <View className="gap-3">
             {cards.map((card) => (
               <View
                 key={card.id}

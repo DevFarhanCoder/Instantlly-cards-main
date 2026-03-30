@@ -42,11 +42,6 @@ const BusinessDashboard = () => {
   const { cards, isLoading } = useBusinessCards();
   const queryClient = useQueryClient();
 
-  console.log('[BusinessDashboard] user:', user);
-  console.log('[BusinessDashboard] cards:', cards);
-  console.log('[BusinessDashboard] cards.length:', cards.length);
-  console.log('[BusinessDashboard] isLoading:', isLoading);
-
   const cardIds = cards.map((c) => c.id);
   const primaryCard = cards[0];
 
@@ -294,7 +289,7 @@ const BusinessDashboard = () => {
         </Button>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
           <View className="flex-row gap-2">
             {[
@@ -332,7 +327,7 @@ const BusinessDashboard = () => {
             </TabsList>
           </ScrollView>
 
-          <TabsContent value="bookings" className="space-y-3 mt-3">
+          <TabsContent value="bookings" className="gap-3 mt-3">
             {bookingsLoading ? (
               <View className="items-center py-8">
                 <Text className="text-xs text-muted-foreground">Loading...</Text>
@@ -344,7 +339,7 @@ const BusinessDashboard = () => {
               </View>
             ) : (
               incomingBookings.map((b: any) => (
-                <View key={b.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
+                <View key={b.id} className="rounded-xl border border-border bg-card p-4 gap-2">
                   <View className="flex-row items-start justify-between">
                     <View>
                       <Text className="text-sm font-bold text-foreground">{b.customer_name}</Text>
@@ -392,7 +387,7 @@ const BusinessDashboard = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="reviews" className="space-y-3 mt-3">
+          <TabsContent value="reviews" className="gap-3 mt-3">
             {cardIds.length === 0 ? (
               <View className="rounded-xl border border-dashed border-border bg-muted/30 p-8 items-center">
                 <Text className="text-sm text-muted-foreground">No business cards yet</Text>
@@ -402,7 +397,7 @@ const BusinessDashboard = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="events" className="space-y-3 mt-3">
+          <TabsContent value="events" className="gap-3 mt-3">
             <Button variant="outline" className="w-full gap-2 rounded-xl" onPress={() => navigation.navigate("EventCreate")}>
               <Calendar size={16} color="#111827" /> Create New Event
             </Button>
@@ -414,7 +409,7 @@ const BusinessDashboard = () => {
               myEvents.map((e: any) => {
                 const regs = eventRegistrations.filter((r: any) => r.event_id === e.id);
                 return (
-                  <View key={e.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
+                  <View key={e.id} className="rounded-xl border border-border bg-card p-4 gap-2">
                     <View className="flex-row items-start justify-between">
                       <Pressable onPress={() => navigation.navigate("EventDetail", { id: e.id })}>
                         <Text className="text-sm font-bold text-foreground">{e.title}</Text>
@@ -438,7 +433,7 @@ const BusinessDashboard = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="vouchers" className="space-y-3 mt-3">
+          <TabsContent value="vouchers" className="gap-3 mt-3">
             <Button variant="outline" className="w-full gap-2 rounded-xl" onPress={() => navigation.navigate("VoucherCreate")}>
               <Tag size={16} color="#111827" /> Create New Voucher
             </Button>
@@ -450,7 +445,7 @@ const BusinessDashboard = () => {
               myVouchers.map((v: any) => {
                 const claims = voucherClaims.filter((c: any) => c.voucher_id === v.id);
                 return (
-                  <View key={v.id} className="rounded-xl border border-border bg-card p-4 space-y-2">
+                  <View key={v.id} className="rounded-xl border border-border bg-card p-4 gap-2">
                     <View className="flex-row items-start justify-between">
                       <View>
                         <Text className="text-sm font-bold text-foreground">{v.title}</Text>
@@ -485,7 +480,7 @@ const BusinessDashboard = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="messages" className="space-y-3 mt-3">
+          <TabsContent value="messages" className="gap-3 mt-3">
             <Button variant="outline" className="w-full gap-2 rounded-xl" onPress={() => navigation.navigate("Messaging")}>
               <MessageCircle size={16} color="#111827" /> Open Messaging
             </Button>
@@ -518,7 +513,7 @@ const BusinessDashboard = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="leads" className="space-y-3 mt-3">
+          <TabsContent value="leads" className="gap-3 mt-3">
             {primaryCard ? (
               <LeadsManager businessCardId={primaryCard.id} />
             ) : (
@@ -532,7 +527,7 @@ const BusinessDashboard = () => {
             <BookingCalendar bookings={incomingBookings} />
           </TabsContent>
 
-          <TabsContent value="tools" className="space-y-3 mt-3">
+          <TabsContent value="tools" className="gap-3 mt-3">
             <View className="rounded-xl border border-border bg-card p-4">
               <View className="flex-row items-center gap-2 mb-3">
                 <QrCode size={16} color="#2563eb" />
@@ -551,7 +546,7 @@ const BusinessDashboard = () => {
             </View>
 
             {primaryCard ? (
-              <View className="space-y-3">
+              <View className="gap-3">
                 <BusinessHoursEditor businessCardId={primaryCard.id} />
                 <ServicePricingManager businessCardId={primaryCard.id} />
                 <PhotoGalleryManager businessCardId={primaryCard.id} />

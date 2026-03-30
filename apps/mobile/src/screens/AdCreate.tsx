@@ -160,9 +160,9 @@ const AdCreate = () => {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="px-4 py-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5">
         {step === 0 && (
-          <View className="space-y-3">
+          <View className="gap-3">
             <Text className="text-sm text-muted-foreground mb-2">Choose your ad format</Text>
             {adTypes.map((t) => (
               <Pressable
@@ -183,7 +183,7 @@ const AdCreate = () => {
             ))}
 
             {cards.length > 0 && (
-              <View className="space-y-2 pt-2">
+              <View className="gap-2 pt-2">
                 <Label>Link to Business Card</Label>
                 <Select
                   value={form.business_card_id}
@@ -206,7 +206,7 @@ const AdCreate = () => {
         )}
 
         {step === 1 && (
-          <View className="space-y-4">
+          <View className="gap-4">
             <View>
               <Label className="mb-2">Ad Creatives (up to 3 for A/B testing)</Label>
               <View className="flex-row flex-wrap gap-2">
@@ -243,7 +243,7 @@ const AdCreate = () => {
               </View>
             </View>
 
-            <View className="space-y-2">
+            <View className="gap-2">
               <Label>Ad Title</Label>
               <Input
                 placeholder="e.g. Summer Sale - 50% Off"
@@ -251,7 +251,7 @@ const AdCreate = () => {
                 onChangeText={(v) => updateField("title", v)}
               />
             </View>
-            <View className="space-y-2">
+            <View className="gap-2">
               <Label>Description</Label>
               <Textarea
                 placeholder="Ad description"
@@ -259,7 +259,7 @@ const AdCreate = () => {
                 onChangeText={(v) => updateField("description", v)}
               />
             </View>
-            <View className="space-y-2">
+            <View className="gap-2">
               <Label>Call to Action</Label>
               <Select value={form.cta} onValueChange={(v) => updateField("cta", v)}>
                 <SelectTrigger>
@@ -287,12 +287,12 @@ const AdCreate = () => {
         )}
 
         {step === 2 && (
-          <View className="space-y-4">
+          <View className="gap-4">
             <View className="flex-row items-center gap-2 mb-2">
               <Target size={18} color="#2563eb" />
               <Text className="text-base font-semibold text-foreground">Target Audience</Text>
             </View>
-            <View className="space-y-2">
+            <View className="gap-2">
               <Label>City / Region</Label>
               <Input
                 placeholder="e.g. Mumbai, Pune (leave blank for all)"
@@ -300,7 +300,7 @@ const AdCreate = () => {
                 onChangeText={(v) => updateField("targetCity", v)}
               />
             </View>
-            <View className="space-y-2">
+            <View className="gap-2">
               <Label>Age Group</Label>
               <Select value={form.targetAge} onValueChange={(v) => updateField("targetAge", v)}>
                 <SelectTrigger>
@@ -315,7 +315,7 @@ const AdCreate = () => {
                 </SelectContent>
               </Select>
             </View>
-            <View className="space-y-2">
+            <View className="gap-2">
               <Label>Interests</Label>
               <Input
                 placeholder="e.g. Technology, Health, Food"
@@ -327,12 +327,12 @@ const AdCreate = () => {
         )}
 
         {step === 3 && (
-          <View className="space-y-4">
+          <View className="gap-4">
             <View className="flex-row items-center gap-2 mb-2">
               <Wallet size={18} color="#2563eb" />
               <Text className="text-base font-semibold text-foreground">Budget & Duration</Text>
             </View>
-            <View className="space-y-2">
+            <View className="gap-2">
               <Label>Daily Budget: ₹{form.budget[0].toLocaleString()}</Label>
               <Slider
                 value={form.budget}
@@ -346,7 +346,7 @@ const AdCreate = () => {
                 <Text className="text-[10px] text-muted-foreground">₹10,000</Text>
               </View>
             </View>
-            <View className="space-y-2">
+            <View className="gap-2">
               <Label>Duration</Label>
               <Select value={form.duration} onValueChange={(v) => updateField("duration", v)}>
                 <SelectTrigger>
@@ -364,14 +364,14 @@ const AdCreate = () => {
               </Select>
             </View>
 
-            <View className="space-y-2">
+            <View className="gap-2">
               <Text className="text-sm font-semibold text-foreground">Live Preview</Text>
               <View className="mx-auto w-64 rounded-3xl border-4 border-foreground/20 bg-background p-2">
                 <View className="rounded-2xl overflow-hidden bg-muted">
                   <View className="h-6 bg-card items-center justify-center">
                     <View className="h-1.5 w-12 rounded-full bg-foreground/20" />
                   </View>
-                  <View className="p-3 space-y-2">
+                  <View className="p-3 gap-2">
                     <View className="h-2 w-16 rounded bg-muted-foreground/20" />
                     <View className="h-3 w-24 rounded bg-muted-foreground/20" />
                     <View className="flex-row items-center gap-2 p-2 rounded-lg border border-border bg-card">
@@ -404,9 +404,9 @@ const AdCreate = () => {
               </View>
             </View>
 
-            <View className="rounded-xl border border-border bg-card p-4 space-y-2">
+            <View className="rounded-xl border border-border bg-card p-4 gap-2">
               <Text className="text-sm font-semibold text-foreground">Campaign Summary</Text>
-              <View className="space-y-1">
+              <View className="gap-1">
                 <Text className="text-xs text-muted-foreground">
                   Type: <Text className="text-foreground font-medium">{selectedType?.name || "—"}</Text>
                 </Text>
@@ -431,7 +431,7 @@ const AdCreate = () => {
         )}
       </ScrollView>
 
-      <View className="absolute bottom-56 left-0 right-0 border-t border-border bg-card px-4 py-3">
+      <View className="border-t border-border bg-card px-4 py-3">
         {step < 3 ? (
           <Pressable
             className="w-full flex-row items-center justify-center gap-2 rounded-xl bg-primary py-6"

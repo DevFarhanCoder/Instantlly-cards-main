@@ -56,7 +56,7 @@ const Ads = () => {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 260 }} className="flex-1 px-4 py-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="flex-1 px-4 py-4">
         {!user && (
           <View className="rounded-2xl border border-primary/20 bg-primary/5 p-4 items-center">
             <Lock size={32} color="#2563eb" />
@@ -77,19 +77,19 @@ const Ads = () => {
             <Text className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
               📊 Preview: Sample Campaigns
             </Text>
-            <View className="flex-row flex-wrap gap-3 mb-4">
+            <View className="flex-row gap-3 mb-4">
               {[
                 { value: "3", label: "Active Ads" },
                 { value: "45.8K", label: "Impressions" },
                 { value: "1,098", label: "Clicks" },
               ].map((s) => (
-                <View key={s.label} className="w-[31%] rounded-xl border border-border bg-card p-3 items-center">
+                <View key={s.label} className="flex-1 rounded-xl border border-border bg-card p-3 items-center">
                   <Text className="text-lg font-bold text-foreground">{s.value}</Text>
                   <Text className="text-[10px] text-muted-foreground">{s.label}</Text>
                 </View>
               ))}
             </View>
-            <View className="space-y-3 opacity-80">
+            <View className="gap-3 opacity-80">
               {demoAds.map((ad) => (
                 <View key={ad.id} className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3">
                   <Text className="text-2xl">{ad.emoji}</Text>
@@ -111,18 +111,18 @@ const Ads = () => {
         )}
 
         {user && (
-          <View className="mt-2 flex-row flex-wrap gap-3">
-            <View className="w-[31%] rounded-xl border border-border bg-card p-3 items-center">
+          <View className="mt-2 flex-row gap-3">
+            <View className="flex-1 rounded-xl border border-border bg-card p-3 items-center">
               <Text className="text-lg font-bold text-foreground">{activeAds.length}</Text>
               <Text className="text-[10px] text-muted-foreground">Active Ads</Text>
             </View>
-            <View className="w-[31%] rounded-xl border border-border bg-card p-3 items-center">
+            <View className="flex-1 rounded-xl border border-border bg-card p-3 items-center">
               <Text className="text-lg font-bold text-foreground">
                 {totalImpressions > 1000 ? `${(totalImpressions / 1000).toFixed(1)}K` : totalImpressions}
               </Text>
               <Text className="text-[10px] text-muted-foreground">Impressions</Text>
             </View>
-            <View className="w-[31%] rounded-xl border border-border bg-card p-3 items-center">
+            <View className="flex-1 rounded-xl border border-border bg-card p-3 items-center">
               <Text className="text-lg font-bold text-foreground">{totalClicks.toLocaleString()}</Text>
               <Text className="text-[10px] text-muted-foreground">Clicks</Text>
             </View>
@@ -149,7 +149,7 @@ const Ads = () => {
 
         <View className="mt-4">
           <Text className="text-lg font-semibold text-foreground mb-3">Ad Formats</Text>
-          <View className="space-y-3">
+          <View className="gap-3">
             {[
               { emoji: "🖼️", name: "Banner Ads", desc: "Eye-catching banners across Home, Events & Vouchers", price: "From ₹100/day" },
               { emoji: "⭐", name: "Featured Listing", desc: "Top placement in category and search results", price: "From ₹200/day" },
@@ -180,7 +180,7 @@ const Ads = () => {
               </Pressable>
             </View>
             {isLoading ? (
-              <View className="space-y-3">
+              <View className="gap-3">
                 {[1, 2].map((i) => (
                   <Skeleton key={i} className="h-16 w-full rounded-xl" />
                 ))}
@@ -193,7 +193,7 @@ const Ads = () => {
                 </Text>
               </View>
             ) : (
-              <View className="space-y-3">
+              <View className="gap-3">
                 {campaigns.slice(0, 3).map((ad) => (
                   <View key={ad.id} className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3">
                     <Text className="text-2xl">{typeEmoji[ad.ad_type] || "📣"}</Text>

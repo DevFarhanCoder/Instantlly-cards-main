@@ -97,7 +97,7 @@ export default function ServicePricingManager({ businessCardId }: Props) {
   };
 
   return (
-    <View className="space-y-4">
+    <View className="gap-4">
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-2">
           <DollarSign size={16} color={colors.primary} />
@@ -116,7 +116,7 @@ export default function ServicePricingManager({ businessCardId }: Props) {
       </View>
 
       {showForm && (
-        <View className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+        <View className="rounded-xl border border-border bg-muted/30 p-4 gap-3">
           <Input
             placeholder="Service name *"
             value={form.service_name}
@@ -174,7 +174,7 @@ export default function ServicePricingManager({ businessCardId }: Props) {
           No services listed yet.
         </Text>
       ) : (
-        <View className="space-y-2">
+        <View className="gap-2">
           {services.map((s: any) => (
             <View
               key={s.id}
