@@ -64,8 +64,8 @@ const BusinessDetail = () => {
   const { user } = useAuth();
   const { createBooking } = useBookings();
   const createConversation = useCreateConversation();
-  const { data: card, isLoading } = useDirectoryCard(id || "");
-  const businessId = card?.business_card_id ?? String(card?._numericId ?? "") ?? "";
+  const { data: card, isLoading } = useDirectoryCard(id || "0");
+  const businessId = card?.business_card_id || (card?._numericId ? String(card._numericId) : "");
   const { reviews, createReview, uploadReviewPhoto } = useReviews(businessId);
   const { followersCount, isFollowing, toggleFollow } = useBusinessFollows(businessId);
   const reportBusiness = useReportBusiness();

@@ -37,9 +37,9 @@ const SubcategoryDetail = () => {
   const { toggleFavorite, isFavorite } = useFavorites();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const subcategory = route.params?.subcategory as string;
-  const categoryName = route.params?.categoryName as string;
-  const categoryIcon = route.params?.categoryIcon as string;
+  const subcategory = route.params?.subcategory as string ?? "";
+  const categoryName = route.params?.categoryName as string ?? "Category";
+  const categoryIcon = route.params?.categoryIcon as string ?? "📁";
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");

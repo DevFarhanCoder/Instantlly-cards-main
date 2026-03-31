@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
+  Dimensions,
   Image,
   Modal,
+  PanResponder,
   Pressable,
   StyleSheet,
   Text,
@@ -11,7 +14,6 @@ import { useNavigation } from "@react-navigation/native";
 import { Linking } from "react-native";
 import {
   ArrowRight,
-  CalendarCheck,
   MapPin,
   MessageCircle,
   Phone,
@@ -26,31 +28,48 @@ import {
 } from "../../hooks/useActiveAds";
 import { useGetCardQuery } from "../../store/api/businessCardsApi";
 
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const SWIPE_THRESHOLD = 100;
+const COOLDOWN_MS = 60000;
+
 interface BannerAdSlotProps {
   variant?: "inline" | "sticky";
   adType?: string;
 }
 
 const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
-  const { data: ads = [] } = useActiveAds(adType);
+  const { data: ads = [] } = useActiveAds(adType || "banner");
   const navigation = useNavigation<any>();
   const [index, setIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const recordClick = useRecordClick();
+  const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeAds = useMemo(
     () => ads.filter((a) => a.status === "active"),
     [ads]
   );
 
+  // Auto-rotate ads every 5s
   useEffect(() => {
-    if (expanded || activeAds.length === 0) return;
+    if (expanded || activeAds.length <= 1) return;
     const timer = setInterval(() => {
       setIndex((prev) => (prev + 1) % activeAds.length);
     }, 5000);
     return () => clearInterval(timer);
   }, [expanded, activeAds.length]);
+
+  // Cooldown after swipe-dismiss: reappear after 60s
+  useEffect(() => {
+    if (!dismissed) return;
+    cooldownTimer.current = setTimeout(() => {
+      setDismissed(false);
+    }, COOLDOWN_MS);
+    return () => {
+      if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+    };
+  }, [dismissed]);
 
   const ad = activeAds[index];
 
@@ -58,6 +77,41 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
 
   const cardId = expanded && ad?.business_card_id ? Number(ad.business_card_id) : 0;
   const { data: businessCard } = useGetCardQuery(cardId, { skip: !cardId });
+
+  // Swipe-to-dismiss for sticky variant
+  const panX = useRef(new Animated.Value(0)).current;
+  const panOpacity = panX.interpolate({
+    inputRange: [-SCREEN_WIDTH, -SWIPE_THRESHOLD, 0, SWIPE_THRESHOLD, SCREEN_WIDTH],
+    outputRange: [0, 0.3, 1, 0.3, 0],
+    extrapolate: "clamp",
+  });
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gs) =>
+        variant === "sticky" && Math.abs(gs.dx) > 10 && Math.abs(gs.dy) < 10,
+      onPanResponderMove: Animated.event([null, { dx: panX }], {
+        useNativeDriver: false,
+      }),
+      onPanResponderRelease: (_, gs) => {
+        if (Math.abs(gs.dx) > SWIPE_THRESHOLD) {
+          Animated.timing(panX, {
+            toValue: gs.dx > 0 ? SCREEN_WIDTH : -SCREEN_WIDTH,
+            duration: 200,
+            useNativeDriver: false,
+          }).start(() => {
+            setDismissed(true);
+            panX.setValue(0);
+          });
+        } else {
+          Animated.spring(panX, {
+            toValue: 0,
+            useNativeDriver: false,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   if (activeAds.length === 0 || dismissed) return null;
 
@@ -89,13 +143,13 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
         }
         break;
       case "book":
-        navigation.navigate("BusinessDetail", {
-          id: businessCard?.id || ad?.business_card_id,
-        });
-        break;
       case "learn":
         navigation.navigate("BusinessDetail", {
-          id: businessCard?.id || ad?.business_card_id,
+          id: businessCard?.id
+            ? `card-${businessCard.id}`
+            : ad?.business_card_id
+              ? `card-${ad.business_card_id}`
+              : undefined,
         });
         break;
     }
@@ -105,54 +159,79 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
     ad?.creative_url || (ad?.creative_urls && ad.creative_urls.length > 0);
   const imageUrl = ad?.creative_url || ad?.creative_urls?.[0];
 
+  const bannerContent = (
+    <Pressable
+      onPress={handleClick}
+      style={[
+        styles.bannerBase,
+        variant === "sticky" ? styles.bannerSticky : styles.bannerInline,
+      ]}
+    >
+      <Text style={styles.adLabel}>Ad</Text>
+      {hasImage ? (
+        <Image source={{ uri: imageUrl! }} style={styles.bannerImage} />
+      ) : (
+        <View style={styles.bannerFallback}>
+          <Text style={styles.bannerEmoji}>📣</Text>
+        </View>
+      )}
+      <View style={styles.bannerBody}>
+        <Text
+          style={[
+            styles.bannerTitle,
+            variant === "sticky" && styles.bannerTitleSticky,
+          ]}
+        >
+          {ad?.title || "Sponsored"}
+        </Text>
+        <Text
+          style={[
+            styles.bannerDesc,
+            variant === "sticky" && styles.bannerDescSticky,
+          ]}
+          numberOfLines={1}
+        >
+          {ad?.description || "Check out this business"}
+        </Text>
+      </View>
+      <Button
+        size="sm"
+        className={
+          variant === "sticky"
+            ? "bg-background text-foreground"
+            : "bg-primary text-primary-foreground"
+        }
+      >
+        {ad?.cta || "Learn More"}
+      </Button>
+    </Pressable>
+  );
+
   return (
     <>
-      <Pressable
-        onPress={handleClick}
-        style={[
-          styles.bannerBase,
-          variant === "sticky" ? styles.bannerSticky : styles.bannerInline,
-        ]}
-      >
-        <Text style={styles.adLabel}>Ad</Text>
-        {hasImage ? (
-          <Image source={{ uri: imageUrl! }} style={styles.bannerImage} />
-        ) : (
-          <View style={styles.bannerFallback}>
-            <Text style={styles.bannerEmoji}>📣</Text>
-          </View>
-        )}
-        <View style={styles.bannerBody}>
-          <Text
-            style={[
-              styles.bannerTitle,
-              variant === "sticky" && styles.bannerTitleSticky,
-            ]}
-          >
-            {ad?.title || "Sponsored"}
-          </Text>
-          <Text
-            style={[
-              styles.bannerDesc,
-              variant === "sticky" && styles.bannerDescSticky,
-            ]}
-            numberOfLines={1}
-          >
-            {ad?.description || "Check out this business"}
-          </Text>
-        </View>
-        <Button
-          size="sm"
-          className={
-            variant === "sticky"
-              ? "bg-background text-foreground"
-              : "bg-primary text-primary-foreground"
-          }
+      {variant === "sticky" ? (
+        <Animated.View
+          {...panResponder.panHandlers}
+          style={{ transform: [{ translateX: panX }], opacity: panOpacity }}
         >
-          {ad?.cta || "Learn More"}
-        </Button>
-      </Pressable>
+          {bannerContent}
+        </Animated.View>
+      ) : (
+        bannerContent
+      )}
 
+      {activeAds.length > 1 && (
+        <View style={styles.dotsRow}>
+          {activeAds.map((_, i) => (
+            <View
+              key={i}
+              style={[styles.dot, i === index ? styles.dotActive : styles.dotInactive]}
+            />
+          ))}
+        </View>
+      )}
+
+      {/* Full-screen ad modal */}
       <Modal visible={expanded} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
@@ -162,7 +241,11 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
 
             <View style={styles.modalBody}>
               {hasImage ? (
-                <Image source={{ uri: imageUrl! }} style={styles.modalImage} />
+                <Image
+                  source={{ uri: imageUrl! }}
+                  style={styles.modalImage}
+                  resizeMode="cover"
+                />
               ) : (
                 <View style={styles.modalFallback}>
                   <Text style={styles.modalEmoji}>📣</Text>
@@ -178,13 +261,17 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
             <View style={styles.modalActions}>
               {businessCard ? (
                 <View style={styles.modalGrid}>
-                  <Button size="lg" className="rounded-xl" onPress={() => handleCta("call")}>
+                  <Button
+                    size="lg"
+                    className="flex-1 rounded-xl"
+                    onPress={() => handleCta("call")}
+                  >
                     <Phone size={14} color="#fff" /> Call Now
                   </Button>
                   <Button
                     size="lg"
                     variant="outline"
-                    className="rounded-xl"
+                    className="flex-1 rounded-xl"
                     onPress={() => handleCta("chat")}
                   >
                     <MessageCircle size={14} color={colors.foreground} /> Chat
@@ -193,7 +280,7 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
                     <Button
                       size="lg"
                       variant="outline"
-                      className="rounded-xl"
+                      className="flex-1 rounded-xl"
                       onPress={() => handleCta("directions")}
                     >
                       <MapPin size={14} color={colors.foreground} /> Directions
@@ -202,14 +289,18 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="rounded-xl"
+                    className="flex-1 rounded-xl"
                     onPress={() => handleCta("learn")}
                   >
                     <ArrowRight size={14} color={colors.foreground} /> View Business
                   </Button>
                 </View>
               ) : (
-                <Button size="lg" className="rounded-xl">
+                <Button
+                  size="lg"
+                  className="w-full rounded-xl"
+                  onPress={() => setExpanded(false)}
+                >
                   {ad?.cta || "Learn More"}
                 </Button>
               )}
@@ -253,6 +344,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
+    zIndex: 1,
   },
   bannerImage: {
     height: 56,
@@ -333,6 +425,8 @@ const styles = StyleSheet.create({
   },
   modalImage: {
     width: "100%",
+    height: undefined,
+    aspectRatio: 16 / 9,
     maxHeight: "50%",
     borderRadius: 20,
     marginBottom: 20,

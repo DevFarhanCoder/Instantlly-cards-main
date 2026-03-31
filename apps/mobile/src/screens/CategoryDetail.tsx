@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft } from "lucide-react-native";
+import { Skeleton } from "../components/ui/skeleton";
 import { useListMobileCategoriesQuery, useGetMobileSubcategoriesQuery } from "../store/api/categoriesApi";
 
 const CategoryDetail = () => {
@@ -10,7 +11,7 @@ const CategoryDetail = () => {
   const categoryId = Number(id);
   const { data: categoryData = [] } = useListMobileCategoriesQuery();
   const category = categoryData.find((c) => String(c.id) === String(categoryId));
-  const { data: subcategoryResponse } = useGetMobileSubcategoriesQuery(
+  const { data: subcategoryResponse, isLoading: isLoadingSubs } = useGetMobileSubcategoriesQuery(
     { id: categoryId, page: 1, limit: 200 },
     { skip: !categoryId }
   );
@@ -247,7 +248,16 @@ const CategoryDetail = () => {
           Select a Subcategory
         </Text>
 
-        {subcategories.length > 0 ? (
+        {isLoadingSubs ? (
+          <View className="flex-row flex-wrap gap-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <View key={`sub-skel-${i}`} style={{ width: '23%' }} className="items-center py-2">
+                <Skeleton className="h-11 w-11 rounded-lg mb-1" />
+                <Skeleton className="h-2 w-12 rounded" />
+              </View>
+            ))}
+          </View>
+        ) : subcategories.length > 0 ? (
           <View className="flex-row flex-wrap gap-2">
             {subcategories.map((sub, index) => {
               const bgColors = [
