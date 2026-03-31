@@ -12,6 +12,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import {
   ArrowLeft,
   CalendarCheck,
+  CheckCircle,
   Filter,
   Heart,
   MapPin,
@@ -225,52 +226,67 @@ const SubcategoryDetail = () => {
                   <Pressable
                     key={card.id}
                     onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
-                    className="rounded-2xl border border-border bg-card p-3"
+                    className="rounded-2xl border border-border bg-card p-3.5"
                   >
                     <View className="flex-row items-start justify-between">
-                      <View className="flex-row items-start gap-2.5">
-                        <View className="h-10 w-10 items-center justify-center rounded-lg bg-primary/10 overflow-hidden">
+                      <View className="flex-row items-center gap-3 flex-1 min-w-0">
+                        <View className="h-12 w-12 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
                           {card.logo_url ? (
                             <Image source={{ uri: card.logo_url }} style={{ height: "100%", width: "100%" }} />
                           ) : (
-                            <Text className="text-lg">🏢</Text>
+                            <Text className="text-xl">🏢</Text>
                           )}
                         </View>
-                        <View className="flex-1">
-                          <Text className="text-sm font-bold text-foreground">{card.full_name}</Text>
-                          <View className="mt-0.5 flex-row items-center gap-1.5">
-                            {card.category && <Text className="text-[11px] text-muted-foreground">{card.category}</Text>}
-                            <Text
-                              className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${
-                                card.service_mode === "home"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : card.service_mode === "both"
-                                  ? "bg-purple-100 text-purple-700"
-                                  : "bg-amber-100 text-amber-700"
-                              }`}
-                            >
-                              {card.service_mode === "home"
-                                ? "🏠 Home Service"
-                                : card.service_mode === "both"
-                                ? "🔄 Home & Visit"
-                                : "🏪 Visit"}
-                            </Text>
+                        <View className="flex-1 min-w-0">
+                          <View className="flex-row items-center gap-1">
+                            <Text className="text-sm font-bold text-foreground" numberOfLines={1}>{card.full_name}</Text>
+                            {card.is_verified && (
+                              <CheckCircle size={14} color={colors.primary} />
+                            )}
                           </View>
+                          {card.company_name && card.company_name !== card.full_name && (
+                            <Text className="text-xs text-muted-foreground" numberOfLines={1}>{card.company_name}</Text>
+                          )}
+                          {card.service_mode && (
+                            <View className="flex-row items-center gap-1.5 mt-0.5">
+                              <Text
+                                className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${
+                                  card.service_mode === "home"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : card.service_mode === "both"
+                                    ? "bg-purple-100 text-purple-700"
+                                    : "bg-amber-100 text-amber-700"
+                                }`}
+                              >
+                                {card.service_mode === "home"
+                                  ? "🏠 Home Service"
+                                  : card.service_mode === "both"
+                                  ? "🔄 Home & Visit"
+                                  : "🏪 Visit"}
+                              </Text>
+                            </View>
+                          )}
                         </View>
                       </View>
                       <Pressable onPress={() => toggleFavorite(card.id)} className="p-1">
                         <Heart
-                          size={16}
+                          size={18}
                           color={isFavorite(card.id) ? colors.destructive : colors.mutedForeground}
                           fill={isFavorite(card.id) ? colors.destructive : "transparent"}
                         />
                       </Pressable>
                     </View>
 
+                    {card.description && (
+                      <Text className="mt-1.5 text-xs text-muted-foreground" numberOfLines={2}>
+                        {card.description}
+                      </Text>
+                    )}
+
                     {card.location && (
                       <View className="mt-1.5 flex-row items-center gap-1.5">
                         <MapPin size={13} color={colors.mutedForeground} />
-                        <Text className="text-[11px] text-muted-foreground flex-1">{card.location}</Text>
+                        <Text className="text-[11px] text-muted-foreground flex-1" numberOfLines={1}>{card.location}</Text>
                         {userLocation && card.latitude && card.longitude && (
                           <View className="flex-row items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5">
                             <NavigationIcon size={10} color={colors.primary} />
@@ -296,8 +312,8 @@ const SubcategoryDetail = () => {
                     )}
 
                     {card.services && card.services.length > 0 && (
-                      <View className="mt-1.5 flex-row flex-wrap gap-1.5">
-                        {card.services.map((s) => (
+                      <View className="mt-1.5 flex-row flex-wrap gap-1">
+                        {card.services.slice(0, 4).map((s) => (
                           <Text
                             key={s}
                             className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
@@ -305,17 +321,24 @@ const SubcategoryDetail = () => {
                             {s}
                           </Text>
                         ))}
+                        {card.services.length > 4 && (
+                          <Text className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            +{card.services.length - 4} more
+                          </Text>
+                        )}
                       </View>
                     )}
 
-                    <View className="mt-2 flex-row gap-1.5">
-                      <Button
-                        size="sm"
-                        className="flex-1 rounded-lg py-1.5"
-                        onPress={() => Linking.openURL(`tel:${card.phone}`)}
-                      >
-                        <Phone size={11} color="#ffffff" /> Call
-                      </Button>
+                    <View className="mt-2.5 flex-row gap-1.5">
+                      {card.phone ? (
+                        <Button
+                          size="sm"
+                          className="flex-1 rounded-lg py-1.5"
+                          onPress={() => Linking.openURL(`tel:${card.phone}`)}
+                        >
+                          <Phone size={11} color="#ffffff" /> Call
+                        </Button>
+                      ) : null}
                       <Button
                         size="sm"
                         variant="outline"
@@ -354,7 +377,7 @@ const SubcategoryDetail = () => {
         onOpenChange={(open) => !open && setBookingCard(null)}
         businessName={bookingCard?.full_name || ""}
         businessLogo={bookingCard?.logo_url || "🏢"}
-        businessId={bookingCard?.id || ""}
+        businessId={bookingCard?.business_card_id || bookingCard?.id || ""}
       />
     </View>
   );

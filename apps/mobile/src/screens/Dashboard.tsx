@@ -90,7 +90,7 @@ const Dashboard = () => {
             size="sm"
             variant="outline"
             className="mt-2 w-full gap-1 rounded-lg text-xs"
-            onPress={() => navigation.navigate("BusinessDetail", { id: b.business_id })}
+            onPress={() => navigation.navigate("BusinessDetail", { id: `card-${b.business_id}` })}
           >
             <RotateCcw size={12} color={colors.foreground} /> Re-book
           </Button>

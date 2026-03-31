@@ -77,7 +77,7 @@ const MyCards = () => {
                 <Pressable
                   key={card.id}
                   className="rounded-2xl border border-border bg-card p-4 shadow-sm"
-                  onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
+                  onPress={() => navigation.navigate("BusinessDetail", { id: `card-${card.id}` })}
                 >
                   <View className="flex-row items-start gap-3">
                     <View className="h-12 w-12 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">

@@ -75,7 +75,7 @@ const TrackBooking = () => {
             size="sm"
             variant="outline"
             className="w-full rounded-xl text-xs mt-1"
-            onPress={() => navigation.navigate("BusinessDetail", { id: booking.business_id })}
+            onPress={() => navigation.navigate("BusinessDetail", { id: `card-${booking.business_id}` })}
           >
             <RefreshCw size={12} color="#111827" /> Re-book
           </Button>
