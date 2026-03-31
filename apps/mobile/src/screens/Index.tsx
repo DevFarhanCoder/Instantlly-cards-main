@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -176,13 +176,13 @@ const Index = () => {
     ];
   }, [filteredCards, networkCards]);
 
-  const handleScroll = (e: any) => {
+  const handleScroll = useCallback((e: any) => {
     const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
     const paddingToBottom = 320;
     if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
       if (hasMore) loadMore();
     }
-  };
+  }, [hasMore, loadMore]);
 
   return (
     <View className="flex-1 bg-background">

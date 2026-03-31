@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
@@ -12,12 +12,63 @@ import {
   XCircle,
 } from "lucide-react-native";
 import { Button } from "../components/ui/button";
+import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useFavorites } from "../contexts/FavoritesContext";
 import { useBookings } from "../hooks/useBookings";
 import { useAuth } from "../hooks/useAuth";
 import { useDirectoryCards } from "../hooks/useDirectoryCards";
 import { colors } from "../theme/colors";
+
+const STATUS_CONFIG: Record<
+  string,
+  { icon: any; textClass: string; bgClass: string; iconColor: string }
+> = {
+  confirmed: { icon: Clock, textClass: "text-amber-700", bgClass: "bg-amber-100", iconColor: "#b45309" },
+  completed: { icon: CheckCircle, textClass: "text-green-700", bgClass: "bg-green-100", iconColor: "#15803d" },
+  cancelled: { icon: XCircle, textClass: "text-red-700", bgClass: "bg-red-100", iconColor: "#b91c1c" },
+};
+
+const BookingCard = ({ b, onRebook }: { b: any; onRebook: (id: string) => void }) => {
+  const cfg = STATUS_CONFIG[b.status] || STATUS_CONFIG.confirmed;
+  const StatusIcon = cfg.icon;
+  return (
+    <View className="rounded-xl border border-border bg-card p-3">
+      <View className="flex-row items-start gap-3">
+        <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+          <Text className="text-lg">{b.mode === "instant" ? "⚡" : "📅"}</Text>
+        </View>
+        <View className="flex-1">
+          <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+            {b.business_name}
+          </Text>
+          <Text className="text-[10px] text-muted-foreground">
+            {b.mode === "instant" ? "Instant Booking" : `${b.booking_date} at ${b.booking_time}`}
+          </Text>
+          {b.notes ? (
+            <Text className="text-[10px] text-muted-foreground mt-0.5" numberOfLines={1}>
+              "{b.notes}"
+            </Text>
+          ) : null}
+        </View>
+        <View className={`flex-row items-center gap-1 px-2 py-0.5 rounded-full ${cfg.bgClass}`}>
+          <StatusIcon size={12} color={cfg.iconColor} />
+          <Text className={`text-[10px] font-semibold ${cfg.textClass}`}>{b.status}</Text>
+        </View>
+      </View>
+      {(b.status === "completed" || b.status === "cancelled") && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="mt-2 w-full gap-1 rounded-lg text-xs"
+          onPress={() => onRebook(`card-${b.business_id}`)}
+        >
+          <RotateCcw size={12} color={colors.foreground} /> Re-book
+        </Button>
+      )}
+    </View>
+  );
+};
 
 const Dashboard = () => {
   const navigation = useNavigation<any>();
@@ -29,6 +80,11 @@ const Dashboard = () => {
   const savedCards = useMemo(
     () => allCards.filter((c) => favorites.includes(c.id)),
     [allCards, favorites]
+  );
+
+  const handleRebook = useCallback(
+    (id: string) => navigation.navigate("BusinessDetail", { id }),
+    [navigation]
   );
 
   if (!user) {
@@ -48,56 +104,6 @@ const Dashboard = () => {
   const pendingBookings = bookings.filter((b) => b.status === "confirmed");
   const completedBookings = bookings.filter((b) => b.status === "completed");
   const cancelledBookings = bookings.filter((b) => b.status === "cancelled");
-
-  const statusConfig: Record<
-    string,
-    { icon: any; textClass: string; bgClass: string; iconColor: string }
-  > = {
-    confirmed: { icon: Clock, textClass: "text-amber-700", bgClass: "bg-amber-100", iconColor: "#b45309" },
-    completed: { icon: CheckCircle, textClass: "text-green-700", bgClass: "bg-green-100", iconColor: "#15803d" },
-    cancelled: { icon: XCircle, textClass: "text-red-700", bgClass: "bg-red-100", iconColor: "#b91c1c" },
-  };
-
-  const BookingCard = ({ b }: { b: any }) => {
-    const cfg = statusConfig[b.status] || statusConfig.confirmed;
-    const StatusIcon = cfg.icon;
-    return (
-      <View className="rounded-xl border border-border bg-card p-3">
-        <View className="flex-row items-start gap-3">
-          <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-            <Text className="text-lg">{b.mode === "instant" ? "⚡" : "📅"}</Text>
-          </View>
-          <View className="flex-1">
-            <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-              {b.business_name}
-            </Text>
-            <Text className="text-[10px] text-muted-foreground">
-              {b.mode === "instant" ? "Instant Booking" : `${b.booking_date} at ${b.booking_time}`}
-            </Text>
-            {b.notes ? (
-              <Text className="text-[10px] text-muted-foreground mt-0.5" numberOfLines={1}>
-                "{b.notes}"
-              </Text>
-            ) : null}
-          </View>
-          <View className={`flex-row items-center gap-1 px-2 py-0.5 rounded-full ${cfg.bgClass}`}>
-            <StatusIcon size={12} color={cfg.iconColor} />
-            <Text className={`text-[10px] font-semibold ${cfg.textClass}`}>{b.status}</Text>
-          </View>
-        </View>
-        {(b.status === "completed" || b.status === "cancelled") && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="mt-2 w-full gap-1 rounded-lg text-xs"
-            onPress={() => navigation.navigate("BusinessDetail", { id: `card-${b.business_id}` })}
-          >
-            <RotateCcw size={12} color={colors.foreground} /> Re-book
-          </Button>
-        )}
-      </View>
-    );
-  };
 
   return (
     <View className="flex-1 bg-background">
@@ -130,8 +136,9 @@ const Dashboard = () => {
           </View>
 
           {isLoading ? (
-            <View className="items-center py-6">
-              <Text className="text-xs text-muted-foreground">Loading...</Text>
+            <View className="gap-2">
+              <Skeleton className="h-20 w-full rounded-xl" />
+              <Skeleton className="h-20 w-full rounded-xl" />
             </View>
           ) : bookings.length === 0 ? (
             <View className="rounded-xl border border-dashed border-border bg-muted/30 p-6 items-center">
@@ -158,7 +165,7 @@ const Dashboard = () => {
               </TabsList>
               <TabsContent value="all" className="gap-2 mt-3">
                 {bookings.map((b) => (
-                  <BookingCard key={b.id} b={b} />
+                  <BookingCard key={b.id} b={b} onRebook={handleRebook} />
                 ))}
               </TabsContent>
               <TabsContent value="active" className="gap-2 mt-3">
@@ -167,7 +174,7 @@ const Dashboard = () => {
                     No active bookings
                   </Text>
                 ) : (
-                  pendingBookings.map((b) => <BookingCard key={b.id} b={b} />)
+                  pendingBookings.map((b) => <BookingCard key={b.id} b={b} onRebook={handleRebook} />)
                 )}
               </TabsContent>
               <TabsContent value="completed" className="gap-2 mt-3">
@@ -176,7 +183,7 @@ const Dashboard = () => {
                     No completed bookings
                   </Text>
                 ) : (
-                  completedBookings.map((b) => <BookingCard key={b.id} b={b} />)
+                  completedBookings.map((b) => <BookingCard key={b.id} b={b} onRebook={handleRebook} />)
                 )}
               </TabsContent>
               <TabsContent value="cancelled" className="gap-2 mt-3">
@@ -185,7 +192,7 @@ const Dashboard = () => {
                     No cancelled bookings
                   </Text>
                 ) : (
-                  cancelledBookings.map((b) => <BookingCard key={b.id} b={b} />)
+                  cancelledBookings.map((b) => <BookingCard key={b.id} b={b} onRebook={handleRebook} />)
                 )}
               </TabsContent>
             </Tabs>
