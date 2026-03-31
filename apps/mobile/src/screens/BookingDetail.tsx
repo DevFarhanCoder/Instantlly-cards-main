@@ -188,7 +188,7 @@ const BookingDetail = () => {
           <Button
             variant="outline"
             className="w-full rounded-xl"
-            onPress={() => navigation.navigate("BusinessDetail", { id: String(booking.business_id) })}
+            onPress={() => navigation.navigate("BusinessDetail", { id: `card-${String(booking.business_id)}` })}
           >
             Re-book with {booking.business_name}
           </Button>

@@ -4,6 +4,10 @@ import { useGetCardQuery, useListCardsQuery } from "../store/api/businessCardsAp
 
 export interface DirectoryCard {
   id: string;
+  /** Raw numeric ID for API calls (promotion ID or card ID depending on _source) */
+  _numericId: number;
+  /** Source of the record: 'promotion' or 'card' */
+  _source: 'promotion' | 'card';
   business_card_id?: string | null;
   user_id: string;
   full_name: string;
@@ -81,7 +85,9 @@ const mapPromotionToDirectoryCard = (promo: any): DirectoryCard => {
   const location = formatAddress(promo, card?.location ?? null);
 
   return {
-    id: String(promo.id),
+    id: `promo-${promo.id}`,
+    _numericId: Number(promo.id),
+    _source: 'promotion' as const,
     business_card_id: promo.business_card_id ? String(promo.business_card_id) : null,
     user_id: String(promo.user_id ?? card?.user_id ?? ""),
     full_name: promo.business_name ?? card?.full_name ?? "Business",
@@ -125,7 +131,9 @@ const mapPromotionToDirectoryCard = (promo: any): DirectoryCard => {
 };
 
 const mapCardToDirectoryCard = (card: any): DirectoryCard => ({
-  id: String(card.id),
+  id: `card-${card.id}`,
+  _numericId: Number(card.id),
+  _source: 'card' as const,
   business_card_id: String(card.id),
   user_id: String(card.user_id ?? ""),
   full_name: card.full_name,
@@ -181,11 +189,23 @@ export function useDirectoryCards(options?: { skip?: boolean }) {
   };
 }
 
+/** Parse a prefixed DirectoryCard ID: "promo-123" or "card-456" or bare "789" (legacy). */
+function parseDirectoryId(id: string): { source: 'promotion' | 'card' | 'unknown'; numericId: number } {
+  if (id.startsWith('promo-')) return { source: 'promotion', numericId: Number(id.slice(6)) };
+  if (id.startsWith('card-')) return { source: 'card', numericId: Number(id.slice(5)) };
+  return { source: 'unknown', numericId: Number(id) };
+}
+
 export function useDirectoryCard(id: string) {
-  const cardId = Number(id);
-  const promoResult = useGetPromotionQuery(cardId, { skip: !cardId });
-  const shouldSkipCard = !cardId || !!promoResult.data || !promoResult.isError;
-  const cardResult = useGetCardQuery(cardId, { skip: shouldSkipCard });
+  const { source, numericId } = parseDirectoryId(id);
+  const isPromo = source === 'promotion';
+  const isCard = source === 'card';
+  // For 'unknown' (legacy bare ID), try promotion first then card (backwards compat)
+  const isLegacy = source === 'unknown';
+
+  const promoResult = useGetPromotionQuery(numericId, { skip: !numericId || isCard });
+  const shouldSkipCard = !numericId || isPromo || (isLegacy && (!!promoResult.data || !promoResult.isError));
+  const cardResult = useGetCardQuery(numericId, { skip: shouldSkipCard });
 
   const data = useMemo(() => {
     if (promoResult.data) return mapPromotionToDirectoryCard(promoResult.data);
@@ -196,7 +216,7 @@ export function useDirectoryCard(id: string) {
   return {
     isLoading: promoResult.isLoading || cardResult.isLoading,
     isFetching: promoResult.isFetching || cardResult.isFetching,
-    isError: promoResult.isError && cardResult.isError,
+    isError: isCard ? cardResult.isError : isPromo ? promoResult.isError : (promoResult.isError && cardResult.isError),
     error: promoResult.error || cardResult.error,
     data,
   };

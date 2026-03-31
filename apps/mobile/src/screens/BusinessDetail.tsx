@@ -65,7 +65,7 @@ const BusinessDetail = () => {
   const { createBooking } = useBookings();
   const createConversation = useCreateConversation();
   const { data: card, isLoading } = useDirectoryCard(id || "");
-  const businessId = card?.business_card_id ?? card?.id ?? "";
+  const businessId = card?.business_card_id ?? String(card?._numericId ?? "") ?? "";
   const { reviews, createReview, uploadReviewPhoto } = useReviews(businessId);
   const { followersCount, isFollowing, toggleFollow } = useBusinessFollows(businessId);
   const reportBusiness = useReportBusiness();
@@ -100,7 +100,7 @@ const BusinessDetail = () => {
     [reviews, user]
   );
 
-  const shareUrl = card ? `https://instantlly.lovable.app/card/${card.id}` : "";
+  const shareUrl = card ? `https://instantlly.lovable.app/card/${businessId}` : "";
 
   const handleSubmitReview = async () => {
     if (reviewRating === 0) {
@@ -211,31 +211,35 @@ const BusinessDetail = () => {
               <Text className="text-3xl">🏢</Text>
             )}
           </View>
-          <View className="flex-1">
+          <View className="flex-1 min-w-0">
             <View className="flex-row items-center gap-1.5">
-              <Text className="text-xl font-bold text-foreground">{card.full_name}</Text>
-              {(card as any).is_verified && (
+              <Text className="text-xl font-bold text-foreground flex-shrink" numberOfLines={2}>{card.full_name}</Text>
+              {card.is_verified && (
                 <ShieldCheck size={18} color={colors.primary} />
               )}
             </View>
             {card.job_title && <Text className="text-sm text-primary font-medium">{card.job_title}</Text>}
-            {card.company_name && <Text className="text-sm text-muted-foreground">{card.company_name}</Text>}
+            {card.company_name && card.company_name !== card.full_name && (
+              <Text className="text-sm text-muted-foreground">{card.company_name}</Text>
+            )}
             <View className="flex-row flex-wrap items-center gap-1.5 mt-1">
               {card.category && <Badge variant="secondary" className="text-xs">{card.category}</Badge>}
-              <Badge className={`text-xs border ${
-                card.service_mode === "home"
-                  ? "bg-blue-100 text-blue-700 border-blue-200"
-                  : card.service_mode === "both"
-                  ? "bg-purple-100 text-purple-700 border-purple-200"
-                  : "bg-amber-100 text-amber-700 border-amber-200"
-              }`}>
-                {card.service_mode === "home"
-                  ? "🏠 Home Service"
-                  : card.service_mode === "both"
-                  ? "🔄 Home & Visit"
-                  : "🏪 Visit"}
-              </Badge>
-              {(card as any).is_verified && (
+              {card.service_mode && (
+                <Badge className={`text-xs border ${
+                  card.service_mode === "home"
+                    ? "bg-blue-100 text-blue-700 border-blue-200"
+                    : card.service_mode === "both"
+                    ? "bg-purple-100 text-purple-700 border-purple-200"
+                    : "bg-amber-100 text-amber-700 border-amber-200"
+                }`}>
+                  {card.service_mode === "home"
+                    ? "🏠 Home Service"
+                    : card.service_mode === "both"
+                    ? "🔄 Home & Visit"
+                    : "🏪 Visit"}
+                </Badge>
+              )}
+              {card.is_verified && (
                 <Badge className="text-xs bg-primary/10 text-primary border-primary/20">✓ Verified</Badge>
               )}
             </View>
@@ -243,6 +247,9 @@ const BusinessDetail = () => {
               {allReviews.length > 0 && (
                 <View className="flex-row items-center gap-1">
                   <Star size={14} color="#f59e0b" />
+                  <Text className="text-xs font-medium text-foreground">
+                    {(allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length).toFixed(1)}
+                  </Text>
                   <Text className="text-xs text-muted-foreground">({allReviews.length})</Text>
                 </View>
               )}
@@ -361,7 +368,7 @@ const BusinessDetail = () => {
           <Pressable
             className="rounded-xl border border-border bg-muted h-40 items-center justify-center mt-4"
             onPress={() => {
-            trackCardEvent(businessId || card.id, "direction_click");
+            trackCardEvent(businessId, "direction_click");
               Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(card.location!)}`);
             }}
           >
@@ -428,7 +435,7 @@ const BusinessDetail = () => {
         </View>
 
         <View className="mt-4">
-        <LeadForm businessCardId={businessId || card.id} businessName={card.full_name} />
+        <LeadForm businessCardId={businessId} businessName={card.full_name} />
         </View>
       </ScrollView>
 
@@ -438,14 +445,14 @@ const BusinessDetail = () => {
           <Button
             className="flex-1 gap-1.5 rounded-xl py-3.5"
             onPress={async () => {
-              trackCardEvent(businessId || card.id, "message_click");
+              trackCardEvent(businessId, "message_click");
               if (!user) {
                 toast.error("Please sign in to message");
                 navigation.navigate("Auth");
                 return;
               }
               await createConversation.mutateAsync({
-                businessId: businessId || card.id,
+                businessId: businessId,
                 businessName: card.full_name,
                 businessAvatar: card.logo_url || "🏢",
               });
@@ -459,7 +466,7 @@ const BusinessDetail = () => {
             variant="outline"
             className="flex-1 gap-1.5 rounded-xl py-3.5"
             onPress={() => {
-              trackCardEvent(businessId || card.id, "phone_click");
+              trackCardEvent(businessId, "phone_click");
               Linking.openURL(`tel:${card.phone}`);
             }}
           >
@@ -594,7 +601,7 @@ const BusinessDetail = () => {
         onOpenChange={setShowBooking}
         businessName={card.full_name}
         businessLogo={card.logo_url || "🏢"}
-        businessId={businessId || card.id}
+        businessId={businessId}
         isSignedIn={!!user}
         onRequireAuth={() => navigation.navigate("Auth")}
         onSubmit={async (payload) => {
@@ -661,7 +668,7 @@ const BusinessDetail = () => {
               onPress={async () => {
                 try {
                   await reportBusiness.mutateAsync({
-                    business_id: businessId || card.id,
+                    business_id: businessId,
                     reason: reportReason,
                     details: reportDetails,
                   });
@@ -711,8 +718,8 @@ const BusinessDetail = () => {
                 try {
                   await createDispute.mutateAsync({
                     dispute_type: disputeType,
-                    reference_id: businessId || card.id,
-                    business_id: businessId || card.id,
+                    reference_id: businessId,
+                    business_id: businessId,
                     description: disputeDescription,
                   });
                   toast.success("Dispute filed. Our team will review it.");
