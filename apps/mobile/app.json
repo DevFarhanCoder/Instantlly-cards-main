@@ -22,7 +22,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.instantllycards.www.twa"
+      "package": "com.instantllycards.www.twa",
+      "versionCode": 76
     },
     "web": {
       "favicon": "./assets/favicon.png"
