@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "Instantly Cards",
     "slug": "mobile",
-    "version": "1.0.0",
+    "version": "1.0.77",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -22,14 +22,22 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.rajeshmodi.mobile"
+      "package": "com.instantllycards.www.twa",
+      "versionCode": 77
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "expo-font"
-    ],
+    "updates": {
+      "enabled": true,
+      "url": "https://u.expo.dev/ae117f79-1ff9-47e8-8741-b0a7c789566c",
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "plugins": ["expo-font", "expo-updates"],
     "extra": {
       "eas": {
         "projectId": "ae117f79-1ff9-47e8-8741-b0a7c789566c"
