@@ -5,6 +5,7 @@ import {
   ScrollView,
   Text,
   View,
+  Linking,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
@@ -43,6 +44,38 @@ const MyCards = () => {
   const { cards, isLoading, deleteCard } = useBusinessCards();
   const [shareCard, setShareCard] = useState<BusinessCardRow | null>(null);
   const { data: demoCards = [] } = useDirectoryCards({ skip: !!user });
+
+  const handleCopyLink = async () => {
+    if (!shareCard) return;
+    const shareUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantly.app'}/card/${shareCard.id}`;
+    // TODO: Implement clipboard copy for React Native
+    toast.success("Link copied!");
+    setShareCard(null);
+  };
+
+  const handleWhatsAppShare = async () => {
+    if (!shareCard) return;
+    
+    const shareUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantly.app'}/card/${shareCard.id}`;
+    const text = `${shareCard.full_name}${shareCard.company_name ? ` — ${shareCard.company_name}` : ""}${shareCard.job_title ? ` | ${shareCard.job_title}` : ""}\n\n${shareCard.phone}${shareCard.email ? `\n${shareCard.email}` : ""}${shareCard.location ? `\n📍 ${shareCard.location}` : ""}${shareCard.offer ? `\n\n🎁 ${shareCard.offer}` : ""}\n\n${shareUrl}`;
+    
+    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(text)}`;
+    
+    try {
+      const canOpen = await Linking.canOpenURL(whatsappUrl);
+      if (canOpen) {
+        await Linking.openURL(whatsappUrl);
+        toast.success("Opening WhatsApp...");
+      } else {
+        toast.error("WhatsApp is not installed");
+      }
+    } catch (error) {
+      console.error("Error opening WhatsApp:", error);
+      toast.error("Failed to open WhatsApp");
+    }
+    
+    setShareCard(null);
+  };
 
   if (!user) {
     return (
@@ -362,20 +395,14 @@ const MyCards = () => {
           <View className="gap-2">
             <Button
               className="w-full rounded-xl"
-              onPress={() => {
-                toast.success("Link copied!");
-                setShareCard(null);
-              }}
+              onPress={handleCopyLink}
             >
               📋 Copy Link
             </Button>
             <Button
               variant="outline"
               className="w-full rounded-xl"
-              onPress={() => {
-                toast.success("Opening WhatsApp...");
-                setShareCard(null);
-              }}
+              onPress={handleWhatsAppShare}
             >
               💬 Share via WhatsApp
             </Button>
