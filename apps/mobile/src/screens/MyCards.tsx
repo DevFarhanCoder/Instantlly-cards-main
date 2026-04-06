@@ -42,8 +42,10 @@ const MyCards = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { cards, isLoading, deleteCard } = useBusinessCards();
+  const { data: directoryCards = [], isLoading: isFetchingNetwork } = useDirectoryCards();
+  const networkCards = directoryCards;
+  const demoCards = directoryCards;
   const [shareCard, setShareCard] = useState<BusinessCardRow | null>(null);
-  const { data: demoCards = [] } = useDirectoryCards({ skip: !!user });
 
   const handleCopyLink = async () => {
     if (!shareCard) return;
@@ -187,6 +189,97 @@ const MyCards = () => {
               ))}
             </View>
           </View>
+
+          {/* My Network Business Cards — shown to logged-in customers */}
+          {isFetchingNetwork ? (
+            <View className="px-4 pb-4">
+              <View className="my-4 flex-row items-center gap-3">
+                <View className="h-px flex-1 bg-border" />
+                <Text className="text-sm font-bold text-foreground">My Network Business Cards</Text>
+                <View className="h-px flex-1 bg-border" />
+              </View>
+              <Skeleton className="h-36 w-full rounded-2xl mb-3" />
+              <Skeleton className="h-36 w-full rounded-2xl mb-3" />
+            </View>
+          ) : networkCards.length > 0 ? (
+            <View className="px-4 pb-4">
+              <View className="my-4 flex-row items-center gap-3">
+                <View className="h-px flex-1 bg-border" />
+                <Text className="text-sm font-bold text-foreground">My Network Business Cards</Text>
+                <View className="h-px flex-1 bg-border" />
+              </View>
+              {networkCards.map((card: any) => (
+                <Pressable
+                  key={card.id}
+                  className="mb-3 rounded-2xl border border-border bg-card p-4 shadow-sm"
+                  onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
+                >
+                  <View className="flex-row items-start gap-3">
+                    <View className="h-12 w-12 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+                      {card.logo_url ? (
+                        <Image source={{ uri: card.logo_url }} className="h-full w-full" resizeMode="cover" />
+                      ) : (
+                        <Text className="text-xl">🏢</Text>
+                      )}
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-base font-bold text-foreground">{card.full_name}</Text>
+                      {card.job_title && (
+                        <Text className="text-xs font-medium text-primary">{card.job_title}</Text>
+                      )}
+                      {card.company_name && (
+                        <Text className="text-xs text-muted-foreground">{card.company_name}</Text>
+                      )}
+                      <View className="mt-1 flex-row items-center gap-1.5 flex-wrap">
+                        {card.category && (
+                          <Text className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                            {card.category}
+                          </Text>
+                        )}
+                        <Text className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          👥 Friend
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  {card.location && (
+                    <Text className="mt-2 text-xs text-muted-foreground">📍 {card.location}</Text>
+                  )}
+                  {card.offer && (
+                    <View className="mt-2 rounded-lg bg-accent/50 px-3 py-1.5">
+                      <Text className="text-xs font-medium text-accent-foreground">🎁 {card.offer}</Text>
+                    </View>
+                  )}
+                  {card.services && card.services.length > 0 && (
+                    <View className="mt-2 flex-row flex-wrap gap-1.5">
+                      {card.services.slice(0, 3).map((s: string, idx: number) => (
+                        <Text key={idx} className="rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                          {s}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+                  <View className="mt-3 flex-row gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1 rounded-lg"
+                      onPress={() => Linking.openURL(`tel:${card.phone}`)}
+                    >
+                      📞 Call
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 rounded-lg"
+                      onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
+                    >
+                      👁️ View
+                    </Button>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </ScrollView>
       </View>
     );
@@ -364,6 +457,97 @@ const MyCards = () => {
             ))}
           </View>
         )}
+
+        {/* My Network Business Cards */}
+        {isFetchingNetwork ? (
+          <View className="px-4 pb-4">
+            <View className="my-4 flex-row items-center gap-3">
+              <View className="h-px flex-1 bg-border" />
+              <Text className="text-sm font-bold text-foreground">My Network Business Cards</Text>
+              <View className="h-px flex-1 bg-border" />
+            </View>
+            <Skeleton className="h-36 w-full rounded-2xl mb-3" />
+            <Skeleton className="h-36 w-full rounded-2xl mb-3" />
+          </View>
+        ) : networkCards.length > 0 ? (
+          <View className="px-4 pb-4">
+            <View className="my-4 flex-row items-center gap-3">
+              <View className="h-px flex-1 bg-border" />
+              <Text className="text-sm font-bold text-foreground">My Network Business Cards</Text>
+              <View className="h-px flex-1 bg-border" />
+            </View>
+            {networkCards.map((card: any) => (
+              <Pressable
+                key={card.id}
+                className="mb-3 rounded-2xl border border-border bg-card p-4 shadow-sm"
+                onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
+              >
+                <View className="flex-row items-start gap-3">
+                  <View className="h-12 w-12 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+                    {card.logo_url ? (
+                      <Image source={{ uri: card.logo_url }} className="h-full w-full" resizeMode="cover" />
+                    ) : (
+                      <Text className="text-xl">🏢</Text>
+                    )}
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-base font-bold text-foreground">{card.full_name}</Text>
+                    {card.job_title && (
+                      <Text className="text-xs font-medium text-primary">{card.job_title}</Text>
+                    )}
+                    {card.company_name && (
+                      <Text className="text-xs text-muted-foreground">{card.company_name}</Text>
+                    )}
+                    <View className="mt-1 flex-row items-center gap-1.5 flex-wrap">
+                      {card.category && (
+                        <Text className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                          {card.category}
+                        </Text>
+                      )}
+                      <Text className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                        👥 Friend
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                {card.location && (
+                  <Text className="mt-2 text-xs text-muted-foreground">📍 {card.location}</Text>
+                )}
+                {card.offer && (
+                  <View className="mt-2 rounded-lg bg-accent/50 px-3 py-1.5">
+                    <Text className="text-xs font-medium text-accent-foreground">🎁 {card.offer}</Text>
+                  </View>
+                )}
+                {card.services && card.services.length > 0 && (
+                  <View className="mt-2 flex-row flex-wrap gap-1.5">
+                    {card.services.slice(0, 3).map((s: string, idx: number) => (
+                      <Text key={idx} className="rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                        {s}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+                <View className="mt-3 flex-row gap-2">
+                  <Button
+                    size="sm"
+                    className="flex-1 rounded-lg"
+                    onPress={() => Linking.openURL(`tel:${card.phone}`)}
+                  >
+                    📞 Call
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 rounded-lg"
+                    onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
+                  >
+                    👁️ View
+                  </Button>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       </ScrollView>
 
       {cards.length > 0 && (
