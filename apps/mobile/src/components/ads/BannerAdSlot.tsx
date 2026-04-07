@@ -1,36 +1,67 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Animated,
+  ActivityIndicator,
   Dimensions,
   Image,
+  Linking,
   Modal,
-  PanResponder,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { Linking } from "react-native";
-import {
-  ArrowRight,
-  MapPin,
-  MessageCircle,
-  Phone,
-  X,
-} from "lucide-react-native";
-import { Button } from "../ui/button";
-import { colors } from "../../theme/colors";
+import { X } from "lucide-react-native";
 import {
   useActiveAds,
   useRecordImpression,
   useRecordClick,
 } from "../../hooks/useActiveAds";
-import { useGetCardQuery } from "../../store/api/businessCardsApi";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const SWIPE_THRESHOLD = 100;
-const COOLDOWN_MS = 60000;
+const BOTTOM_HEIGHT = 100;
+const IMAGE_TIME = 5000; // 5s per ad
+
+/* ── Demo ads (UI preview when no API ads) ── */
+const DEMO_ADS = [
+  {
+    id: -1,
+    title: "Boost Your Business",
+    description: "Reach thousands of customers with Instantlly Ads",
+    creative_url: null,
+    creative_urls: [] as string[],
+    cta: "Get Started",
+    status: "active",
+    business_card_id: null,
+    ad_type: "banner",
+    phone: "",
+  },
+  {
+    id: -2,
+    title: "Premium Listings",
+    description: "Stand out from the crowd \u2014 list your business today",
+    creative_url: null,
+    creative_urls: [] as string[],
+    cta: "List Now",
+    status: "active",
+    business_card_id: null,
+    ad_type: "banner",
+    phone: "",
+  },
+  {
+    id: -3,
+    title: "Special Offers Near You",
+    description: "Discover deals from local businesses around you",
+    creative_url: null,
+    creative_urls: [] as string[],
+    cta: "Explore",
+    status: "active",
+    business_card_id: null,
+    ad_type: "banner",
+    phone: "",
+  },
+] as any[];
 
 interface BannerAdSlotProps {
   variant?: "inline" | "sticky";
@@ -38,441 +69,370 @@ interface BannerAdSlotProps {
 }
 
 const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
-  const { data: ads = [] } = useActiveAds(adType || "banner");
+  const { data: rawAds = [], isLoading } = useActiveAds(adType || "banner");
   const navigation = useNavigation<any>();
-  const [index, setIndex] = useState(0);
-  const [expanded, setExpanded] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordClick = useRecordClick();
-  const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const activeAds = useMemo(
-    () => ads.filter((a) => a.status === "active"),
-    [ads]
+  const [activeIndex, setActiveIndex] = useState(1);
+  const [initialized, setInitialized] = useState(false);
+  const [selectedAd, setSelectedAd] = useState<any>(null);
+  const [showModal, setShowModal] = useState(false);
+
+  // Use API ads if available, otherwise demo
+  const ads = useMemo(() => {
+    const active = rawAds.filter((a) => a.status === "active");
+    return active.length > 0 ? active : DEMO_ADS;
+  }, [rawAds]);
+
+  const isDemo = ads === DEMO_ADS;
+
+  // Stable key to detect real data changes
+  const adsDataKey = useMemo(
+    () => (ads.length === 0 ? "empty" : ads.map((a) => a.id).join("-")),
+    [ads],
   );
 
-  // Auto-rotate ads every 5s
-  useEffect(() => {
-    if (expanded || activeAds.length <= 1) return;
-    const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % activeAds.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [expanded, activeAds.length]);
+  // Infinite scroll array: [lastAd, ...ads, firstAd]
+  const infiniteAds = useMemo(() => {
+    if (ads.length === 0) return [];
+    if (ads.length === 1) return ads;
+    return [ads[ads.length - 1], ...ads, ads[0]];
+  }, [adsDataKey]);
 
-  // Cooldown after swipe-dismiss: reappear after 60s
+  const hasInfinite = infiniteAds.length > ads.length;
+
+  // Track impression for current visible ad
+  const visibleAd = hasInfinite
+    ? infiniteAds[activeIndex]
+    : ads[activeIndex] || ads[0];
+  useRecordImpression(visibleAd?.id > 0 ? visibleAd.id : undefined);
+
+  /* ── Initialize carousel ── */
   useEffect(() => {
-    if (!dismissed) return;
-    cooldownTimer.current = setTimeout(() => {
-      setDismissed(false);
-    }, COOLDOWN_MS);
-    return () => {
-      if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+    if (ads.length === 0 || isLoading) return;
+    setActiveIndex(1);
+    setInitialized(false);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setTimeout(() => {
+      if (hasInfinite) {
+        scrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false });
+      }
+      setInitialized(true);
+    }, 100);
+  }, [adsDataKey, isLoading]);
+
+  /* ── Auto-scroll (recursive setTimeout, never restarts mid-sequence) ── */
+  useEffect(() => {
+    if (!initialized || infiniteAds.length <= 1) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    const startAutoScroll = () => {
+      timerRef.current = setTimeout(() => {
+        setActiveIndex((current) => {
+          const next = current + 1;
+          scrollRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
+
+          // Boundary: reached duplicate first slide → jump back
+          if (hasInfinite && next === infiniteAds.length - 1) {
+            setTimeout(() => {
+              scrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false });
+            }, 300);
+            return 1;
+          }
+          return next;
+        });
+        startAutoScroll();
+      }, IMAGE_TIME);
     };
-  }, [dismissed]);
 
-  const ad = activeAds[index];
+    startAutoScroll();
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [initialized]);
 
-  useRecordImpression(ad?.id);
+  /* ── Handle manual scroll ── */
+  const handleScrollEnd = useCallback(
+    (e: any) => {
+      const x = e.nativeEvent.contentOffset.x;
+      const idx = Math.round(x / SCREEN_WIDTH);
+      if (idx === activeIndex) return;
+      setActiveIndex(idx);
 
-  const cardId = expanded && ad?.business_card_id ? Number(ad.business_card_id) : 0;
-  const { data: businessCard } = useGetCardQuery(cardId, { skip: !cardId });
-
-  // Swipe-to-dismiss for sticky variant
-  const panX = useRef(new Animated.Value(0)).current;
-  const panOpacity = panX.interpolate({
-    inputRange: [-SCREEN_WIDTH, -SWIPE_THRESHOLD, 0, SWIPE_THRESHOLD, SCREEN_WIDTH],
-    outputRange: [0, 0.3, 1, 0.3, 0],
-    extrapolate: "clamp",
-  });
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gs) =>
-        variant === "sticky" && Math.abs(gs.dx) > 10 && Math.abs(gs.dy) < 10,
-      onPanResponderMove: Animated.event([null, { dx: panX }], {
-        useNativeDriver: false,
-      }),
-      onPanResponderRelease: (_, gs) => {
-        if (Math.abs(gs.dx) > SWIPE_THRESHOLD) {
-          Animated.timing(panX, {
-            toValue: gs.dx > 0 ? SCREEN_WIDTH : -SCREEN_WIDTH,
-            duration: 200,
-            useNativeDriver: false,
-          }).start(() => {
-            setDismissed(true);
-            panX.setValue(0);
-          });
-        } else {
-          Animated.spring(panX, {
-            toValue: 0,
-            useNativeDriver: false,
-          }).start();
+      if (hasInfinite) {
+        if (idx === 0) {
+          setTimeout(() => {
+            scrollRef.current?.scrollTo({
+              x: (infiniteAds.length - 2) * SCREEN_WIDTH,
+              animated: false,
+            });
+            setActiveIndex(infiniteAds.length - 2);
+          }, 50);
+        } else if (idx === infiniteAds.length - 1) {
+          setTimeout(() => {
+            scrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false });
+            setActiveIndex(1);
+          }, 50);
         }
-      },
-    })
-  ).current;
+      }
+    },
+    [activeIndex, hasInfinite, infiniteAds.length],
+  );
 
-  if (activeAds.length === 0 || dismissed) return null;
+  /* ── Image URL helper ── */
+  const getImageUrl = (ad: any) =>
+    ad?.creative_url || ad?.creative_urls?.[0] || null;
 
-  const handleClick = () => {
-    if (ad) recordClick(ad.id);
-    setExpanded(true);
+  /* ── Bottom media render (full-width image, exactly like FooterCarousel) ── */
+  const renderBottomMedia = (ad: any) => {
+    const url = getImageUrl(ad);
+    if (!url) {
+      return (
+        <View style={[styles.media, styles.noImageBg]}>
+          <Text style={styles.noImageEmoji}>📣</Text>
+          <Text style={styles.noImageTitle}>{ad?.title || "Sponsored"}</Text>
+          <Text style={styles.noImageDesc}>
+            {ad?.description || "Check out this business"}
+          </Text>
+        </View>
+      );
+    }
+    return <Image source={{ uri: url }} style={styles.media} resizeMode="cover" />;
   };
 
-  const handleCta = (action: string) => {
-    if (!businessCard && !ad) return;
-    setExpanded(false);
+  /* ── Fullscreen media render ── */
+  const renderFullscreenMedia = (ad: any) => {
+    const url = getImageUrl(ad);
+    if (!url) {
+      return (
+        <View style={[styles.fullMedia, styles.noImageBg]}>
+          <Text style={{ fontSize: 64, marginBottom: 16 }}>📣</Text>
+          <Text style={styles.fullNoImageTitle}>{ad?.title || "Sponsored"}</Text>
+          <Text style={styles.fullNoImageDesc}>
+            {ad?.description || "Check out this business"}
+          </Text>
+        </View>
+      );
+    }
+    return (
+      <Image source={{ uri: url }} style={styles.fullMedia} resizeMode="contain" />
+    );
+  };
 
-    switch (action) {
-      case "call":
-        Linking.openURL(`tel:${businessCard?.phone || ""}`);
-        break;
-      case "chat":
-        navigation.navigate("Messaging", {
-          businessId: businessCard?.id || ad?.business_card_id,
-        });
-        break;
-      case "directions":
-        if (businessCard?.maps_link) {
-          Linking.openURL(businessCard.maps_link);
-        } else if (businessCard?.latitude && businessCard?.longitude) {
-          Linking.openURL(
-            `https://www.google.com/maps?q=${businessCard.latitude},${businessCard.longitude}`
-          );
-        }
-        break;
-      case "book":
-      case "learn":
-        navigation.navigate("BusinessDetail", {
-          id: businessCard?.id
-            ? `card-${businessCard.id}`
-            : ad?.business_card_id
-              ? `card-${ad.business_card_id}`
-              : undefined,
-        });
-        break;
+  /* ── Chat handler ── */
+  const handleChat = (ad: any) => {
+    if (!ad) return;
+    setShowModal(false);
+    if (ad.business_card_id) {
+      navigation.navigate("Messaging", { businessId: ad.business_card_id });
     }
   };
 
-  const hasImage =
-    ad?.creative_url || (ad?.creative_urls && ad.creative_urls.length > 0);
-  const imageUrl = ad?.creative_url || ad?.creative_urls?.[0];
+  /* ── Call handler ── */
+  const handleCall = (ad: any) => {
+    if (!ad) return;
+    setShowModal(false);
+    // If business card has phone, use it; otherwise navigate to business
+    if (ad.phone) {
+      Linking.openURL(`tel:${ad.phone}`);
+    } else if (ad.business_card_id) {
+      navigation.navigate("BusinessDetail", {
+        id: `card-${ad.business_card_id}`,
+      });
+    }
+  };
 
-  const bannerContent = (
-    <Pressable
-      onPress={handleClick}
-      style={[
-        styles.bannerBase,
-        variant === "sticky" ? styles.bannerSticky : styles.bannerInline,
-      ]}
-    >
-      <Text style={styles.adLabel}>Ad</Text>
-      {hasImage ? (
-        <Image source={{ uri: imageUrl! }} style={styles.bannerImage} />
-      ) : (
-        <View style={styles.bannerFallback}>
-          <Text style={styles.bannerEmoji}>📣</Text>
-        </View>
-      )}
-      <View style={styles.bannerBody}>
-        <Text
-          style={[
-            styles.bannerTitle,
-            variant === "sticky" && styles.bannerTitleSticky,
-          ]}
-        >
-          {ad?.title || "Sponsored"}
-        </Text>
-        <Text
-          style={[
-            styles.bannerDesc,
-            variant === "sticky" && styles.bannerDescSticky,
-          ]}
-          numberOfLines={1}
-        >
-          {ad?.description || "Check out this business"}
-        </Text>
-      </View>
-      <Button
-        size="sm"
-        className={
-          variant === "sticky"
-            ? "bg-background text-foreground"
-            : "bg-primary text-primary-foreground"
-        }
-      >
-        {ad?.cta || "Learn More"}
-      </Button>
-    </Pressable>
-  );
+  if (ads.length === 0 && !isLoading) return null;
 
   return (
-    <>
-      {variant === "sticky" ? (
-        <Animated.View
-          {...panResponder.panHandlers}
-          style={{ transform: [{ translateX: panX }], opacity: panOpacity }}
-        >
-          {bannerContent}
-        </Animated.View>
-      ) : (
-        bannerContent
-      )}
-
-      {activeAds.length > 1 && (
-        <View style={styles.dotsRow}>
-          {activeAds.map((_, i) => (
-            <View
-              key={i}
-              style={[styles.dot, i === index ? styles.dotActive : styles.dotInactive]}
-            />
-          ))}
+    <View style={styles.container}>
+      {/* Loading state */}
+      {isLoading && (
+        <View style={styles.center}>
+          <ActivityIndicator color="#10B981" />
+          <Text style={styles.loadingText}>Loading ads...</Text>
         </View>
       )}
 
-      {/* Full-screen ad modal */}
-      <Modal visible={expanded} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
-            <Pressable style={styles.modalClose} onPress={() => setExpanded(false)}>
-              <X size={20} color="#fff" />
+      {/* Empty state */}
+      {!isLoading && ads.length === 0 && (
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>No ads available</Text>
+        </View>
+      )}
+
+      {/* Bottom banner carousel — full-width images */}
+      {!isLoading && ads.length > 0 && (
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          removeClippedSubviews={false}
+          onMomentumScrollEnd={handleScrollEnd}
+          scrollEventThrottle={16}
+        >
+          {(hasInfinite ? infiniteAds : ads).map((ad, index) => (
+            <View key={`${ad.id}-${index}`} style={styles.slide}>
+              {renderBottomMedia(ad)}
+
+              {/* Tap layer */}
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                onPress={() => {
+                  if (ad.id > 0) recordClick(ad.id);
+                  setSelectedAd(ad);
+                  setShowModal(true);
+                }}
+              />
+            </View>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* ── FULLSCREEN MODAL ── */}
+      <Modal visible={showModal} animationType="fade">
+        <View style={styles.modal}>
+          {selectedAd && renderFullscreenMedia(selectedAd)}
+
+          {/* Close button */}
+          <Pressable style={styles.close} onPress={() => setShowModal(false)}>
+            <X size={28} color="#fff" />
+          </Pressable>
+
+          {/* Horizontal button row — Chat + Call Now */}
+          <View style={styles.buttonRow}>
+            <Pressable
+              style={[styles.ctaButton, { backgroundColor: "#3B82F6" }]}
+              onPress={() => handleChat(selectedAd)}
+            >
+              <Text style={styles.ctaText}>Chat</Text>
             </Pressable>
 
-            <View style={styles.modalBody}>
-              {hasImage ? (
-                <Image
-                  source={{ uri: imageUrl! }}
-                  style={styles.modalImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={styles.modalFallback}>
-                  <Text style={styles.modalEmoji}>📣</Text>
-                </View>
-              )}
-              <Text style={styles.modalLabel}>Sponsored</Text>
-              <Text style={styles.modalTitle}>{ad?.title}</Text>
-              {ad?.description && (
-                <Text style={styles.modalDesc}>{ad.description}</Text>
-              )}
-            </View>
-
-            <View style={styles.modalActions}>
-              {businessCard ? (
-                <View style={styles.modalGrid}>
-                  <Button
-                    size="lg"
-                    className="flex-1 rounded-xl"
-                    onPress={() => handleCta("call")}
-                  >
-                    <Phone size={14} color="#fff" /> Call Now
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="flex-1 rounded-xl"
-                    onPress={() => handleCta("chat")}
-                  >
-                    <MessageCircle size={14} color={colors.foreground} /> Chat
-                  </Button>
-                  {(businessCard.maps_link || businessCard.latitude) && (
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="flex-1 rounded-xl"
-                      onPress={() => handleCta("directions")}
-                    >
-                      <MapPin size={14} color={colors.foreground} /> Directions
-                    </Button>
-                  )}
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="flex-1 rounded-xl"
-                    onPress={() => handleCta("learn")}
-                  >
-                    <ArrowRight size={14} color={colors.foreground} /> View Business
-                  </Button>
-                </View>
-              ) : (
-                <Button
-                  size="lg"
-                  className="w-full rounded-xl"
-                  onPress={() => setExpanded(false)}
-                >
-                  {ad?.cta || "Learn More"}
-                </Button>
-              )}
-            </View>
+            <Pressable
+              style={[styles.ctaButton, { backgroundColor: "#10B981" }]}
+              onPress={() => handleCall(selectedAd)}
+            >
+              <Text style={styles.ctaText}>Call Now</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
-    </>
+    </View>
   );
 };
 
+export default BannerAdSlot;
+
+/* ── STYLES (matching FooterCarousel exactly) ── */
 const styles = StyleSheet.create({
-  bannerBase: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 12,
+  /* Bottom bar */
+  container: {
+    height: BOTTOM_HEIGHT,
+    backgroundColor: "#000",
   },
-  bannerInline: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    marginHorizontal: 16,
+  slide: {
+    width: SCREEN_WIDTH,
+    height: BOTTOM_HEIGHT,
   },
-  bannerSticky: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+  media: {
+    width: "100%",
+    height: "100%",
   },
-  adLabel: {
-    position: "absolute",
-    top: 6,
-    right: 6,
-    fontSize: 9,
-    color: colors.mutedForeground,
-    backgroundColor: colors.background,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    zIndex: 1,
-  },
-  bannerImage: {
-    height: 56,
-    width: 56,
-    borderRadius: 10,
-  },
-  bannerFallback: {
-    height: 56,
-    width: 56,
-    borderRadius: 10,
-    backgroundColor: "#E0F2FE",
-    alignItems: "center",
+
+  /* No-image fallback for bottom */
+  noImageBg: {
+    backgroundColor: "#1F2937",
     justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
   },
-  bannerEmoji: {
-    fontSize: 24,
-  },
-  bannerBody: {
-    flex: 1,
-  },
-  bannerTitle: {
-    fontSize: 13,
+  noImageEmoji: { fontSize: 28 },
+  noImageTitle: {
+    color: "#fff",
+    fontSize: 14,
     fontWeight: "700",
-    color: colors.foreground,
-  },
-  bannerTitleSticky: {
-    color: colors.primaryForeground,
-  },
-  bannerDesc: {
-    fontSize: 11,
-    color: colors.mutedForeground,
     marginTop: 2,
   },
-  bannerDescSticky: {
-    color: "rgba(255,255,255,0.75)",
-  },
-  dotsRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 6,
-    gap: 6,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  dotActive: {
-    backgroundColor: colors.primary,
-  },
-  dotInactive: {
-    backgroundColor: "rgba(106,113,129,0.3)",
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  modalContent: {
-    flex: 1,
-  },
-  modalClose: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    height: 40,
-    width: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 2,
-  },
-  modalBody: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  modalImage: {
-    width: "100%",
-    height: undefined,
-    aspectRatio: 16 / 9,
-    maxHeight: "50%",
-    borderRadius: 20,
-    marginBottom: 20,
-  },
-  modalFallback: {
-    width: "100%",
-    height: 200,
-    borderRadius: 20,
-    backgroundColor: "#E0F2FE",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-  },
-  modalEmoji: {
-    fontSize: 48,
-  },
-  modalLabel: {
+  noImageDesc: {
+    color: "#9CA3AF",
     fontSize: 11,
-    fontWeight: "700",
-    color: colors.mutedForeground,
-    textTransform: "uppercase",
-    marginBottom: 6,
+    marginTop: 2,
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: colors.foreground,
-    textAlign: "center",
+
+  /* Loading / empty */
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  modalDesc: {
-    fontSize: 12,
-    color: colors.mutedForeground,
-    textAlign: "center",
+  loadingText: {
+    color: "#9CA3AF",
     marginTop: 8,
+    fontSize: 12,
   },
-  modalActions: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    padding: 16,
-    backgroundColor: colors.card,
+  emptyText: {
+    color: "#9CA3AF",
+    fontSize: 12,
   },
-  modalGrid: {
+
+  /* Fullscreen modal */
+  modal: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  fullMedia: {
+    width: "100%",
+    height: "100%",
+  },
+  fullNoImageTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#fff",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  fullNoImageDesc: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.6)",
+    textAlign: "center",
+  },
+  close: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    zIndex: 10,
+  },
+  buttonRow: {
+    position: "absolute",
+    bottom: 40,
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
+    alignSelf: "center",
+    gap: 15,
+  },
+  ctaButton: {
+    paddingHorizontal: 30,
+    paddingVertical: 14,
+    borderRadius: 30,
+    minWidth: 120,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  ctaText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
   },
 });
-
-export default BannerAdSlot;
