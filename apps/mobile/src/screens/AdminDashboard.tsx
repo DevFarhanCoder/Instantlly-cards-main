@@ -106,11 +106,30 @@ const AdminPanel = () => {
   const [approveAd] = useApproveAdCampaignMutation();
   const [rejectAd] = useRejectAdCampaignMutation();
   const [adsFilter, setAdsFilter] = useState("all");
+  const [displayCount, setDisplayCount] = useState(10);
+  const ADS_PER_PAGE = 10;
 
   const filteredAds = useMemo(() => {
     if (adsFilter === "all") return allAds;
     return allAds.filter((a: any) => a.approval_status === adsFilter);
   }, [adsFilter, allAds]);
+
+  const displayedAds = useMemo(() => {
+    return filteredAds.slice(0, displayCount);
+  }, [filteredAds, displayCount]);
+
+  const hasMore = displayCount < filteredAds.length;
+
+  const loadMore = () => {
+    if (hasMore) {
+      setDisplayCount(prev => prev + ADS_PER_PAGE);
+    }
+  };
+
+  const handleAdsFilterChange = (filter: string) => {
+    setAdsFilter(filter);
+    setDisplayCount(ADS_PER_PAGE);
+  };
 
   const handleApproveAd = async (id: number) => {
     try {
@@ -237,11 +256,11 @@ const AdminPanel = () => {
         {/* ─── Ads ──────────────────────────────────────────────────────── */}
         {tab === "ads" && (
           <View className="gap-3">
-            <View className="flex-row gap-2 mb-2">
+            <View className="flex-row gap-2 mb-2 flex-wrap">
               {["all", "pending", "approved", "rejected"].map((f) => (
                 <Pressable
                   key={f}
-                  onPress={() => setAdsFilter(f)}
+                  onPress={() => handleAdsFilterChange(f)}
                   className={`px-3 py-1.5 rounded-lg ${adsFilter === f ? "bg-primary" : "bg-muted"}`}
                 >
                   <Text className={`text-[11px] font-semibold capitalize ${adsFilter === f ? "text-primary-foreground" : "text-muted-foreground"}`}>
@@ -257,55 +276,96 @@ const AdminPanel = () => {
               <Text className="text-sm text-red-500 text-center py-8">Failed to load ads. Check backend connection.</Text>
             ) : filteredAds.length === 0 ? (
               <Text className="text-sm text-muted-foreground text-center py-8">No ads found</Text>
-            ) : null}
-
-            {filteredAds.map((a: any) => (
-              <View key={a.id} className="rounded-xl border border-border bg-card p-3">
-                <View className="flex-row items-start justify-between mb-1">
-                  <View className="flex-row items-center gap-2 flex-1">
-                    {a.creative_url ? (
-                      <Image source={{ uri: a.creative_url }} style={{ height: 36, width: 36, borderRadius: 8 }} />
-                    ) : null}
-                    <View className="flex-1">
-                      <Text className="text-sm font-semibold text-foreground">{a.title}</Text>
-                      <Text className="text-xs text-muted-foreground capitalize">{a.ad_type} · ₹{a.daily_budget}/day · {a.duration_days}d</Text>
-                    </View>
-                  </View>
-                  <Badge
-                    className={`text-[9px] ${
-                      a.approval_status === "approved"
-                        ? "bg-green-500/10 text-green-600"
-                        : a.approval_status === "rejected"
-                        ? "bg-red-500/10 text-red-600"
-                        : "bg-yellow-500/10 text-yellow-600"
-                    }`}
+            ) : (
+              <>
+                {displayedAds.map((a: any) => (
+                  <Pressable
+                    key={a.id}
+                    onPress={() => navigation.navigate("AdminAdDetail", { id: a.id })}
+                    className="rounded-xl border border-border bg-card p-3 active:bg-muted"
                   >
-                    {a.approval_status}
-                  </Badge>
-                </View>
-                {a.user ? (
-                  <Text className="text-[10px] text-muted-foreground">By {a.user.name} ({a.user.phone})</Text>
-                ) : null}
-                {a.business ? (
-                  <Text className="text-[10px] text-muted-foreground">Business: {a.business.company_name}</Text>
-                ) : null}
-                <View className="flex-row items-center gap-3 mt-1.5">
-                  <Text className="text-[10px] text-muted-foreground">{a.impressions ?? 0} views</Text>
-                  <Text className="text-[10px] text-muted-foreground">{a.clicks ?? 0} clicks</Text>
-                  <Text className="text-[10px] text-muted-foreground">₹{a.spent ?? 0} spent</Text>
-                </View>
-                {a.approval_status === "pending" && (
-                  <View className="flex-row gap-2 mt-2">
-                    <Button size="sm" className="flex-1 rounded-lg" onPress={() => handleApproveAd(a.id)}>
-                      <CheckCircle size={14} color="#ffffff" /> Approve
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1 rounded-lg text-destructive" onPress={() => handleRejectAd(a.id)}>
-                      <XCircle size={14} color="#ef4444" /> Reject
+                    <View className="flex-row items-start justify-between mb-1 gap-2">
+                      <View className="flex-row items-center gap-2 flex-1">
+                        {a.creative_url ? (
+                          <Image source={{ uri: a.creative_url }} style={{ height: 40, width: 40, borderRadius: 8 }} />
+                        ) : (
+                          <View style={{ height: 40, width: 40, borderRadius: 8 }} className="bg-muted" />
+                        )}
+                        <View className="flex-1">
+                          <Text className="text-sm font-semibold text-foreground">{a.title}</Text>
+                          <Text className="text-xs text-muted-foreground capitalize">{a.ad_type} · ₹{a.daily_budget}/day · {a.duration_days}d</Text>
+                        </View>
+                      </View>
+                      <View className="gap-1">
+                        <Badge
+                          className={`text-[8px] ${
+                            a.approval_status === "approved"
+                              ? "bg-green-500/10 text-green-600"
+                              : a.approval_status === "rejected"
+                              ? "bg-red-500/10 text-red-600"
+                              : "bg-yellow-500/10 text-yellow-600"
+                          }`}
+                        >
+                          {a.approval_status}
+                        </Badge>
+                        <Badge
+                          className={`text-[8px] ${
+                            a.status === "active"
+                              ? "bg-blue-500/10 text-blue-600"
+                              : a.status === "paused"
+                              ? "bg-orange-500/10 text-orange-600"
+                              : "bg-gray-500/10 text-gray-600"
+                          }`}
+                        >
+                          {a.status === "active" ? "🟢 Active" : a.status === "paused" ? "⏸️ Paused" : "✅ Completed"}
+                        </Badge>
+                      </View>
+                    </View>
+                    {a.user ? (
+                      <Text className="text-[10px] text-muted-foreground">By {a.user.name} ({a.user.phone})</Text>
+                    ) : null}
+                    {a.business ? (
+                      <Text className="text-[10px] text-muted-foreground">Business: {a.business.company_name}</Text>
+                    ) : null}
+                    <View className="flex-row items-center gap-3 mt-1.5">
+                      <Text className="text-[10px] text-muted-foreground">👁️ {a.impressions ?? 0}</Text>
+                      <Text className="text-[10px] text-muted-foreground">🖱️ {a.clicks ?? 0}</Text>
+                      <Text className="text-[10px] text-muted-foreground">₹{a.spent ?? 0}</Text>
+                    </View>
+                    {a.approval_status === "pending" && (
+                      <View className="flex-row gap-2 mt-2">
+                        <Button size="sm" className="flex-1 rounded-lg" onPress={() => handleApproveAd(a.id)}>
+                          <CheckCircle size={14} color="#ffffff" /> Approve
+                        </Button>
+                        <Button size="sm" variant="outline" className="flex-1 rounded-lg text-destructive" onPress={() => handleRejectAd(a.id)}>
+                          <XCircle size={14} color="#ef4444" /> Reject
+                        </Button>
+                      </View>
+                    )}
+                  </Pressable>
+                ))}
+
+                {/* Infinite Scroll Load More */}
+                {hasMore && (
+                  <View className="py-4 items-center">
+                    <Button
+                      size="sm"
+                      className="rounded-lg px-6"
+                      onPress={loadMore}
+                    >
+                      ↓ Load More ({displayCount}/{filteredAds.length})
                     </Button>
                   </View>
                 )}
-              </View>
-            ))}
+
+                {/* All loaded indicator */}
+                {!hasMore && displayedAds.length > 0 && (
+                  <View className="py-4 items-center">
+                    <Text className="text-xs text-muted-foreground">✅ All {filteredAds.length} ads loaded</Text>
+                  </View>
+                )}
+              </>
+            )}
           </View>
         )}
 

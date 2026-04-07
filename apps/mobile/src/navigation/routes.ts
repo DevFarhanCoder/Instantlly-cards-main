@@ -27,6 +27,7 @@ export type RootStackParamList = {
   Notifications: undefined;
   BusinessDashboard: undefined;
   AdminDashboard: { tab?: string } | undefined;
+  AdminAdDetail: { id: number } | undefined;
   EditProfile: undefined;
   PaymentMethods: undefined;
   PrivacySecurity: undefined;
