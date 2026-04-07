@@ -16,10 +16,11 @@ export type {
 } from '../store/api/eventsApi';
 
 export function useEvents() {
-  const { data, isLoading, refetch } = useListEventsQuery();
+  const { data, isLoading, isFetching, refetch } = useListEventsQuery(undefined, { refetchOnMountOrArgChange: true });
   return {
     data: data?.data ?? [],
     isLoading,
+    isFetching,
     refetch,
   };
 }

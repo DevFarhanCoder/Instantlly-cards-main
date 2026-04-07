@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ArrowLeft, CheckCircle2, Clock, Gift, QrCode, Send, Ticket } from "lucide-react-native";
 import { Badge } from "../components/ui/badge";
@@ -42,9 +42,15 @@ const tabs = ["All", "Active", "Redeemed", "Expired", "Transfers"];
 const MyVouchers = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { data: claimedVouchers = [], isLoading } = useMyVouchers();
+  const { data: claimedVouchers = [], isLoading, refetch: refetchVouchers } = useMyVouchers();
   const { mutate: transferVoucher, isPending: isTransferring } = useTransferVoucher();
-  const { data: transfers = [] } = useVoucherTransfers();
+  const { data: transfers = [], refetch: refetchTransfers } = useVoucherTransfers();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await Promise.all([refetchVouchers(), refetchTransfers()]); } finally { setRefreshing(false); }
+  }, [refetchVouchers, refetchTransfers]);
   const [activeTab, setActiveTab] = useState("All");
   const [qrVoucher, setQrVoucher] = useState<ClaimedVoucher | null>(null);
   const [transferVoucherTarget, setTransferVoucherTarget] = useState<ClaimedVoucher | null>(null);
@@ -87,7 +93,9 @@ const MyVouchers = () => {
         <Text className="text-lg font-bold text-foreground">My Vouchers</Text>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }} refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         <View className="px-4 py-4 gap-4">
           <View className="rounded-2xl border border-border bg-primary/5 p-4">
             <View className="flex-row items-center justify-between">

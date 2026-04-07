@@ -4,6 +4,7 @@ import {
   Image,
   Linking,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -36,9 +37,7 @@ import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { categories as fallbackCategories } from "../data/categories";
 import { useListMobileCategoriesQuery } from "../store/api/categoriesApi";
-import { useNetworkCards } from "../hooks/useContactSync";
 import { useFavorites } from "../contexts/FavoritesContext";
-import { useDirectoryFeed } from "../hooks/useDirectoryCards";
 import { useAuth } from "../hooks/useAuth";
 import { useUserRole } from "../hooks/useUserRole";
 import { useGetMyCardsQuery } from "../store/api/businessCardsApi";
@@ -63,23 +62,20 @@ const Index = () => {
   const navigation = useNavigation<any>();
   const { toggleFavorite, isFavorite } = useFavorites();
   const userLocation = useUserLocation();
-  const {
-    data: allCards = [],
-    isLoading,
-    isFetching,
-    hasMore,
-    loadMore,
-  } = useDirectoryFeed({
-    pageSize: 30,
-    lat: userLocation?.latitude,
-    lng: userLocation?.longitude,
-    radius: 10000,
-  });
-  const { data: networkCards = [], isLoading: isLoadingNetwork } = useNetworkCards();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
-  const { data: myCards = [] } = useGetMyCardsQuery(undefined, { skip: !user });
-  const { data: categoryData = [], isLoading: isLoadingCategories } = useListMobileCategoriesQuery();
+  const { data: myCards = [], isLoading: isLoadingMyCards, refetch: refetchMyCards } = useGetMyCardsQuery(undefined, { skip: !user });
+  const { data: categoryData = [], isLoading: isLoadingCategories, isFetching: isFetchingCategories, refetch: refetchCategories } = useListMobileCategoriesQuery(undefined, { refetchOnMountOrArgChange: true });
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchCategories(), refetchMyCards()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchCategories, refetchMyCards]);
 
   useEffect(() => {
     // Wait for auth hydration before checking admin role to avoid
@@ -109,21 +105,8 @@ const Index = () => {
 
   const suggestions = useMemo(() => {
     if (!searchQuery.trim() || searchQuery.length < 2) return [];
-    const q = searchQuery.toLowerCase();
-    const matches = new Set<string>();
-
-    allCards.forEach((card: any) => {
-      if (card.full_name?.toLowerCase().includes(q)) matches.add(card.full_name);
-      if (card.company_name?.toLowerCase().includes(q)) matches.add(card.company_name);
-      if (card.category?.toLowerCase().includes(q)) matches.add(card.category);
-      if (card.location?.toLowerCase().includes(q)) matches.add(card.location);
-      (card.services || []).forEach((s: string) => {
-        if (s.toLowerCase().includes(q)) matches.add(s);
-      });
-    });
-
-    return Array.from(matches).slice(0, 6);
-  }, [searchQuery, allCards]);
+    return [];
+  }, [searchQuery]);
 
   const isLikelyOpen = (hours: string | null): boolean | null => {
     if (!hours) return null;
@@ -135,54 +118,12 @@ const Index = () => {
     return currentHour >= 9 && currentHour <= 21;
   };
 
-  const filteredCards = useMemo(() => {
-    let cards = allCards.filter((card: any) => {
-      if (serviceMode === "home" && card.service_mode !== "home" && card.service_mode !== "both")
-        return false;
-      if (serviceMode === "visit" && card.service_mode !== "visit" && card.service_mode !== "both")
-        return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const match =
-          card.full_name.toLowerCase().includes(q) ||
-          card.company_name?.toLowerCase().includes(q) ||
-          card.category?.toLowerCase().includes(q) ||
-          card.location?.toLowerCase().includes(q) ||
-          (card.services || []).some((s: string) => s.toLowerCase().includes(q)) ||
-          card.keywords?.toLowerCase().includes(q);
-        if (!match) return false;
-      }
-      if (maxDistance > 0 && userLocation && card.latitude && card.longitude) {
-        const dist = getDistanceKm(
-          userLocation.latitude,
-          userLocation.longitude,
-          card.latitude,
-          card.longitude
-        );
-        if (dist > maxDistance) return false;
-      }
-      return true;
-    });
-
-    return cards;
-  }, [allCards, searchQuery, serviceMode, minRating, maxDistance, userLocation]);
-
-  const displayCards = useMemo(() => {
-    const networkIds = new Set(networkCards.map((c: any) => c.id));
-    const directoryOnly = filteredCards.filter((c: any) => !networkIds.has(c.id));
-    return [
-      ...networkCards.map((c: any) => ({ ...c, _isNetwork: true })),
-      ...directoryOnly,
-    ];
-  }, [filteredCards, networkCards]);
-
   const handleScroll = useCallback((e: any) => {
     const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
     const paddingToBottom = 320;
     if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
-      if (hasMore) loadMore();
     }
-  }, [hasMore, loadMore]);
+  }, []);
 
   return (
     <View className="flex-1 bg-background">
@@ -191,6 +132,9 @@ const Index = () => {
         contentContainerStyle={{ paddingBottom: 16 }}
         onScroll={handleScroll}
         scrollEventThrottle={200}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }
       >
       <View className="px-4 pt-4">
         <View className="flex-row gap-2">
@@ -305,7 +249,7 @@ const Index = () => {
         )}
       </View>
 
-      {user && allCards.length === 0 && !isLoading && (
+      {user && (myCards as any[]).length === 0 && !isLoadingMyCards && (
         <View className="mx-4 mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
           <Text className="text-sm font-bold text-foreground">Welcome to Instantly! 👋</Text>
           <Text className="mt-1 text-xs text-muted-foreground">
@@ -329,7 +273,7 @@ const Index = () => {
         </View>
 
         <View className="flex-row flex-wrap justify-between gap-3">
-          {isLoadingCategories && normalizedCategories.length === 0 ? (
+          {(isLoadingCategories || isFetchingCategories) ? (
             Array.from({ length: 8 }).map((_, idx) => (
               <View key={`cat-skel-${idx}`} className="items-center gap-1.5" style={{ width: "22%" }}>
                 <Skeleton className="h-16 w-16 rounded-2xl" />
@@ -368,155 +312,10 @@ const Index = () => {
       {user && (
         <AIRecommendations
           user={user}
-          favoriteIds={allCards.filter((c: any) => isFavorite(c.id)).map((c: any) => c.id)}
+          favoriteIds={[]}
           userLocation={userLocation}
           navigate={navigation}
         />
-      )}
-
-      <View className="my-5 flex-row items-center gap-3 px-4">
-        <View className="h-px flex-1 bg-border" />
-        <Text className="text-base font-bold text-foreground">My Network Business Cards</Text>
-        <View className="h-px flex-1 bg-border" />
-      </View>
-
-      <View className="px-4 pb-6">
-        {(isLoading || isLoadingNetwork) ? (
-          <>
-            <Skeleton className="h-40 w-full rounded-2xl mb-3" />
-            <Skeleton className="h-40 w-full rounded-2xl mb-3" />
-          </>
-        ) : displayCards.length === 0 ? (
-          <View className="items-center py-12">
-            <Text className="text-4xl mb-2">📭</Text>
-            <Text className="text-sm text-muted-foreground">
-              {searchQuery ? "No businesses match your search" : "No business cards yet"}
-            </Text>
-          </View>
-        ) : (
-          displayCards.map((card: any) => {
-            const openStatus = isLikelyOpen(card.business_hours);
-            const isNetworkCard = card._isNetwork === true;
-            return (
-              <Pressable
-                key={card.id}
-                onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
-                className="mb-3 rounded-2xl border border-border bg-card p-4"
-              >
-                <View className="flex-row items-start justify-between">
-                  <View className="flex-row items-start gap-3">
-                    <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
-                      {card.logo_url ? (
-                        <Image source={{ uri: card.logo_url }} style={{ height: "100%", width: "100%" }} />
-                      ) : (
-                        <Text>🏢</Text>
-                      )}
-                    </View>
-                    <View>
-                      <View className="flex-row items-center gap-1">
-                        <Text className="text-base font-bold text-foreground">{card.full_name}</Text>
-                        {(card as any).is_verified && (
-                          <ShieldCheck size={14} color={colors.primary} />
-                        )}
-                      </View>
-                      <View className="flex-row flex-wrap items-center gap-2 mt-1">
-                        {card.category && <Text className="text-xs text-muted-foreground">{card.category}</Text>}
-                        {card.service_mode && (
-                          <Text className="text-[10px] font-semibold text-muted-foreground">
-                            {card.service_mode === "home" ? "🏠 Home Service" : card.service_mode === "both" ? "🔁 Home & Visit" : "🏪 Visit"}
-                          </Text>
-                        )}
-                        {openStatus !== null && (
-                          <Text className="text-[10px] font-semibold text-muted-foreground">
-                            {openStatus ? "Open" : "Closed"}
-                          </Text>
-                        )}
-                        {isNetworkCard && (
-                          <Text className="text-[10px] font-semibold text-muted-foreground">👥 Friend</Text>
-                        )}
-                      </View>
-                    </View>
-                  </View>
-                  <Pressable
-                    onPress={() => toggleFavorite(card.id)}
-                    style={{ padding: 4 }}
-                  >
-                    <Heart
-                      size={16}
-                      color={isFavorite(card.id) ? colors.destructive : colors.mutedForeground}
-                      fill={isFavorite(card.id) ? colors.destructive : "transparent"}
-                    />
-                  </Pressable>
-                </View>
-
-                {card.location && (
-                  <View className="mt-2 flex-row items-center gap-2">
-                    <MapPin size={14} color={colors.mutedForeground} />
-                    <Text className="text-xs text-muted-foreground flex-1">{card.location}</Text>
-                    {userLocation && card.latitude && card.longitude && (
-                      <View className="rounded-full bg-primary/10 px-2 py-0.5">
-                        <Text className="text-[10px] font-semibold text-primary">
-                          {formatDistance(
-                            getDistanceKm(
-                              userLocation.latitude,
-                              userLocation.longitude,
-                              card.latitude,
-                              card.longitude
-                            )
-                          )}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                {card.offer && (
-                  <View className="mt-2 rounded-lg bg-success/10 px-3 py-1.5">
-                    <Text className="text-xs font-medium text-success">🎁 {card.offer}</Text>
-                  </View>
-                )}
-
-                {card.services && card.services.length > 0 && (
-                  <View className="mt-3 flex-row flex-wrap gap-2">
-                    {card.services.map((s: string) => (
-                      <View key={s} className="rounded-md bg-muted px-2 py-1">
-                        <Text className="text-[11px] font-medium text-muted-foreground">{s}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                <View className="mt-3 flex-row gap-2">
-                  <Button
-                    size="sm"
-                    className="flex-1 rounded-lg"
-                    onPress={() => Linking.openURL(`tel:${card.phone}`)}
-                  >
-                    <Phone size={14} color="#fff" /> Call
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 rounded-lg"
-                    onPress={() => navigation.navigate("Messaging")}
-                  >
-                    <MessageCircle size={14} color={colors.foreground} /> Message
-                  </Button>
-                </View>
-              </Pressable>
-            );
-          })
-        )}
-      </View>
-
-      {hasMore && (
-        <View className="px-4 pb-6 items-center">
-          {isFetching ? (
-            <ActivityIndicator size="small" color={colors.mutedForeground} />
-          ) : (
-            <Text className="text-[10px] text-muted-foreground">Loading more...</Text>
-          )}
-        </View>
       )}
 
       </ScrollView>

@@ -1,5 +1,7 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { PageLoader } from "../components/ui/page-loader";
 import { ArrowLeft, Calendar, Clock, MapPin, Phone, User, FileText, CheckCircle, XCircle } from "lucide-react-native";
 import { format } from "date-fns";
 import { Button } from "../components/ui/button";
@@ -20,9 +22,14 @@ const BookingDetail = () => {
   const route = useRoute<any>();
   const id = route?.params?.id;
   const numericId = typeof id === "string" ? parseInt(id, 10) : id;
-  const { data: booking, isLoading } = useGetBookingQuery(numericId, { skip: !numericId });
+  const { data: booking, isLoading, refetch: refetchBooking } = useGetBookingQuery(numericId, { skip: !numericId });
   const [updateStatus, { isLoading: isUpdating }] = useUpdateBookingStatusMutation();
   const { user } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchBooking(); } finally { setRefreshing(false); }
+  }, [refetchBooking]);
 
   const handleUpdateStatus = async (status: string) => {
     if (!booking) return;
@@ -35,11 +42,7 @@ const BookingDetail = () => {
   };
 
   if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text className="text-sm text-muted-foreground">Loading...</Text>
-      </View>
-    );
+    return <PageLoader />;
   }
 
   if (!booking) {
@@ -66,7 +69,7 @@ const BookingDetail = () => {
         <Text className="text-lg font-bold text-foreground">Booking Details</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} className="px-4 py-4 gap-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} className="px-4 py-4 gap-4" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />}>
         <Card>
           <CardContent className="p-5 gap-4">
             <View className="flex-row items-center justify-between">

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Linking,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -54,6 +55,7 @@ const SubcategoryDetail = () => {
     isFetching,
     hasMore,
     loadMore,
+    refetch: refetchFeed,
   } = useDirectoryFeed({
     pageSize: 30,
     category: subcategory,
@@ -95,6 +97,12 @@ const SubcategoryDetail = () => {
       if (hasMore) loadMore();
     }
   };
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchFeed(); } finally { setRefreshing(false); }
+  }, [refetchFeed]);
 
   return (
     <View className="flex-1 bg-background">
@@ -195,6 +203,9 @@ const SubcategoryDetail = () => {
         className="px-4 py-2"
         onScroll={handleScroll}
         scrollEventThrottle={200}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }
       >
         {isLoading ? (
           <View className="gap-3">

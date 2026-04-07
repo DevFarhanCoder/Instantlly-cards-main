@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ArrowLeft, Calendar, Clock, RefreshCw } from "lucide-react-native";
 import { format } from "date-fns";
@@ -15,7 +16,12 @@ const statusConfig: Record<string, { label: string; color: string; emoji: string
 
 const TrackBooking = () => {
   const navigation = useNavigation<any>();
-  const { bookings, isLoading } = useBookings();
+  const { bookings, isLoading, refetch: refetchBookings } = useBookings();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchBookings(); } finally { setRefreshing(false); }
+  }, [refetchBookings]);
 
   const activeBookings = bookings.filter(
     (b) => b.status === "confirmed" || b.status === "pending"
@@ -93,7 +99,7 @@ const TrackBooking = () => {
         <Text className="text-lg font-bold text-foreground">Track Bookings</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />}>
         {isLoading ? (
           <View className="gap-3">
             {[1, 2, 3].map((i) => (

@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { PageLoader } from "../components/ui/page-loader";
 import {
   ArrowLeft,
   Calendar,
@@ -23,15 +24,21 @@ const EventDetail = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const id = route?.params?.id;
-  const { data: event, isLoading } = useEvent(id || "");
+  const { data: event, isLoading, refetch: refetchEvent } = useEvent(id || "");
   const registerMutation = useRegisterForEvent();
   const { user } = useAuth();
-  const { registrations } = useMyRegistrations();
+  const { registrations, refetch: refetchRegistrations } = useMyRegistrations();
 
   // Check if user already registered for this event
   const existingPass = registrations.find(
     (r: any) => String(r.event_id) === String(id)
   );
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await Promise.all([refetchEvent(), refetchRegistrations()]); } finally { setRefreshing(false); }
+  }, [refetchEvent, refetchRegistrations]);
 
   const [showForm, setShowForm] = useState(false);
   const [showPriceConfirm, setShowPriceConfirm] = useState(false);
@@ -87,11 +94,7 @@ const EventDetail = () => {
   };
 
   if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text className="text-sm text-muted-foreground">Loading...</Text>
-      </View>
-    );
+    return <PageLoader />;
   }
 
   if (!event) {
@@ -184,7 +187,7 @@ const EventDetail = () => {
         <Text className="text-7xl">🎉</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 -mt-6">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 -mt-6" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />}>
         <Card>
           <CardContent className="p-5 gap-4">
             <View>

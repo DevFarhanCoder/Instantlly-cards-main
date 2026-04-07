@@ -1,5 +1,7 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { PageLoader } from "../components/ui/page-loader";
 import QRCode from "react-native-qrcode-svg";
 import { CalendarDays, Clock, LogOut, MapPin, Ticket, CheckCircle2 } from "lucide-react-native";
 import { format } from "date-fns";
@@ -12,7 +14,13 @@ import { useMyRegistrations } from "../hooks/useEvents";
 const MyPasses = () => {
   const navigation = useNavigation<any>();
   const { user, signOut, loading: authLoading } = useAuth();
-  const { registrations: passes, isLoading } = useMyRegistrations();
+  const { registrations: passes, isLoading, refetch: refetchPasses } = useMyRegistrations();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchPasses(); } finally { setRefreshing(false); }
+  }, [refetchPasses]);
 
   if (authLoading) {
     return (
@@ -56,11 +64,11 @@ const MyPasses = () => {
         </Button>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-6 gap-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-6 gap-4" refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         {isLoading ? (
-          <View className="items-center py-10">
-            <Text className="text-sm text-muted-foreground">Loading...</Text>
-          </View>
+          <PageLoader fullScreen={false} />
         ) : !passes?.length ? (
           <View className="items-center py-10 gap-3">
             <Ticket size={48} color="#c0c4cc" />

@@ -76,5 +76,6 @@ export function useNotifications() {
     markRead,
     markAllRead,
     deleteAll,
+    refetch: notificationsQuery.refetch,
   };
 }

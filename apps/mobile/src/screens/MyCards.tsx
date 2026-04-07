@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
+  Linking,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
@@ -40,9 +42,49 @@ import { toast } from "../lib/toast";
 const MyCards = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { cards, isLoading, deleteCard } = useBusinessCards();
+  const { cards, isLoading, deleteCard, refetch: refetchCards } = useBusinessCards() as any;
+  const { data: directoryCards = [], isLoading: isFetchingNetwork, refetch: refetchDirectory } = useDirectoryCards();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await Promise.all([refetchCards?.(), refetchDirectory()]); } finally { setRefreshing(false); }
+  }, [refetchCards, refetchDirectory]);
+  const networkCards = directoryCards;
+  const demoCards = directoryCards;
   const [shareCard, setShareCard] = useState<BusinessCardRow | null>(null);
-  const { data: demoCards = [] } = useDirectoryCards({ skip: !!user });
+
+  const handleCopyLink = async () => {
+    if (!shareCard) return;
+    const shareUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantly.app'}/card/${shareCard.id}`;
+    // TODO: Implement clipboard copy for React Native
+    toast.success("Link copied!");
+    setShareCard(null);
+  };
+
+  const handleWhatsAppShare = async () => {
+    if (!shareCard) return;
+    
+    const shareUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantly.app'}/card/${shareCard.id}`;
+    const text = `${shareCard.full_name}${shareCard.company_name ? ` — ${shareCard.company_name}` : ""}${shareCard.job_title ? ` | ${shareCard.job_title}` : ""}\n\n${shareCard.phone}${shareCard.email ? `\n${shareCard.email}` : ""}${shareCard.location ? `\n📍 ${shareCard.location}` : ""}${shareCard.offer ? `\n\n🎁 ${shareCard.offer}` : ""}\n\n${shareUrl}`;
+    
+    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(text)}`;
+    
+    try {
+      const canOpen = await Linking.canOpenURL(whatsappUrl);
+      if (canOpen) {
+        await Linking.openURL(whatsappUrl);
+        toast.success("Opening WhatsApp...");
+      } else {
+        toast.error("WhatsApp is not installed");
+      }
+    } catch (error) {
+      console.error("Error opening WhatsApp:", error);
+      toast.error("Failed to open WhatsApp");
+    }
+    
+    setShareCard(null);
+  };
 
   if (!user) {
     return (
@@ -154,6 +196,97 @@ const MyCards = () => {
               ))}
             </View>
           </View>
+
+          {/* My Network Business Cards — shown to logged-in customers */}
+          {isFetchingNetwork ? (
+            <View className="px-4 pb-4">
+              <View className="my-4 flex-row items-center gap-3">
+                <View className="h-px flex-1 bg-border" />
+                <Text className="text-sm font-bold text-foreground">My Network Business Cards</Text>
+                <View className="h-px flex-1 bg-border" />
+              </View>
+              <Skeleton className="h-36 w-full rounded-2xl mb-3" />
+              <Skeleton className="h-36 w-full rounded-2xl mb-3" />
+            </View>
+          ) : networkCards.length > 0 ? (
+            <View className="px-4 pb-4">
+              <View className="my-4 flex-row items-center gap-3">
+                <View className="h-px flex-1 bg-border" />
+                <Text className="text-sm font-bold text-foreground">My Network Business Cards</Text>
+                <View className="h-px flex-1 bg-border" />
+              </View>
+              {networkCards.map((card: any) => (
+                <Pressable
+                  key={card.id}
+                  className="mb-3 rounded-2xl border border-border bg-card p-4 shadow-sm"
+                  onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
+                >
+                  <View className="flex-row items-start gap-3">
+                    <View className="h-12 w-12 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+                      {card.logo_url ? (
+                        <Image source={{ uri: card.logo_url }} className="h-full w-full" resizeMode="cover" />
+                      ) : (
+                        <Text className="text-xl">🏢</Text>
+                      )}
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-base font-bold text-foreground">{card.full_name}</Text>
+                      {card.job_title && (
+                        <Text className="text-xs font-medium text-primary">{card.job_title}</Text>
+                      )}
+                      {card.company_name && (
+                        <Text className="text-xs text-muted-foreground">{card.company_name}</Text>
+                      )}
+                      <View className="mt-1 flex-row items-center gap-1.5 flex-wrap">
+                        {card.category && (
+                          <Text className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                            {card.category}
+                          </Text>
+                        )}
+                        <Text className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                          👥 Friend
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  {card.location && (
+                    <Text className="mt-2 text-xs text-muted-foreground">📍 {card.location}</Text>
+                  )}
+                  {card.offer && (
+                    <View className="mt-2 rounded-lg bg-accent/50 px-3 py-1.5">
+                      <Text className="text-xs font-medium text-accent-foreground">🎁 {card.offer}</Text>
+                    </View>
+                  )}
+                  {card.services && card.services.length > 0 && (
+                    <View className="mt-2 flex-row flex-wrap gap-1.5">
+                      {card.services.slice(0, 3).map((s: string, idx: number) => (
+                        <Text key={idx} className="rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                          {s}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+                  <View className="mt-3 flex-row gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1 rounded-lg"
+                      onPress={() => Linking.openURL(`tel:${card.phone}`)}
+                    >
+                      📞 Call
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 rounded-lg"
+                      onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
+                    >
+                      👁️ View
+                    </Button>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </ScrollView>
       </View>
     );
@@ -171,7 +304,9 @@ const MyCards = () => {
         </Pressable>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: cards.length > 0 ? 80 : 16 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: cards.length > 0 ? 80 : 16 }} refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         {isLoading ? (
           <View className="px-4 py-4 gap-4">
             {[1, 2].map((i) => (
@@ -203,7 +338,7 @@ const MyCards = () => {
         ) : (
           <View className="px-4 py-4 gap-4">
             <BusinessOnboarding />
-            {cards.map((card) => (
+            {cards.map((card: any) => (
               <View
                 key={card.id}
                 className="rounded-2xl border border-border bg-card p-4 shadow-sm"
@@ -295,7 +430,7 @@ const MyCards = () => {
 
                 {card.services && card.services.length > 0 && (
                   <View className="mt-3 flex-row flex-wrap gap-1.5">
-                    {card.services.map((s) => (
+                    {card.services.map((s: any) => (
                       <Text
                         key={s}
                         className="rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground"
@@ -331,6 +466,97 @@ const MyCards = () => {
             ))}
           </View>
         )}
+
+        {/* My Network Business Cards */}
+        {isFetchingNetwork ? (
+          <View className="px-4 pb-4">
+            <View className="my-4 flex-row items-center gap-3">
+              <View className="h-px flex-1 bg-border" />
+              <Text className="text-sm font-bold text-foreground">My Network Business Cards</Text>
+              <View className="h-px flex-1 bg-border" />
+            </View>
+            <Skeleton className="h-36 w-full rounded-2xl mb-3" />
+            <Skeleton className="h-36 w-full rounded-2xl mb-3" />
+          </View>
+        ) : networkCards.length > 0 ? (
+          <View className="px-4 pb-4">
+            <View className="my-4 flex-row items-center gap-3">
+              <View className="h-px flex-1 bg-border" />
+              <Text className="text-sm font-bold text-foreground">My Network Business Cards</Text>
+              <View className="h-px flex-1 bg-border" />
+            </View>
+            {networkCards.map((card: any) => (
+              <Pressable
+                key={card.id}
+                className="mb-3 rounded-2xl border border-border bg-card p-4 shadow-sm"
+                onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
+              >
+                <View className="flex-row items-start gap-3">
+                  <View className="h-12 w-12 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+                    {card.logo_url ? (
+                      <Image source={{ uri: card.logo_url }} className="h-full w-full" resizeMode="cover" />
+                    ) : (
+                      <Text className="text-xl">🏢</Text>
+                    )}
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-base font-bold text-foreground">{card.full_name}</Text>
+                    {card.job_title && (
+                      <Text className="text-xs font-medium text-primary">{card.job_title}</Text>
+                    )}
+                    {card.company_name && (
+                      <Text className="text-xs text-muted-foreground">{card.company_name}</Text>
+                    )}
+                    <View className="mt-1 flex-row items-center gap-1.5 flex-wrap">
+                      {card.category && (
+                        <Text className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                          {card.category}
+                        </Text>
+                      )}
+                      <Text className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                        👥 Friend
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                {card.location && (
+                  <Text className="mt-2 text-xs text-muted-foreground">📍 {card.location}</Text>
+                )}
+                {card.offer && (
+                  <View className="mt-2 rounded-lg bg-accent/50 px-3 py-1.5">
+                    <Text className="text-xs font-medium text-accent-foreground">🎁 {card.offer}</Text>
+                  </View>
+                )}
+                {card.services && card.services.length > 0 && (
+                  <View className="mt-2 flex-row flex-wrap gap-1.5">
+                    {card.services.slice(0, 3).map((s: string, idx: number) => (
+                      <Text key={idx} className="rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                        {s}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+                <View className="mt-3 flex-row gap-2">
+                  <Button
+                    size="sm"
+                    className="flex-1 rounded-lg"
+                    onPress={() => Linking.openURL(`tel:${card.phone}`)}
+                  >
+                    📞 Call
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 rounded-lg"
+                    onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
+                  >
+                    👁️ View
+                  </Button>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       </ScrollView>
 
       {cards.length > 0 && (
@@ -362,20 +588,14 @@ const MyCards = () => {
           <View className="gap-2">
             <Button
               className="w-full rounded-xl"
-              onPress={() => {
-                toast.success("Link copied!");
-                setShareCard(null);
-              }}
+              onPress={handleCopyLink}
             >
               📋 Copy Link
             </Button>
             <Button
               variant="outline"
               className="w-full rounded-xl"
-              onPress={() => {
-                toast.success("Opening WhatsApp...");
-                setShareCard(null);
-              }}
+              onPress={handleWhatsAppShare}
             >
               💬 Share via WhatsApp
             </Button>

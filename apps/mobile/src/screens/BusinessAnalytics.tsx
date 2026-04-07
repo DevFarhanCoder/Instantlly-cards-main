@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
   ArrowLeft,
@@ -31,7 +31,7 @@ const BusinessAnalytics = () => {
   const { cards } = useBusinessCards();
   const cardIds = cards.map((c) => c.id);
 
-  const { data: analytics = [], isLoading } = useQuery({
+  const { data: analytics = [], isLoading, refetch: refetchAnalytics } = useQuery({
     queryKey: ["card-analytics-full", cardIds],
     queryFn: async () => {
       if (cardIds.length === 0) return [];
@@ -47,7 +47,7 @@ const BusinessAnalytics = () => {
     enabled: !!user && cardIds.length > 0,
   });
 
-  const { data: bookings = [] } = useQuery({
+  const { data: bookings = [], refetch: refetchBookings } = useQuery({
     queryKey: ["analytics-bookings", cardIds],
     queryFn: async () => {
       if (cardIds.length === 0) return [];
@@ -63,7 +63,7 @@ const BusinessAnalytics = () => {
     enabled: !!user && cardIds.length > 0,
   });
 
-  const { data: reviews = [] } = useQuery({
+  const { data: reviews = [], refetch: refetchReviews } = useQuery({
     queryKey: ["analytics-reviews", cardIds],
     queryFn: async () => {
       if (cardIds.length === 0) return [];
@@ -96,6 +96,11 @@ const BusinessAnalytics = () => {
   });
 
   const views = analytics.filter((a) => a.event_type === "view").length;
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await Promise.all([refetchAnalytics(), refetchBookings(), refetchReviews()]); } finally { setRefreshing(false); }
+  }, [refetchAnalytics, refetchBookings, refetchReviews]);
   const phoneClicks = analytics.filter((a) => a.event_type === "phone_click").length;
   const directionClicks = analytics.filter((a) => a.event_type === "direction_click").length;
   const messageClicks = analytics.filter((a) => a.event_type === "message_click").length;
@@ -173,7 +178,7 @@ const BusinessAnalytics = () => {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />}>
         <View className="rounded-2xl border border-border bg-primary/5 p-4 gap-3">
           <View className="flex-row items-center gap-2">
             <TrendingUp size={16} color="#2563eb" />

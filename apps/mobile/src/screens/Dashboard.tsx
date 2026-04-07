@@ -1,5 +1,5 @@
-import { useCallback, useMemo } from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Image, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
   ArrowLeft,
@@ -74,8 +74,14 @@ const Dashboard = () => {
   const navigation = useNavigation<any>();
   const { favorites } = useFavorites();
   const { user } = useAuth();
-  const { bookings, isLoading } = useBookings();
-  const { data: allCards = [] } = useDirectoryCards();
+  const { bookings, isLoading, refetch: refetchBookings } = useBookings();
+  const { data: allCards = [], refetch: refetchCards } = useDirectoryCards();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await Promise.all([refetchBookings(), refetchCards()]); } finally { setRefreshing(false); }
+  }, [refetchBookings, refetchCards]);
 
   const savedCards = useMemo(
     () => allCards.filter((c) => favorites.includes(c.id)),
@@ -114,7 +120,9 @@ const Dashboard = () => {
         <Text className="text-lg font-bold text-foreground">My Dashboard</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5" refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         <View className="flex-row gap-3">
           {[
             { label: "Active", value: pendingBookings.length, emoji: "⏳" },

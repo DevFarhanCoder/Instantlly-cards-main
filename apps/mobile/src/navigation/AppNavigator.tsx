@@ -23,6 +23,9 @@ import BusinessDashboard from "../screens/BusinessDashboard";
 import BusinessAnalytics from "../screens/BusinessAnalytics";
 import AdminDashboard from "../screens/AdminDashboard";
 import Auth from "../screens/Auth";
+import ForgotPasswordPhone from "../screens/ForgotPasswordPhone";
+import ForgotPasswordOTP from "../screens/ForgotPasswordOTP";
+import ForgotPasswordReset from "../screens/ForgotPasswordReset";
 import Dashboard from "../screens/Dashboard";
 import Notifications from "../screens/Notifications";
 import Support from "../screens/Support";
@@ -131,22 +134,68 @@ const AppNavigator = () => {
     <NavigationContainer>
       <Stack.Navigator
         initialRouteName="Home"
-        screenOptions={{ headerShown: false }}
+        screenOptions={{
+          headerShown: false,
+          animation: 'default', // Default animation for most screens
+        }}
       >
-        <Stack.Screen name="Home"              component={HomeScreen} />
-        <Stack.Screen name="MyCards"           component={MyCardsScreen} />
+        {/* Bottom Tab Screens - No animation for instant switching */}
+        <Stack.Screen 
+          name="Home" 
+          component={HomeScreen} 
+          options={{ animation: 'none' }}
+        />
+        <Stack.Screen 
+          name="MyCards" 
+          component={MyCardsScreen} 
+          options={{ animation: 'none' }}
+        />
+        <Stack.Screen 
+          name="Events" 
+          component={EventsScreen} 
+          options={{ animation: 'none' }}
+        />
+        <Stack.Screen 
+          name="Vouchers" 
+          component={VouchersScreen} 
+          options={{ animation: 'none' }}
+        />
+        <Stack.Screen 
+          name="Ads" 
+          component={AdsScreen} 
+          options={{ animation: 'none' }}
+        />
+        <Stack.Screen 
+          name="BusinessDashboard" 
+          component={BusinessDashboardScreen} 
+          options={{ animation: 'none' }}
+        />
+        <Stack.Screen 
+          name="BusinessAnalytics" 
+          component={BusinessAnalyticsScreen} 
+          options={{ animation: 'none' }}
+        />
+        <Stack.Screen 
+          name="Dashboard" 
+          component={DashboardScreen} 
+          options={{ animation: 'none' }}
+        />
+        <Stack.Screen 
+          name="AdminDashboard" 
+          component={AdminDashboardScreen} 
+          options={{ animation: 'none' }}
+        />
+        
+        {/* Other screens with default slide animation */}
         <Stack.Screen name="CardCreate"        component={CardCreateScreen} />
         <Stack.Screen name="BusinessDetail"    component={BusinessDetailScreen} />
         <Stack.Screen name="CategoryDetail"    component={CategoryDetailScreen} />
         <Stack.Screen name="SubcategoryDetail" component={SubcategoryDetailScreen} />
         <Stack.Screen name="Messaging"         component={MessagingScreen} />
-        <Stack.Screen name="Vouchers"          component={VouchersScreen} />
         <Stack.Screen name="VoucherDetail"     component={VoucherDetailScreen} />
         <Stack.Screen name="MyVouchers"        component={MyVouchersScreen} />
-        <Stack.Screen name="Ads"               component={AdsScreen} />
         <Stack.Screen name="AdCreate"          component={AdCreateScreen} />
         <Stack.Screen name="AdDashboard"       component={AdDashboardScreen} />
-        <Stack.Screen name="Events"            component={EventsScreen} />
         <Stack.Screen name="EventDetail"       component={EventDetailScreen} />
         <Stack.Screen name="EventScanner"      component={EventScannerScreen} />
         <Stack.Screen name="EventCreate"       component={EventCreateScreen} />
@@ -155,12 +204,8 @@ const AppNavigator = () => {
         <Stack.Screen name="MyPasses"          component={MyPassesScreen} />
         <Stack.Screen name="Profile"           component={ProfileScreen} />
         <Stack.Screen name="ChooseListingType" component={ChooseListingScreen} />
-        <Stack.Screen name="Dashboard"         component={DashboardScreen} />
-        <Stack.Screen name="BusinessAnalytics" component={BusinessAnalyticsScreen} />
         <Stack.Screen name="Subscription"      component={SubscriptionScreen} />
         <Stack.Screen name="Notifications"     component={NotificationsScreen} />
-        <Stack.Screen name="BusinessDashboard" component={BusinessDashboardScreen} />
-        <Stack.Screen name="AdminDashboard"    component={AdminDashboardScreen} />
         <Stack.Screen name="EditProfile"       component={EditProfileScreen} />
         <Stack.Screen name="PaymentMethods"    component={PaymentMethodsScreen} />
         <Stack.Screen name="PrivacySecurity"   component={PrivacySecurityScreen} />
@@ -175,6 +220,9 @@ const AppNavigator = () => {
         <Stack.Screen name="NearbyBusinesses"  component={NearbyBusinessesScreen} />
         <Stack.Screen name="LoyaltyPoints"     component={LoyaltyPointsScreen} />
         <Stack.Screen name="Auth"              component={Auth} />
+        <Stack.Screen name="ForgotPasswordPhone" component={ForgotPasswordPhone} />
+        <Stack.Screen name="ForgotPasswordOTP" component={ForgotPasswordOTP} />
+        <Stack.Screen name="ForgotPasswordReset" component={ForgotPasswordReset} />
         <Stack.Screen name="NotFound"          component={NotFoundScreen} />
       </Stack.Navigator>
     </NavigationContainer>
