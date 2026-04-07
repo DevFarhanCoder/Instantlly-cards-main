@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -278,9 +279,15 @@ const Profile = () => {
   const { user, signOut } = useAuth();
   const { isBusiness, isAdmin } = useUserRole();
   const [showTicketForm, setShowTicketForm] = useState(false);
-  const { data: profileData } = useGetProfileQuery(undefined, { skip: !user });
-  const { data: myCards = [] } = useGetMyCardsQuery(undefined, { skip: !user });
-  const { data: myVouchers = [] } = useGetMyVouchersQuery(undefined, { skip: !user });
+  const { data: profileData, refetch: refetchProfile } = useGetProfileQuery(undefined, { skip: !user });
+  const { data: myCards = [], refetch: refetchCards } = useGetMyCardsQuery(undefined, { skip: !user });
+  const { data: myVouchers = [], refetch: refetchVouchers } = useGetMyVouchersQuery(undefined, { skip: !user });
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await Promise.all([refetchProfile(), refetchCards(), refetchVouchers()]); } finally { setRefreshing(false); }
+  }, [refetchProfile, refetchCards, refetchVouchers]);
 
   const profileStats = {
     cards: myCards.length,
@@ -355,7 +362,9 @@ const Profile = () => {
         <Text className="text-lg font-bold text-foreground">Profile</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5" refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         <View className="flex-row items-center gap-4">
           <View className="h-16 w-16 items-center justify-center rounded-full bg-primary overflow-hidden">
             {avatarUrl ? (

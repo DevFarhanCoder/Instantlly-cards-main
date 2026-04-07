@@ -57,6 +57,7 @@ export function useLoyaltyPoints() {
     points: pointsQuery.data,
     transactions: transactionsQuery.data ?? [],
     isLoading: pointsQuery.isLoading,
+    refetch: () => Promise.all([pointsQuery.refetch(), transactionsQuery.refetch()]),
   };
 }
 

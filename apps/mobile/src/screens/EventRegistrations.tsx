@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, CheckCircle, Mail, Phone, Ticket, User, Users } from "lucide-react-native";
 import { format } from "date-fns";
@@ -13,7 +14,12 @@ const EventRegistrations = () => {
   const id = route?.params?.id;
   const numericId = typeof id === "string" ? parseInt(id, 10) : id;
   const { data: event } = useGetEventQuery(numericId, { skip: !numericId });
-  const { data: registrations = [], isLoading } = useGetEventRegistrationsQuery(numericId, { skip: !numericId });
+  const { data: registrations = [], isLoading, refetch: refetchRegistrations } = useGetEventRegistrationsQuery(numericId, { skip: !numericId });
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchRegistrations(); } finally { setRefreshing(false); }
+  }, [refetchRegistrations]);
 
   return (
     <View className="flex-1 bg-background">
@@ -50,7 +56,7 @@ const EventRegistrations = () => {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} className="px-4 gap-3">
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} className="px-4 gap-3" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />}>
         {isLoading ? (
           <View className="items-center py-10">
             <Text className="text-sm text-muted-foreground">Loading registrations...</Text>

@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { BarChart3, Lock, Megaphone, Plus, TrendingUp } from "lucide-react-native";
 import { Button } from "../components/ui/button";
@@ -40,7 +41,12 @@ const demoAds = [
 const Ads = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { data: campaigns = [], isLoading } = useAdCampaigns();
+  const { data: campaigns = [], isLoading, refetch: refetchCampaigns } = useAdCampaigns();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchCampaigns(); } finally { setRefreshing(false); }
+  }, [refetchCampaigns]);
 
   const activeAds = campaigns.filter((a) => a.status === "active");
   const totalImpressions = campaigns.reduce((s, a) => s + a.impressions, 0);
@@ -68,7 +74,7 @@ const Ads = () => {
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="flex-1 px-4 py-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="flex-1 px-4 py-4" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />}>
         {!user && (
           <View className="rounded-2xl border border-primary/20 bg-primary/5 p-4 items-center">
             <Lock size={32} color="#2563eb" />

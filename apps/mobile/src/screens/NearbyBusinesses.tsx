@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Image, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { MapPin, MessageCircle, Navigation, Phone } from "lucide-react-native";
 import { PageLoader } from "../components/ui/page-loader";
@@ -13,8 +13,14 @@ import { Linking } from "react-native";
 const NearbyBusinesses = () => {
   const navigation = useNavigation<any>();
   const userLocation = useUserLocation();
-  const { data: cards = [], isLoading } = useDirectoryCards();
+  const { data: cards = [], isLoading, refetch: refetchCards } = useDirectoryCards();
   const [maxKm, setMaxKm] = useState(50);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchCards(); } finally { setRefreshing(false); }
+  }, [refetchCards]);
 
   const sorted = useMemo(() => {
     if (!userLocation) return cards.filter((c) => c.latitude && c.longitude);
@@ -71,7 +77,9 @@ const NearbyBusinesses = () => {
           </Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4">
+        <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4" refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+          }>
           <View className="gap-3">
             {sorted.map((card: any) => (
               <Pressable

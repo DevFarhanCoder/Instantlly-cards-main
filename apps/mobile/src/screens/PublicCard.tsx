@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Image, Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Image, Linking, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import {
   ArrowLeft,
@@ -25,7 +25,7 @@ const PublicCard = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const id = route?.params?.id as string | undefined;
-  const { data: card, isLoading, error } = useDirectoryCard(id || "");
+  const { data: card, isLoading, error, refetch: refetchCard } = useDirectoryCard(id || "");
   const [showShareCard, setShowShareCard] = useState(false);
   const businessId = card?.business_card_id ?? card?.id ?? "";
 
@@ -59,6 +59,12 @@ const PublicCard = () => {
 
   const handleShare = () => setShowShareCard(true);
 
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchCard(); } finally { setRefreshing(false); }
+  }, [refetchCard]);
+
   const socialLinks = [
     { url: card.instagram, label: "Instagram", icon: Globe },
     { url: card.facebook, label: "Facebook", icon: Globe },
@@ -83,7 +89,9 @@ const PublicCard = () => {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5 gap-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5 gap-5" refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         <View className="flex-row items-start gap-4">
           <View className="h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 overflow-hidden">
             {card.logo_url ? (

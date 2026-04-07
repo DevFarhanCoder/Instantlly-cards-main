@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Image,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -41,8 +42,14 @@ import { toast } from "../lib/toast";
 const MyCards = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { cards, isLoading, deleteCard } = useBusinessCards();
-  const { data: directoryCards = [], isLoading: isFetchingNetwork } = useDirectoryCards();
+  const { cards, isLoading, deleteCard, refetch: refetchCards } = useBusinessCards() as any;
+  const { data: directoryCards = [], isLoading: isFetchingNetwork, refetch: refetchDirectory } = useDirectoryCards();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await Promise.all([refetchCards?.(), refetchDirectory()]); } finally { setRefreshing(false); }
+  }, [refetchCards, refetchDirectory]);
   const networkCards = directoryCards;
   const demoCards = directoryCards;
   const [shareCard, setShareCard] = useState<BusinessCardRow | null>(null);
@@ -297,7 +304,9 @@ const MyCards = () => {
         </Pressable>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: cards.length > 0 ? 80 : 16 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: cards.length > 0 ? 80 : 16 }} refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         {isLoading ? (
           <View className="px-4 py-4 gap-4">
             {[1, 2].map((i) => (
@@ -329,7 +338,7 @@ const MyCards = () => {
         ) : (
           <View className="px-4 py-4 gap-4">
             <BusinessOnboarding />
-            {cards.map((card) => (
+            {cards.map((card: any) => (
               <View
                 key={card.id}
                 className="rounded-2xl border border-border bg-card p-4 shadow-sm"
@@ -421,7 +430,7 @@ const MyCards = () => {
 
                 {card.services && card.services.length > 0 && (
                   <View className="mt-3 flex-row flex-wrap gap-1.5">
-                    {card.services.map((s) => (
+                    {card.services.map((s: any) => (
                       <Text
                         key={s}
                         className="rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground"

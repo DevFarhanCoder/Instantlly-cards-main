@@ -1,4 +1,5 @@
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Image, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Heart, MapPin } from "lucide-react-native";
@@ -9,7 +10,7 @@ const MyFavourites = () => {
   const navigation = useNavigation<any>();
   const { favorites, toggleFavorite } = useFavorites();
 
-  const { data: cards = [], isLoading } = useQuery({
+  const { data: cards = [], isLoading, refetch: refetchFavs } = useQuery({
     queryKey: ["favorite-cards", favorites],
     queryFn: async () => {
       if (favorites.length === 0) return [];
@@ -23,6 +24,12 @@ const MyFavourites = () => {
     enabled: favorites.length > 0,
   });
 
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchFavs(); } finally { setRefreshing(false); }
+  }, [refetchFavs]);
+
   return (
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
@@ -33,7 +40,9 @@ const MyFavourites = () => {
         <Text className="ml-auto text-xs text-muted-foreground">{favorites.length} saved</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4" refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         {isLoading ? (
           <View className="gap-3">
             {[1, 2, 3].map((i) => (

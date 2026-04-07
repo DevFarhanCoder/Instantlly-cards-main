@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Clock, Filter, Search, Ticket, Users } from "lucide-react-native";
 import { Badge } from "../components/ui/badge";
@@ -39,7 +39,13 @@ const Vouchers = () => {
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const { data: vouchers = [], isLoading, isFetching } = useVouchers();
+  const { data: vouchers = [], isLoading, isFetching, refetch: refetchVouchers } = useVouchers();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchVouchers(); } finally { setRefreshing(false); }
+  }, [refetchVouchers]);
 
   const { data: claimCounts = {} } = useQuery({
     queryKey: ["voucher-claim-counts"],
@@ -95,7 +101,9 @@ const Vouchers = () => {
         </Text>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }} refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         <View className="px-4 py-4 gap-5">
           <View className="relative">
             <View className="absolute left-3 top-1/2 -translate-y-1/2">

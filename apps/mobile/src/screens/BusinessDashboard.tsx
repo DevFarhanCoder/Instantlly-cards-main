@@ -1,6 +1,8 @@
+import { useCallback, useState } from "react";
 import {
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   Switch,
   Text,
@@ -51,13 +53,19 @@ const BusinessDashboard = () => {
 
   const primaryCardId = primaryCard?.id;
   const numericCardId = typeof primaryCardId === 'string' ? parseInt(primaryCardId, 10) : primaryCardId;
-  const { data: bookingsData, isLoading: bookingsLoading } = useListBusinessBookingsQuery(
+  const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useListBusinessBookingsQuery(
     { businessId: numericCardId! },
     { skip: !numericCardId }
   );
   const incomingBookings: any[] = bookingsData?.data ?? [];
 
-  const { data: myEvents = [] } = useListMyEventsQuery(undefined, { skip: !user });
+  const { data: myEvents = [], refetch: refetchEvents } = useListMyEventsQuery(undefined, { skip: !user });
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await Promise.all([refetchBookings(), refetchEvents()]); } finally { setRefreshing(false); }
+  }, [refetchBookings, refetchEvents]);
 
   const eventIds = myEvents.map((e) => e.id);
   const eventIdStrings = eventIds.map(String);
@@ -274,7 +282,9 @@ const BusinessDashboard = () => {
         </Button>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4" refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         {/* Live/Offline Toggle + Approval Status */}
         {primaryCard && (
           <View className="rounded-xl border border-border bg-card p-4 mb-4">

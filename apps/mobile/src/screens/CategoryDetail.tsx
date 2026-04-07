@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft } from "lucide-react-native";
 import { Skeleton } from "../components/ui/skeleton";
@@ -9,12 +10,18 @@ const CategoryDetail = () => {
   const route = useRoute<any>();
   const id = route.params?.id as string | undefined;
   const categoryId = Number(id);
-  const { data: categoryData = [] } = useListMobileCategoriesQuery();
+  const { data: categoryData = [], refetch: refetchCats } = useListMobileCategoriesQuery();
   const category = categoryData.find((c) => String(c.id) === String(categoryId));
-  const { data: subcategoryResponse, isLoading: isLoadingSubs } = useGetMobileSubcategoriesQuery(
+  const { data: subcategoryResponse, isLoading: isLoadingSubs, refetch: refetchSubs } = useGetMobileSubcategoriesQuery(
     { id: categoryId, page: 1, limit: 200 },
     { skip: !categoryId }
   );
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await Promise.all([refetchCats(), refetchSubs()]); } finally { setRefreshing(false); }
+  }, [refetchCats, refetchSubs]);
   const subcategories = subcategoryResponse?.data?.subcategories ?? [];
 
   const getSubcategoryIcon = (subcategory: string): string => {
@@ -243,6 +250,9 @@ const CategoryDetail = () => {
       <ScrollView
         contentContainerStyle={{ paddingBottom: 16 }}
         className="px-4 py-4"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }
       >
         <Text className="text-sm font-semibold text-foreground mb-3">
           Select a Subcategory

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import { PageLoader } from "../components/ui/page-loader";
@@ -42,8 +42,14 @@ const PREF_KEY = "notif-prefs";
 const Notifications = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { notifications, unreadCount, markRead, markAllRead, deleteAll, isLoading } =
+  const { notifications, unreadCount, markRead, markAllRead, deleteAll, isLoading, refetch: refetchNotifications } =
     useNotifications();
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchNotifications(); } finally { setRefreshing(false); }
+  }, [refetchNotifications]);
   const [filter, setFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("notifications");
   const [prefs, setPrefs] = useState<Record<string, boolean>>(
@@ -146,6 +152,9 @@ const Notifications = () => {
             </View>
           </ScrollView>
 
+          <ScrollView contentContainerStyle={{ paddingBottom: 16 }} refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+            }>
           {isLoading ? (
             <PageLoader fullScreen={false} />
           ) : filtered.length === 0 ? (
@@ -202,6 +211,7 @@ const Notifications = () => {
               <Trash2 size={14} color="#ef4444" /> Clear all notifications
             </Button>
           )}
+          </ScrollView>
         </TabsContent>
 
         <TabsContent value="preferences" className="mt-3 gap-3">

@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -28,12 +29,18 @@ import { cn } from "../lib/utils";
 const Events = () => {
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: events = [], isLoading, isFetching } = useEvents();
+  const { data: events = [], isLoading, isFetching, refetch: refetchEvents } = useEvents();
   const { user } = useAuth();
   const { cards } = useBusinessCards();
   const isBusiness = cards.length > 0;
   const { registrations } = useMyRegistrations();
   const passCount = registrations.length;
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchEvents(); } finally { setRefreshing(false); }
+  }, [refetchEvents]);
 
   const filteredEvents = useMemo(() => {
     return events.filter((e: any) => {
@@ -98,7 +105,9 @@ const Events = () => {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5" refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         <View className="relative">
           <View className="absolute left-3 top-3.5">
             <Search size={16} color="#9aa2b1" />

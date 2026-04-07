@@ -1,5 +1,5 @@
-﻿import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+﻿import { useCallback, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, Clock, Share2, ShieldCheck } from "lucide-react-native";
 import { Badge } from "../components/ui/badge";
@@ -30,11 +30,17 @@ const VoucherDetail = () => {
   const route = useRoute<any>();
   const id = route?.params?.id as string;
   const { user } = useAuth();
-  const { data: voucher, isLoading } = useVoucher(id || "");
+  const { data: voucher, isLoading, refetch: refetchVoucher } = useVoucher(id || "");
   const claimVoucher = useClaimVoucher();
   const [showPurchase, setShowPurchase] = useState(false);
   const [showRedemption, setShowRedemption] = useState(false);
   const [claimedCode, setClaimedCode] = useState("");
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchVoucher(); } finally { setRefreshing(false); }
+  }, [refetchVoucher]);
 
   if (isLoading) {
     return (
@@ -97,7 +103,9 @@ const VoucherDetail = () => {
         </Pressable>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }} refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         <View className="px-4 py-5 gap-5">
           <View className="relative h-48 items-center justify-center rounded-2xl bg-muted overflow-hidden">
             <Text className="text-7xl">{emojiMap[voucher.category] || "🎁"}</Text>

@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { PageLoader } from "../components/ui/page-loader";
 import { ArrowLeft, Calendar, Clock, MapPin, Ticket, Users } from "lucide-react-native";
@@ -13,7 +14,12 @@ const PassDetail = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const passId = route?.params?.passId;
-  const { registrations, isLoading } = useMyRegistrations();
+  const { registrations, isLoading, refetch: refetchRegistrations } = useMyRegistrations();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchRegistrations(); } finally { setRefreshing(false); }
+  }, [refetchRegistrations]);
 
   const pass = registrations.find(
     (r: any) => String(r.id) === String(passId)
@@ -47,7 +53,7 @@ const PassDetail = () => {
         <Text className="text-lg font-bold text-primary-foreground">Event Pass</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} className="px-4 py-6">
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} className="px-4 py-6" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />}>
         <Card className="overflow-hidden">
           {/* Header */}
           <View className="bg-primary/5 p-6 items-center gap-2">

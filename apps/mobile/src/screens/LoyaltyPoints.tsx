@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { PageLoader } from "../components/ui/page-loader";
 import {
@@ -33,9 +33,15 @@ const earningRules = [
 const LoyaltyPoints = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { points, transactions, isLoading } = useLoyaltyPoints();
+  const { points, transactions, isLoading, refetch: refetchLoyalty } = useLoyaltyPoints();
   const redeemMutation = useRedeemPoints();
   const [redeeming, setRedeeming] = useState<number | null>(null);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchLoyalty(); } finally { setRefreshing(false); }
+  }, [refetchLoyalty]);
 
   const currentPoints = points?.points ?? 0;
   const lifetimePoints = points?.lifetime_points ?? 0;
@@ -84,7 +90,9 @@ const LoyaltyPoints = () => {
         <Text className="text-lg font-bold text-foreground">Loyalty Points</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5" refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         {/* Points card — solid background; absolute inset-0 collapses in RN without explicit height */}
         <View style={{ backgroundColor: '#d97706', borderRadius: 16, overflow: 'hidden' }}>
           <View className="p-6">

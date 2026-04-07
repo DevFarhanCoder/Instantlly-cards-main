@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Linking,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -64,7 +65,7 @@ const BusinessDetail = () => {
   const { user } = useAuth();
   const { createBooking } = useBookings();
   const createConversation = useCreateConversation();
-  const { data: card, isLoading } = useDirectoryCard(id || "0");
+  const { data: card, isLoading, refetch: refetchCard } = useDirectoryCard(id || "0");
   const businessId = card?.business_card_id || (card?._numericId ? String(card._numericId) : "");
   const { reviews, createReview, uploadReviewPhoto } = useReviews(businessId);
   const { followersCount, isFollowing, toggleFollow } = useBusinessFollows(businessId);
@@ -178,6 +179,12 @@ const BusinessDetail = () => {
     );
   }
 
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchCard(); } finally { setRefreshing(false); }
+  }, [refetchCard]);
+
   return (
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center justify-between">
@@ -202,7 +209,9 @@ const BusinessDetail = () => {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5" refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }>
         <View className="flex-row items-start gap-4">
           <View className="h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 overflow-hidden">
             {card.logo_url ? (

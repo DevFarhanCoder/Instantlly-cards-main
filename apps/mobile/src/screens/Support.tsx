@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ArrowLeft, Send } from "lucide-react-native";
 import { Button } from "../components/ui/button";
@@ -31,6 +31,11 @@ const Support = () => {
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetch(); } finally { setRefreshing(false); }
+  }, [refetch]);
 
   const { data: tickets = [], refetch } = useQuery({
     queryKey: ["support-tickets", user?.id],
@@ -83,7 +88,7 @@ const Support = () => {
         <Text className="text-lg font-bold text-foreground">Help & Support</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-6">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-6" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />}>
         <View>
           <Text className="text-sm font-semibold text-foreground mb-3">❓ Frequently Asked</Text>
           <View className="gap-2">

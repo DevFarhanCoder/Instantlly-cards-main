@@ -1,4 +1,5 @@
-import { ScrollView, Text, View, Pressable, Image, Alert } from "react-native";
+import { useCallback, useState } from "react";
+import { RefreshControl, ScrollView, Text, View, Pressable, Image, Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
   ArrowLeft,
@@ -80,13 +81,19 @@ const VariantStats = ({ campaignId }: { campaignId: number }) => {
 
 const AdDashboard = () => {
   const navigation = useNavigation<any>();
-  const { data: campaigns = [], isLoading } = useAdCampaigns();
+  const { data: campaigns = [], isLoading, refetch: refetchCampaigns } = useAdCampaigns();
   const updateCampaign = useUpdateAdCampaign();
   const deleteCampaign = useDeleteAdCampaign();
 
   const totalImpressions = campaigns.reduce((s, a) => s + a.impressions, 0);
   const totalClicks = campaigns.reduce((s, a) => s + a.clicks, 0);
   const totalSpent = campaigns.reduce((s, a) => s + a.spent, 0);
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchCampaigns(); } finally { setRefreshing(false); }
+  }, [refetchCampaigns]);
+
   const ctr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(1) : "0";
   const cpc = totalClicks > 0 ? (totalSpent / totalClicks).toFixed(1) : "—";
   const cpm = totalImpressions > 0 ? ((totalSpent / totalImpressions) * 1000).toFixed(1) : "—";
@@ -121,7 +128,7 @@ const AdDashboard = () => {
         </Button>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5">
+      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />}>
         <View className="flex-row flex-wrap gap-3">
           {[
             { label: "Impressions", value: totalImpressions.toLocaleString(), icon: Eye, color: "#2563eb" },

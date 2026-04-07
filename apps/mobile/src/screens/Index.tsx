@@ -4,6 +4,7 @@ import {
   Image,
   Linking,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -63,8 +64,18 @@ const Index = () => {
   const userLocation = useUserLocation();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
-  const { data: myCards = [], isLoading: isLoadingMyCards } = useGetMyCardsQuery(undefined, { skip: !user });
-  const { data: categoryData = [], isLoading: isLoadingCategories, isFetching: isFetchingCategories } = useListMobileCategoriesQuery(undefined, { refetchOnMountOrArgChange: true });
+  const { data: myCards = [], isLoading: isLoadingMyCards, refetch: refetchMyCards } = useGetMyCardsQuery(undefined, { skip: !user });
+  const { data: categoryData = [], isLoading: isLoadingCategories, isFetching: isFetchingCategories, refetch: refetchCategories } = useListMobileCategoriesQuery(undefined, { refetchOnMountOrArgChange: true });
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchCategories(), refetchMyCards()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchCategories, refetchMyCards]);
 
   useEffect(() => {
     // Wait for auth hydration before checking admin role to avoid
@@ -121,6 +132,9 @@ const Index = () => {
         contentContainerStyle={{ paddingBottom: 16 }}
         onScroll={handleScroll}
         scrollEventThrottle={200}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
+        }
       >
       <View className="px-4 pt-4">
         <View className="flex-row gap-2">

@@ -219,6 +219,7 @@ export function useDirectoryCard(id: string) {
     isError: isCard ? cardResult.isError : isPromo ? promoResult.isError : (promoResult.isError && cardResult.isError),
     error: promoResult.error || cardResult.error,
     data,
+    refetch: () => Promise.all([promoResult.refetch(), cardResult.refetch()]),
   };
 }
 
