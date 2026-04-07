@@ -16,8 +16,15 @@ import {
 } from "../hooks/useVouchers";
 import { toast } from "../lib/toast";
 import QRCode from "react-native-qrcode-svg";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import * as Clipboard from "expo-clipboard";
+
+/** Safely format a date string — returns fallback on invalid input */
+const safeFormat = (dateStr: any, fmt: string, fallback = "N/A") => {
+  if (!dateStr) return fallback;
+  const d = new Date(dateStr);
+  return isValid(d) ? format(d, fmt) : fallback;
+};
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
   active: { label: "Active", color: "bg-green-500/10 text-green-600", icon: Ticket },
@@ -190,7 +197,7 @@ const MyVouchers = () => {
                             {isSent ? "Sent" : "Received"}
                           </Badge>
                           <Text className="mt-1 text-[10px] text-muted-foreground">
-                            {format(new Date(t.created_at), "MMM d, yyyy")}
+                            {safeFormat(t.created_at, "MMM d, yyyy")}
                           </Text>
                         </View>
                       </View>
@@ -305,11 +312,11 @@ const MyVouchers = () => {
 
                       <View className="mt-2 flex-row items-center justify-between">
                         <Text className="text-[10px] text-muted-foreground">
-                          Purchased: {format(new Date(v.purchased_at), "MMM d, yyyy")}
+                          Purchased: {safeFormat(v.purchased_at, "MMM d, yyyy")}
                         </Text>
                         {voucher?.expires_at && (
                           <Text className="text-[10px] text-muted-foreground">
-                            Expires: {format(new Date(voucher.expires_at), "MMM d, yyyy")}
+                            Expires: {safeFormat(voucher.expires_at, "MMM d, yyyy")}
                           </Text>
                         )}
                       </View>

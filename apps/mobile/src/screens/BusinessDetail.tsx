@@ -157,6 +157,12 @@ const BusinessDetail = () => {
     setReviewPhotos((prev) => [...prev, ...result.assets].slice(0, 3));
   };
 
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchCard(); } finally { setRefreshing(false); }
+  }, [refetchCard]);
+
   if (isLoading) {
     return (
       <View className="flex-1 bg-background p-4 gap-4">
@@ -178,12 +184,6 @@ const BusinessDetail = () => {
       </View>
     );
   }
-
-  const [refreshing, setRefreshing] = useState(false);
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try { await refetchCard(); } finally { setRefreshing(false); }
-  }, [refetchCard]);
 
   return (
     <View className="flex-1 bg-background">

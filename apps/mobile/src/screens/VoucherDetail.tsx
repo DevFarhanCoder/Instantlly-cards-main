@@ -10,7 +10,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useClaimVoucher, useVoucher } from "../hooks/useVouchers";
 import { toast } from "../lib/toast";
 import QRCode from "react-native-qrcode-svg";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, isValid } from "date-fns";
 import { colors } from "../theme/colors";
 
 const emojiMap: Record<string, string> = {
@@ -65,7 +65,7 @@ const VoucherDetail = () => {
   }
 
   const savings = voucher.original_price - voucher.discounted_price;
-  const expiryDays = voucher.expires_at
+  const expiryDays = voucher.expires_at && isValid(new Date(voucher.expires_at))
     ? differenceInDays(new Date(voucher.expires_at), new Date())
     : null;
   const expiryLabel =
