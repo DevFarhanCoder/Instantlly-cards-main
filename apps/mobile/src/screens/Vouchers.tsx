@@ -13,7 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../integrations/supabase/client";
 import { cn } from "../lib/utils";
 import { colors } from "../theme/colors";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, isValid } from "date-fns";
 
 const emojiImages: Record<string, string> = {
   travel: "🏖️",
@@ -29,7 +29,9 @@ const emojiImages: Record<string, string> = {
 
 const getExpiryLabel = (expiresAt: string | null) => {
   if (!expiresAt) return "No expiry";
-  const days = differenceInDays(new Date(expiresAt), new Date());
+  const d = new Date(expiresAt);
+  if (!isValid(d)) return "No expiry";
+  const days = differenceInDays(d, new Date());
   if (days < 0) return "Expired";
   if (days === 0) return "Expires today";
   return `${days} days left`;

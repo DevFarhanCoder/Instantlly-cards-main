@@ -82,7 +82,7 @@ const VoucherCreate = () => {
       discount_label: form.discount_label || null,
       terms: form.terms || null,
       max_claims: form.max_claims ? parseInt(form.max_claims, 10) : null,
-      expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null,
+      expires_at: form.expires_at && !isNaN(new Date(form.expires_at).getTime()) ? new Date(form.expires_at).toISOString() : null,
       is_popular: form.is_popular,
       business_card_id: form.business_card_id || null,
     } as any);
