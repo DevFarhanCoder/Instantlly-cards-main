@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
+import { PageLoader } from "../components/ui/page-loader";
 import {
   ArrowLeft,
   Bell,
@@ -146,9 +147,7 @@ const Notifications = () => {
           </ScrollView>
 
           {isLoading ? (
-            <View className="items-center py-16">
-              <Text className="text-xs text-muted-foreground">Loading...</Text>
-            </View>
+            <PageLoader fullScreen={false} />
           ) : filtered.length === 0 ? (
             <View className="items-center py-16">
               <Bell size={48} color="#c0c4cc" />

@@ -28,7 +28,7 @@ import { cn } from "../lib/utils";
 const Events = () => {
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: events = [], isLoading } = useEvents();
+  const { data: events = [], isLoading, isFetching } = useEvents();
   const { user } = useAuth();
   const { cards } = useBusinessCards();
   const isBusiness = cards.length > 0;
@@ -147,7 +147,7 @@ const Events = () => {
             All Upcoming Events 📅
           </Text>
 
-          {isLoading ? (
+          {(isLoading || isFetching) ? (
             <View className="gap-3">
               {[1, 2, 3].map((i) => (
                 <View key={i} className="flex-row gap-3 bg-card rounded-xl overflow-hidden">

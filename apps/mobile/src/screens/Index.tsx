@@ -64,7 +64,7 @@ const Index = () => {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, isLoading: roleLoading } = useUserRole();
   const { data: myCards = [], isLoading: isLoadingMyCards } = useGetMyCardsQuery(undefined, { skip: !user });
-  const { data: categoryData = [], isLoading: isLoadingCategories } = useListMobileCategoriesQuery();
+  const { data: categoryData = [], isLoading: isLoadingCategories, isFetching: isFetchingCategories } = useListMobileCategoriesQuery(undefined, { refetchOnMountOrArgChange: true });
 
   useEffect(() => {
     // Wait for auth hydration before checking admin role to avoid
@@ -259,7 +259,7 @@ const Index = () => {
         </View>
 
         <View className="flex-row flex-wrap justify-between gap-3">
-          {isLoadingCategories && normalizedCategories.length === 0 ? (
+          {(isLoadingCategories || isFetchingCategories) ? (
             Array.from({ length: 8 }).map((_, idx) => (
               <View key={`cat-skel-${idx}`} className="items-center gap-1.5" style={{ width: "22%" }}>
                 <Skeleton className="h-16 w-16 rounded-2xl" />

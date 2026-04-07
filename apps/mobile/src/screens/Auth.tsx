@@ -226,7 +226,7 @@ const Auth = ({ navigation }: Props) => {
           <View className="mb-3 items-center">
             <Image source={iconImg} style={{ width: 70, height: 70, marginBottom: 12, backgroundColor: 'transparent' }} resizeMode="contain" />
             <Text className="text-3xl font-bold text-gray-900 mb-2 tracking-tight">Instantlly Cards</Text>
-            <Text className="text-sm text-gray-600 font-medium tracking-wide">Connect, Share, Grow</Text>
+            <Text className="text-sm text-gray-600 font-medium tracking-wide">Business, Growth, Platform</Text>
           </View>
 
           {/* Login Card */}
@@ -350,6 +350,18 @@ const Auth = ({ navigation }: Props) => {
                   )}
                 </View>
 
+                {/* Forgot Password Link (Sign In Only) */}
+                {!isSignUp && (
+                  <Pressable
+                    onPress={() => navigation.navigate("ForgotPasswordPhone")}
+                    style={{ alignItems: 'flex-end', marginTop: -8 }}
+                  >
+                    <Text className="text-sm font-semibold text-blue-600">
+                      Forgot Password?
+                    </Text>
+                  </Pressable>
+                )}
+
                 {/* Confirm Password Field (Sign Up Only) */}
                 {isSignUp && (
                   <View className="gap-1.5">
@@ -393,43 +405,6 @@ const Auth = ({ navigation }: Props) => {
                   </Text>
                 </Pressable>
               </View>
-
-              {/* Quick Demo Section (Sign In Only) */}
-              {!isSignUp && (
-                <View className="gap-2 pt-1">
-                  <View className="flex-row items-center gap-2">
-                    <View className="h-px flex-1 bg-gray-300" />
-                    <Text className="text-xs text-gray-600 font-bold tracking-wider">QUICK DEMO</Text>
-                    <View className="h-px flex-1 bg-gray-300" />
-                  </View>
-                  <View className="flex-row gap-2">
-                    <Pressable
-                      onPress={() => handleQuickDemo("customer")}
-                      disabled={loading}
-                      style={styles.demoButton}
-                    >
-                      <Users size={18} color="#2563eb" />
-                      <Text style={styles.demoButtonText}>Customer</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => handleQuickDemo("business")}
-                      disabled={loading}
-                      style={styles.demoButton}
-                    >
-                      <Store size={18} color="#2563eb" />
-                      <Text style={styles.demoButtonText}>Business</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => handleQuickDemo("admin")}
-                      disabled={loading}
-                      style={styles.demoButtonAdmin}
-                    >
-                      <Shield size={18} color="#dc2626" />
-                      <Text style={styles.demoButtonAdminText}>Admin</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              )}
 
               {/* Toggle Sign In/Sign Up Link */}
               <Pressable

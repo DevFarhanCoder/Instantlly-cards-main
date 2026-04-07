@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { PageLoader } from "../components/ui/page-loader";
 import {
   ArrowLeft,
   Award,
@@ -163,9 +164,7 @@ const LoyaltyPoints = () => {
             <Text className="text-sm font-bold text-foreground">Recent Activity</Text>
           </View>
           {isLoading ? (
-            <View className="items-center py-6">
-              <Text className="text-xs text-muted-foreground">Loading...</Text>
-            </View>
+            <PageLoader fullScreen={false} />
           ) : transactions.length === 0 ? (
             <View className="rounded-xl border border-dashed border-border p-8 items-center">
               <ShoppingBag size={32} color="#9aa2b1" />

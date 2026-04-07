@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { PageLoader } from "../components/ui/page-loader";
 import QRCode from "react-native-qrcode-svg";
 import { CalendarDays, Clock, LogOut, MapPin, Ticket, CheckCircle2 } from "lucide-react-native";
 import { format } from "date-fns";
@@ -58,9 +59,7 @@ const MyPasses = () => {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-6 gap-4">
         {isLoading ? (
-          <View className="items-center py-10">
-            <Text className="text-sm text-muted-foreground">Loading...</Text>
-          </View>
+          <PageLoader fullScreen={false} />
         ) : !passes?.length ? (
           <View className="items-center py-10 gap-3">
             <Ticket size={48} color="#c0c4cc" />

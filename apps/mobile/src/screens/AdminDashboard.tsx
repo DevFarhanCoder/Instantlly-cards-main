@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View, Image } from "react-native";
+import { PageLoader } from "../components/ui/page-loader";
 import { useNavigation } from "@react-navigation/native";
 import {
   ArrowLeft,
@@ -58,11 +59,7 @@ const AdminDashboard = () => {
   }
 
   if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text className="text-sm text-muted-foreground">Loading...</Text>
-      </View>
-    );
+    return <PageLoader />;
   }
 
   if (!isAdmin) {

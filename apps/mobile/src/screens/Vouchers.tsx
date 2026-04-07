@@ -39,7 +39,7 @@ const Vouchers = () => {
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const { data: vouchers = [], isLoading } = useVouchers();
+  const { data: vouchers = [], isLoading, isFetching } = useVouchers();
 
   const { data: claimCounts = {} } = useQuery({
     queryKey: ["voucher-claim-counts"],
@@ -237,13 +237,13 @@ const Vouchers = () => {
 
           <View>
             <Text className="mb-3 text-lg font-semibold text-foreground">
-              {isLoading
+              {(isLoading || isFetching)
                 ? "Loading..."
                 : filteredVouchers.length === 0
                 ? "No vouchers found"
                 : "Trending Deals 🔥"}
             </Text>
-            {isLoading ? (
+            {(isLoading || isFetching) ? (
               <View className="gap-3">
                 {[1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-24 w-full rounded-xl" />

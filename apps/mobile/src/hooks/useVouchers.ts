@@ -71,7 +71,7 @@ const mapVoucher = (v: any): Voucher => {
 };
 
 export function useVouchers() {
-  const result = useListVouchersQuery({ page: 1 });
+  const result = useListVouchersQuery({ page: 1 }, { refetchOnMountOrArgChange: true });
   return {
     ...result,
     data: (result.data?.data || []).map(mapVoucher) as Voucher[],

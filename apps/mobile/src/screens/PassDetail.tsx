@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { PageLoader } from "../components/ui/page-loader";
 import { ArrowLeft, Calendar, Clock, MapPin, Ticket, Users } from "lucide-react-native";
 import QRCode from "react-native-qrcode-svg";
 import { format } from "date-fns";
@@ -19,11 +20,7 @@ const PassDetail = () => {
   );
 
   if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text className="text-sm text-muted-foreground">Loading...</Text>
-      </View>
-    );
+    return <PageLoader />;
   }
 
   if (!pass) {

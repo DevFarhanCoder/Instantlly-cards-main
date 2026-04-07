@@ -1,5 +1,6 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { PageLoader } from "../components/ui/page-loader";
 import { ArrowLeft, Calendar, Clock, MapPin, Phone, User, FileText, CheckCircle, XCircle } from "lucide-react-native";
 import { format } from "date-fns";
 import { Button } from "../components/ui/button";
@@ -35,11 +36,7 @@ const BookingDetail = () => {
   };
 
   if (isLoading) {
-    return (
-      <View className="flex-1 items-center justify-center">
-        <Text className="text-sm text-muted-foreground">Loading...</Text>
-      </View>
-    );
+    return <PageLoader />;
   }
 
   if (!booking) {

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { MapPin, MessageCircle, Navigation, Phone } from "lucide-react-native";
+import { PageLoader } from "../components/ui/page-loader";
 import { useDirectoryCards } from "../hooks/useDirectoryCards";
 import { useUserLocation, getDistanceKm, formatDistance } from "../hooks/useUserLocation";
 import { Badge } from "../components/ui/badge";
@@ -61,9 +62,7 @@ const NearbyBusinesses = () => {
       </View>
 
       {isLoading ? (
-        <View className="items-center py-16">
-          <Text className="text-sm text-muted-foreground">Loading...</Text>
-        </View>
+        <PageLoader fullScreen={false} />
       ) : sorted.length === 0 ? (
         <View className="items-center py-16 px-4">
           <MapPin size={48} color={colors.mutedForeground} />

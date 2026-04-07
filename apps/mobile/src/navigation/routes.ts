@@ -41,5 +41,8 @@ export type RootStackParamList = {
   NearbyBusinesses: undefined;
   LoyaltyPoints: undefined;
   Auth: undefined;
+  ForgotPasswordPhone: undefined;
+  ForgotPasswordOTP: { phone: string } | undefined;
+  ForgotPasswordReset: { phone: string; otp: string } | undefined;
   NotFound: undefined;
 };

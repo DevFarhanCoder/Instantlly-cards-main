@@ -23,6 +23,9 @@ import BusinessDashboard from "../screens/BusinessDashboard";
 import BusinessAnalytics from "../screens/BusinessAnalytics";
 import AdminDashboard from "../screens/AdminDashboard";
 import Auth from "../screens/Auth";
+import ForgotPasswordPhone from "../screens/ForgotPasswordPhone";
+import ForgotPasswordOTP from "../screens/ForgotPasswordOTP";
+import ForgotPasswordReset from "../screens/ForgotPasswordReset";
 import Dashboard from "../screens/Dashboard";
 import Notifications from "../screens/Notifications";
 import Support from "../screens/Support";
@@ -217,6 +220,9 @@ const AppNavigator = () => {
         <Stack.Screen name="NearbyBusinesses"  component={NearbyBusinessesScreen} />
         <Stack.Screen name="LoyaltyPoints"     component={LoyaltyPointsScreen} />
         <Stack.Screen name="Auth"              component={Auth} />
+        <Stack.Screen name="ForgotPasswordPhone" component={ForgotPasswordPhone} />
+        <Stack.Screen name="ForgotPasswordOTP" component={ForgotPasswordOTP} />
+        <Stack.Screen name="ForgotPasswordReset" component={ForgotPasswordReset} />
         <Stack.Screen name="NotFound"          component={NotFoundScreen} />
       </Stack.Navigator>
     </NavigationContainer>
