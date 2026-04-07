@@ -14,7 +14,11 @@ const API_URL =
   Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL ||
   'http://localhost:8080';
 
-console.log(`[RTK baseApi] Using API_URL: ${API_URL}`);
+if (API_URL === 'http://localhost:8080') {
+  console.warn('[RTK baseApi] ⚠️ EXPO_PUBLIC_API_URL not set — falling back to localhost. Set it as an EAS Secret for production builds.');
+} else {
+  console.log(`[RTK baseApi] Using API_URL: ${API_URL}`);
+}
 
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: `${API_URL}/api`,

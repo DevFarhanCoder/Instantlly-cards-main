@@ -178,8 +178,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   adBar: {
-    paddingHorizontal: 16,
-    paddingVertical: 4,
+    // Full-bleed: no padding so ad images span edge-to-edge
   },
 });
 
