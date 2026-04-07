@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { useEffect, useRef } from "react";
 
@@ -55,21 +54,14 @@ export function useActiveAds(adType?: string) {
   return useQuery({
     queryKey: ["active-ads", adType],
     queryFn: async () => {
-      let query = supabase
-        .from("ad_campaigns")
-        .select("*")
-        .eq("status", "active")
-        .eq("approval_status", "approved")
-        .gte("end_date", new Date().toISOString().split("T")[0]);
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:8080";
+      const params = new URLSearchParams();
+      if (adType) params.append("ad_type", adType);
 
-      if (adType) {
-        query = query.eq("ad_type", adType);
-      }
+      const res = await fetch(`${backendUrl}/ads/campaigns?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch ads");
 
-      const { data, error } = await query;
-      if (error) throw error;
-
-      let ads = (data || []) as unknown as ActiveAd[];
+      let ads = (await res.json()) as unknown as ActiveAd[];
 
       // Geo-filter: if user location is available, filter by city match
       if (userLocation) {
@@ -94,12 +86,14 @@ export function useAdVariants(campaignId: string | undefined) {
   return useQuery({
     queryKey: ["ad-variants", campaignId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ad_variants")
-        .select("*")
-        .eq("campaign_id", campaignId!);
-      if (error) throw error;
-      return data as unknown as ActiveAdVariant[];
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:8080";
+      const res = await fetch(`${backendUrl}/ads/campaigns/${campaignId}/variants`, {
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("auth_token") || ""}`,
+        },
+      });
+      if (!res.ok) throw new Error("Failed to fetch variants");
+      return (await res.json()) as unknown as ActiveAdVariant[];
     },
     enabled: !!campaignId,
   });
@@ -112,20 +106,23 @@ export function useRecordImpression(campaignId: string | undefined, variantId?: 
   const recorded = useRef(false);
 
   useEffect(() => {
-    if (!campaignId || recorded.current || impressionSet.has(campaignId)) return;
+    if (!campaignId || recorded.current) return;
     recorded.current = true;
-    impressionSet.add(campaignId);
 
-    supabase.rpc("record_ad_impression", {
-      p_campaign_id: campaignId,
-      p_variant_id: variantId || null,
-    });
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:8080";
+    fetch(`${backendUrl}/ads/campaigns/${campaignId}/impression`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ variant_id: variantId || null }),
+    }).catch(console.error);
   }, [campaignId, variantId]);
 }
 
 export async function recordAdClick(campaignId: string, variantId?: string) {
-  await supabase.rpc("record_ad_click", {
-    p_campaign_id: campaignId,
-    p_variant_id: variantId || null,
-  });
+  const backendUrl = process.env.REACT_APP_BACKEND_URL || "http://localhost:8080";
+  await fetch(`${backendUrl}/ads/campaigns/${campaignId}/click`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ variant_id: variantId || null }),
+  }).catch(console.error);
 }
