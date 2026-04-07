@@ -18,6 +18,7 @@ import {
   useRecordImpression,
   useRecordClick,
 } from "../../hooks/useActiveAds";
+import { getAdImageUrl, prepareAdsForDisplay } from "../../utils/urlNormalizer";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BOTTOM_HEIGHT = 100;
@@ -83,7 +84,8 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
   // Use API ads if available, otherwise demo
   const ads = useMemo(() => {
     const active = rawAds.filter((a) => a.status === "active");
-    return active.length > 0 ? active : DEMO_ADS;
+    // Prepare ads with normalized URLs
+    return active.length > 0 ? prepareAdsForDisplay(active) : DEMO_ADS;
   }, [rawAds]);
 
   const isDemo = ads === DEMO_ADS;
@@ -188,8 +190,7 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
   );
 
   /* ── Image URL helper ── */
-  const getImageUrl = (ad: any) =>
-    ad?.creative_url || ad?.creative_urls?.[0] || null;
+  const getImageUrl = (ad: any) => getAdImageUrl(ad);
 
   /* ── Bottom media render (full-width image, exactly like FooterCarousel) ── */
   const renderBottomMedia = (ad: any) => {
