@@ -46,6 +46,7 @@ import EventEdit from "../screens/EventEdit";
 import EventRegistrations from "../screens/EventRegistrations";
 import PassDetail from "../screens/PassDetail";
 import VoucherCreate from "../screens/VoucherCreate";
+import AdminAdDetail from "../screens/AdminAdDetail";
 import AppLayout from "../components/layout/AppLayout";
 import type { RootStackParamList } from "./routes";
 
@@ -126,6 +127,7 @@ const PassDetailScreen = withLayout(PassDetail);
 const SupportScreen        = withLayout(Support);
 const NearbyBusinessesScreen = withLayout(NearbyBusinesses);
 const LoyaltyPointsScreen  = withLayout(LoyaltyPoints);
+const AdminAdDetailScreen  = (props: any) => <AdminAdDetail {...props} />;
 const NotFoundScreen       = plainPlaceholder("Not Found");
 
 // ─── Navigator ────────────────────────────────────────────────────────────────
@@ -180,12 +182,13 @@ const AppNavigator = () => {
           component={DashboardScreen} 
           options={{ animation: 'none' }}
         />
-        <Stack.Screen 
-          name="AdminDashboard" 
-          component={AdminDashboardScreen} 
+        <Stack.Screen
+          name="AdminDashboard"
+          component={AdminDashboardScreen}
           options={{ animation: 'none' }}
         />
-        
+        <Stack.Screen name="AdminAdDetail" component={AdminAdDetailScreen} />
+
         {/* Other screens with default slide animation */}
         <Stack.Screen name="CardCreate"        component={CardCreateScreen} />
         <Stack.Screen name="BusinessDetail"    component={BusinessDetailScreen} />

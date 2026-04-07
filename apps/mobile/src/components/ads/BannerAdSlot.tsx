@@ -83,9 +83,32 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
 
   // Use API ads if available, otherwise demo
   const ads = useMemo(() => {
+    console.log('[BannerAdSlot] 📥 Raw ads received:', rawAds.length);
+    if (rawAds.length > 0) {
+      console.log('[BannerAdSlot] 📋 First 3 ads:', rawAds.slice(0, 3).map(a => ({
+        id: a.id,
+        title: a.title,
+        status: a.status,
+        creative_url: a.creative_url?.substring(0, 60),
+        approval_status: a.approval_status
+      })));
+    }
+
     const active = rawAds.filter((a) => a.status === "active");
+    console.log('[BannerAdSlot] ✅ Active ads filtered:', active.length);
+
     // Prepare ads with normalized URLs
-    return active.length > 0 ? prepareAdsForDisplay(active) : DEMO_ADS;
+    const prepared = active.length > 0 ? prepareAdsForDisplay(active) : DEMO_ADS;
+    console.log('[BannerAdSlot] 🎯 Using', prepared.length, 'ads for display');
+
+    if (prepared.length > 0 && prepared !== DEMO_ADS) {
+      console.log('[BannerAdSlot] 🌐 Prepared URLs:', prepared.slice(0, 2).map(a => ({
+        id: a.id,
+        image_url: getAdImageUrl(a)?.substring(0, 80)
+      })));
+    }
+
+    return prepared;
   }, [rawAds]);
 
   const isDemo = ads === DEMO_ADS;
@@ -113,7 +136,11 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
 
   /* ── Initialize carousel ── */
   useEffect(() => {
-    if (ads.length === 0 || isLoading) return;
+    console.log('[BannerAdSlot] 🚀 Initialize carousel - ads:', ads.length, 'loading:', isLoading);
+    if (ads.length === 0 || isLoading) {
+      console.log('[BannerAdSlot] ⏭️  Skipping init - no ads or loading');
+      return;
+    }
     setActiveIndex(1);
     setInitialized(false);
     if (timerRef.current) {
@@ -122,25 +149,30 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
     }
     setTimeout(() => {
       if (hasInfinite) {
+        console.log('[BannerAdSlot] 📍 Scrolling to position 1 (infinite scroll)');
         scrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false });
       }
       setInitialized(true);
+      console.log('[BannerAdSlot] ✅ Carousel initialized');
     }, 100);
   }, [adsDataKey, isLoading]);
 
   /* ── Auto-scroll (recursive setTimeout, never restarts mid-sequence) ── */
   useEffect(() => {
+    console.log('[BannerAdSlot] ⏱️  Auto-scroll effect - initialized:', initialized, 'ads:', infiniteAds.length);
     if (!initialized || infiniteAds.length <= 1) return;
     if (timerRef.current) clearTimeout(timerRef.current);
 
     const startAutoScroll = () => {
       timerRef.current = setTimeout(() => {
+        console.log('[BannerAdSlot] 🔄 Auto-scroll tick - current index:', activeIndex);
         setActiveIndex((current) => {
           const next = current + 1;
           scrollRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
 
           // Boundary: reached duplicate first slide → jump back
           if (hasInfinite && next === infiniteAds.length - 1) {
+            console.log('[BannerAdSlot] 🔁 Looping carousel - jumping back to start');
             setTimeout(() => {
               scrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false });
             }, 300);
@@ -251,7 +283,12 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
     }
   };
 
-  if (ads.length === 0 && !isLoading) return null;
+  if (ads.length === 0 && !isLoading) {
+    console.log('[BannerAdSlot] ❌ No ads to display and not loading - returning null');
+    return null;
+  }
+
+  console.log('[BannerAdSlot] 🎨 Render - ads:', ads.length, 'isLoading:', isLoading, 'isDemo:', isDemo);
 
   return (
     <View style={styles.container}>

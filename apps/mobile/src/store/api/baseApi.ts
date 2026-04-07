@@ -39,7 +39,27 @@ const baseQueryWithReauth: BaseQueryFn<
   unknown,
   FetchBaseQueryError
 > = async (args, api, extraOptions) => {
+  // Log ads endpoints for debugging
+  const url = typeof args === 'string' ? args : args.url;
+  if (typeof url === 'string' && url.includes('/ads')) {
+    console.log(`[RTK] 📤 Request: ${url}`);
+  }
+
   let result = await rawBaseQuery(args, api, extraOptions);
+
+  // Log ads responses
+  if (typeof url === 'string' && url.includes('/ads')) {
+    if (result.error) {
+      console.error(`[RTK] ❌ Response error for ${url}:`, result.error);
+    } else {
+      const data = result.data as any;
+      const count = Array.isArray(data) ? data.length : '?';
+      console.log(`[RTK] 📥 Response: ${url} returned ${count} items`);
+      if (Array.isArray(data) && data.length > 0) {
+        console.log(`[RTK] 📋 First item:`, data[0]);
+      }
+    }
+  }
 
   if (result.error?.status === 401) {
     const state = (api.getState() as any).auth;

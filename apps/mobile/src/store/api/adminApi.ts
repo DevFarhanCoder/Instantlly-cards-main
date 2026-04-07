@@ -33,12 +33,28 @@ export const adminApi = baseApi.injectEndpoints({
       }),
       providesTags: ['Ad'],
     }),
+    getAdminAdDetails: builder.query<any, number>({
+      query: (id) => `/admin/ads/${id}`,
+      providesTags: ['Ad'],
+    }),
     approveAdCampaign: builder.mutation<any, number>({
       query: (id) => ({ url: `/admin/ads/${id}/approve`, method: 'POST' }),
       invalidatesTags: ['Ad'],
     }),
     rejectAdCampaign: builder.mutation<any, number>({
       query: (id) => ({ url: `/admin/ads/${id}/reject`, method: 'POST' }),
+      invalidatesTags: ['Ad'],
+    }),
+    pauseAdCampaign: builder.mutation<any, number>({
+      query: (id) => ({ url: `/admin/ads/${id}/pause`, method: 'POST' }),
+      invalidatesTags: ['Ad'],
+    }),
+    resumeAdCampaign: builder.mutation<any, number>({
+      query: (id) => ({ url: `/admin/ads/${id}/resume`, method: 'POST' }),
+      invalidatesTags: ['Ad'],
+    }),
+    deleteAdCampaign: builder.mutation<any, number>({
+      query: (id) => ({ url: `/admin/ads/${id}/delete`, method: 'POST' }),
       invalidatesTags: ['Ad'],
     }),
     // Listing endpoints
@@ -79,8 +95,12 @@ export const {
   useApprovePromotionMutation,
   useRejectPromotionMutation,
   useGetAdminAdsQuery,
+  useGetAdminAdDetailsQuery,
   useApproveAdCampaignMutation,
   useRejectAdCampaignMutation,
+  usePauseAdCampaignMutation,
+  useResumeAdCampaignMutation,
+  useDeleteAdCampaignMutation,
   useGetAdminBusinessesQuery,
   useApproveBusinessCardMutation,
   useRejectBusinessCardMutation,
