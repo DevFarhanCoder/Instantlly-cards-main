@@ -57,7 +57,7 @@ const MyCards = () => {
 
   const handleCopyLink = async () => {
     if (!shareCard) return;
-    const shareUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantly.app'}/card/${shareCard.id}`;
+    const shareUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantlly.lovable.app'}/card/${shareCard.id}`;
     await Clipboard.setStringAsync(shareUrl);
     toast.success("Link copied!");
     setShareCard(null);
@@ -66,7 +66,7 @@ const MyCards = () => {
   const handleWhatsAppShare = async () => {
     if (!shareCard) return;
     
-    const shareUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantly.app'}/card/${shareCard.id}`;
+    const shareUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantlly.lovable.app'}/card/${shareCard.id}`;
     const text = `${shareCard.full_name}${shareCard.company_name ? ` — ${shareCard.company_name}` : ""}${shareCard.job_title ? ` | ${shareCard.job_title}` : ""}\n\n${shareCard.phone}${shareCard.email ? `\n${shareCard.email}` : ""}${shareCard.location ? `\n📍 ${shareCard.location}` : ""}${shareCard.offer ? `\n\n🎁 ${shareCard.offer}` : ""}\n\n${shareUrl}`;
     
     const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(text)}`;
@@ -580,7 +580,7 @@ const MyCards = () => {
           </DialogHeader>
           <View className="items-center gap-4 py-4">
             {shareCard ? (
-              <QRCode value={`instantly://card/${shareCard.id}`} size={160} />
+              <QRCode value={`${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantlly.lovable.app'}/card/${shareCard.id}`} size={160} />
             ) : null}
             <Text className="text-xs text-muted-foreground">
               Scan to view this card
