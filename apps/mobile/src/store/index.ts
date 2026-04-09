@@ -1,11 +1,13 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
 import authReducer from './authSlice';
+import adsCarouselReducer from './adsCarouselSlice';
 import { baseApi } from './api/baseApi';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    adsCarousel: adsCarouselReducer,
     [baseApi.reducerPath]: baseApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>

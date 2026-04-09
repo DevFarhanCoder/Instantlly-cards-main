@@ -11,13 +11,9 @@ import {
   Text,
   View,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { X } from "lucide-react-native";
-import {
-  useActiveAds,
-  useRecordImpression,
-  useRecordClick,
-} from "../../hooks/useActiveAds";
+import { useActiveAds, useRecordImpression, useRecordClick } from "../../hooks/useActiveAds";
 import { getAdBottomImageUrl, getAdFullscreenImageUrl, prepareAdsForDisplay } from "../../utils/urlNormalizer";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -69,55 +65,39 @@ interface BannerAdSlotProps {
   adType?: string;
 }
 
+// Module-level position — survives unmounts, updated synchronously (no React batching issues)
+let _savedCarouselIndex = 1;
+
 const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
   const { data: rawAds = [], isLoading } = useActiveAds(adType || "banner");
   const navigation = useNavigation<any>();
-  const scrollRef = useRef<ScrollView>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFocused = useIsFocused();
   const recordClick = useRecordClick();
 
-  const [activeIndex, setActiveIndex] = useState(1);
+  const scrollRef = useRef<ScrollView>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasInitialized = useRef(false);
+  const hasLogged = useRef(false);
+
+  const [activeIndex, setActiveIndex] = useState(_savedCarouselIndex);
   const [initialized, setInitialized] = useState(false);
   const [selectedAd, setSelectedAd] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
 
   // Use API ads if available, otherwise demo
   const ads = useMemo(() => {
-    console.log('[BannerAdSlot] 📥 Raw ads received:', rawAds.length);
-    if (rawAds.length > 0) {
-      console.log('[BannerAdSlot] 📋 First 3 ads:', rawAds.slice(0, 3).map(a => ({
-        id: a.id,
-        title: a.title,
-        status: a.status,
-        creative_url: a.creative_url?.substring(0, 60),
-        approval_status: a.approval_status
-      })));
-    }
-
     const active = rawAds.filter((a) => a.status === "active");
-    console.log('[BannerAdSlot] ✅ Active ads filtered:', active.length);
-
-    // Prepare ads with normalized URLs
     const prepared = active.length > 0 ? prepareAdsForDisplay(active) : DEMO_ADS;
 
-    // Filter out ads without images
     const withImages = prepared.filter((ad) => {
       const hasBottomImage = getAdBottomImageUrl(ad) !== null;
-      if (!hasBottomImage) {
-        console.log(`🗑️ Skipping ad without bottom image: "${ad.title}"`);
-      }
       return hasBottomImage;
     });
 
-    console.log('[BannerAdSlot] 🎯 Using', withImages.length, 'ads with images for display');
-
-    if (withImages.length > 0 && withImages !== DEMO_ADS) {
-      console.log('[BannerAdSlot] 🌐 Prepared URLs:', withImages.slice(0, 2).map(a => ({
-        id: a.id,
-        creative_urls: a.creative_urls,
-        bottomUrl: getAdBottomImageUrl(a)?.substring(0, 80),
-        fullscreenUrl: getAdFullscreenImageUrl(a)?.substring(0, 80)
-      })));
+    // Log only once
+    if (!hasLogged.current && withImages.length > 0 && withImages !== DEMO_ADS) {
+      hasLogged.current = true;
+      console.log(`[BannerAdSlot] ✅ ${withImages.length}/${rawAds.length} ads with images`);
     }
 
     return withImages;
@@ -146,52 +126,58 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
     : ads[activeIndex] || ads[0];
   useRecordImpression(visibleAd?.id > 0 ? visibleAd.id : undefined);
 
-  /* ── Initialize carousel ── */
+  /* ── Initialize carousel (once per mount, when ads are ready) ── */
   useEffect(() => {
-    console.log('[BannerAdSlot] 🚀 Initialize carousel - ads:', ads.length, 'loading:', isLoading);
-    if (ads.length === 0 || isLoading) {
-      console.log('[BannerAdSlot] ⏭️  Skipping init - no ads or loading');
-      return;
-    }
-    setActiveIndex(1);
-    setInitialized(false);
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    setTimeout(() => {
-      if (hasInfinite) {
-        console.log('[BannerAdSlot] 📍 Scrolling to position 1 (infinite scroll)');
-        scrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false });
-      }
-      setInitialized(true);
-      console.log('[BannerAdSlot] ✅ Carousel initialized');
-    }, 100);
-  }, [adsDataKey, isLoading]);
+    if (ads.length === 0 || hasInitialized.current) return;
+    hasInitialized.current = true;
 
-  /* ── Auto-scroll (recursive setTimeout, never restarts mid-sequence) ── */
+    const startIndex = _savedCarouselIndex;
+    console.log(`[BannerAdSlot] 🚀 Init | saved=${startIndex}`);
+
+    setActiveIndex(startIndex);
+
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ x: startIndex * SCREEN_WIDTH, animated: false });
+      setInitialized(true);
+    }, 150);
+  }, [ads.length]);
+
+  /* ── Restore scroll position when screen regains focus ── */
   useEffect(() => {
-    console.log('[BannerAdSlot] ⏱️  Auto-scroll effect - initialized:', initialized, 'ads:', infiniteAds.length);
-    if (!initialized || infiniteAds.length <= 1) return;
+    if (!isFocused || !initialized) return;
+    const idx = _savedCarouselIndex;
+    console.log(`[BannerAdSlot] 👁️ Focus restored to index ${idx}`);
+    setActiveIndex(idx);
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ x: idx * SCREEN_WIDTH, animated: false });
+    }, 50);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFocused]);
+
+  /* ── Auto-scroll (only when focused) ── */
+  useEffect(() => {
+    if (!initialized || !isFocused || infiniteAds.length <= 1) return;
     if (timerRef.current) clearTimeout(timerRef.current);
 
     const startAutoScroll = () => {
       timerRef.current = setTimeout(() => {
-        console.log('[BannerAdSlot] 🔄 Auto-scroll tick - current index:', activeIndex);
-        setActiveIndex((current) => {
-          const next = current + 1;
-          scrollRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
+        // Compute next OUTSIDE React updater — module var is always synchronous
+        const next = _savedCarouselIndex + 1;
 
-          // Boundary: reached duplicate first slide → jump back
-          if (hasInfinite && next === infiniteAds.length - 1) {
-            console.log('[BannerAdSlot] 🔁 Looping carousel - jumping back to start');
-            setTimeout(() => {
-              scrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false });
-            }, 300);
-            return 1;
-          }
-          return next;
-        });
+        if (hasInfinite && next === infiniteAds.length - 1) {
+          // Boundary: scroll to duplicate first, then snap back
+          scrollRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
+          _savedCarouselIndex = 1;
+          setActiveIndex(1);
+          setTimeout(() => {
+            scrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false });
+          }, 300);
+        } else {
+          _savedCarouselIndex = next;
+          setActiveIndex(next);
+          scrollRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
+        }
+
         startAutoScroll();
       }, IMAGE_TIME);
     };
@@ -203,7 +189,7 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
         timerRef.current = null;
       }
     };
-  }, [initialized]);
+  }, [initialized, isFocused, infiniteAds.length, hasInfinite]);
 
   /* ── Handle manual scroll ── */
   const handleScrollEnd = useCallback(
@@ -211,21 +197,26 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
       const x = e.nativeEvent.contentOffset.x;
       const idx = Math.round(x / SCREEN_WIDTH);
       if (idx === activeIndex) return;
+
       setActiveIndex(idx);
+      _savedCarouselIndex = idx;
 
       if (hasInfinite) {
         if (idx === 0) {
           setTimeout(() => {
+            const jumpIdx = infiniteAds.length - 2;
             scrollRef.current?.scrollTo({
-              x: (infiniteAds.length - 2) * SCREEN_WIDTH,
+              x: jumpIdx * SCREEN_WIDTH,
               animated: false,
             });
-            setActiveIndex(infiniteAds.length - 2);
+            setActiveIndex(jumpIdx);
+            _savedCarouselIndex = jumpIdx;
           }, 50);
         } else if (idx === infiniteAds.length - 1) {
           setTimeout(() => {
             scrollRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false });
             setActiveIndex(1);
+            _savedCarouselIndex = 1;
           }, 50);
         }
       }
@@ -240,15 +231,7 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
   /* ── Bottom media render (full-width image, exactly like FooterCarousel) ── */
   const renderBottomMedia = (ad: any) => {
     const url = getBottomImageUrl(ad);
-    console.log('[BannerAdSlot] 📍 BOTTOM IMAGE');
-    console.log('  - Ad ID:', ad.id);
-    console.log('  - Title:', ad.title);
-    console.log('  - creative_url:', ad.creative_url?.substring(0, 100));
-    console.log('  - creative_urls:', ad.creative_urls);
-    console.log('  - Final URL:', url);
-
     if (!url) {
-      console.log('[BannerAdSlot] ❌ No bottom image URL found - showing fallback');
       return (
         <View style={[styles.media, styles.noImageBg]}>
           <Text style={styles.noImageEmoji}>📣</Text>
@@ -265,8 +248,10 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
           source={{ uri: url }}
           style={styles.media}
           resizeMode="cover"
-          onLoad={() => console.log('[BannerAdSlot] ✅ Bottom image loaded successfully')}
-          onError={(err) => console.log('[BannerAdSlot] ❌ Bottom image failed to load:', err)}
+          onLoad={() => console.log(`[BannerAdSlot] ✅ Bottom ID ${ad.id}`)}
+          onError={(err) => {
+            console.log(`[BannerAdSlot] ❌ Bottom ID ${ad.id} | URL: ${url.substring(url.length - 50)}`);
+          }}
         />
         {/* Overlay with "Tap to know more" */}
         <View style={styles.overlay}>
@@ -279,15 +264,7 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
   /* ── Fullscreen media render ── */
   const renderFullscreenMedia = (ad: any) => {
     const url = getFullscreenImageUrl(ad);
-    console.log('[BannerAdSlot] 🖼️ FULLSCREEN IMAGE');
-    console.log('  - Ad ID:', ad.id);
-    console.log('  - Title:', ad.title);
-    console.log('  - creative_url:', ad.creative_url?.substring(0, 100));
-    console.log('  - creative_urls:', ad.creative_urls);
-    console.log('  - Final URL:', url);
-
     if (!url) {
-      console.log('[BannerAdSlot] ❌ No image URL found - showing fallback');
       return (
         <View style={[styles.fullMedia, styles.noImageBg]}>
           <Text style={{ fontSize: 64, marginBottom: 16 }}>📣</Text>
@@ -304,8 +281,10 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
         source={{ uri: url }}
         style={styles.fullMedia}
         resizeMode="contain"
-        onLoad={() => console.log('[BannerAdSlot] ✅ Fullscreen image loaded successfully')}
-        onError={(err) => console.log('[BannerAdSlot] ❌ Fullscreen image failed to load:', err)}
+        onLoad={() => console.log(`[BannerAdSlot] ✅ Fullscreen ID ${ad.id}`)}
+        onError={() => {
+          console.log(`[BannerAdSlot] ❌ Fullscreen ID ${ad.id} | URL: ${url.substring(url.length - 50)}`);
+        }}
       />
     );
   };
@@ -316,16 +295,15 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
       console.log('[BannerAdSlot] ❌ CHAT: No ad data');
       return;
     }
-    console.log('[BannerAdSlot] 💬 CHAT CLICKED - Ad ID:', ad.id, 'Business Card ID:', ad.business_card_id, 'Full Ad:', JSON.stringify(ad, null, 2));
+    console.log(`[BannerAdSlot] 💬 CHAT: ID ${ad.id} | Card ${ad.business_card_id ? '✅' : '❌'}`);
 
     if (ad.business_card_id) {
-      console.log('[BannerAdSlot] 💬 Navigating to Messaging screen...');
       setShowModal(false);
       setTimeout(() => {
         navigation.navigate("Messaging", { businessId: ad.business_card_id });
-      }, 300); // Wait for modal animation
+      }, 300);
     } else {
-      console.log('[BannerAdSlot] ⚠️ CHAT: No business_card_id found');
+      console.log('[BannerAdSlot] ⚠️ CHAT: Missing business_card_id');
       setShowModal(false);
     }
   };
@@ -337,34 +315,31 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
       return;
     }
 
-    const phone = ad.phone || ad.phone_number;
-    console.log('[BannerAdSlot] ☎️ CALL CLICKED - Ad ID:', ad.id, 'Phone:', phone, 'Business Card ID:', ad.business_card_id, 'Full Ad:', JSON.stringify(ad, null, 2));
+    const phone = ad.phone_number || ad.phone || ad.business?.phone;
+    console.log(`[BannerAdSlot] ☎️ CALL: ID ${ad.id} | Phone: ${phone ? '✅ ' + phone : '❌'}`);
 
     setShowModal(false);
 
     setTimeout(() => {
       if (phone) {
-        console.log('[BannerAdSlot] ☎️ Initiating call to:', phone);
+        console.log(`[BannerAdSlot] ☎️ DIALING: ${phone}`);
         Linking.openURL(`tel:${phone}`).catch(err => {
-          console.error('[BannerAdSlot] ❌ Call failed:', err);
+          console.error('[BannerAdSlot] ❌ CALL failed:', err);
         });
       } else if (ad.business_card_id) {
-        console.log('[BannerAdSlot] ☎️ Navigating to BusinessDetail...');
+        console.log(`[BannerAdSlot] ⚠️ CALL: No phone, navigating to BusinessDetail...`);
         navigation.navigate("BusinessDetail", {
           id: `card-${ad.business_card_id}`,
         });
       } else {
-        console.log('[BannerAdSlot] ⚠️ CALL: No phone or business_card_id found');
+        console.log('[BannerAdSlot] ❌ CALL: No phone or business_card_id');
       }
-    }, 300); // Wait for modal animation
+    }, 300);
   };
 
   if (ads.length === 0 && !isLoading) {
-    console.log('[BannerAdSlot] ❌ No ads to display and not loading - returning null');
     return null;
   }
-
-  console.log('[BannerAdSlot] 🎨 Render - ads:', ads.length, 'isLoading:', isLoading, 'isDemo:', isDemo);
 
   return (
     <View style={styles.container} testID="banner-ad-slot">
@@ -404,7 +379,7 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
                 style={StyleSheet.absoluteFill}
                 onPress={() => {
                   if (ad.id > 0) recordClick(ad.id);
-                  console.log('[BannerAdSlot] 👆 AD TAPPED - Ad ID:', ad.id, 'Title:', ad.title, 'Current carousel index:', activeIndex, 'Modal opening...');
+                  console.log(`[BannerAdSlot] 👆 TAPPED: ID ${ad.id}`);
                   setSelectedAd(ad);
                   setShowModal(true);
                 }}
@@ -424,7 +399,6 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
           <Pressable
             style={styles.close}
             onPress={() => {
-              console.log('[BannerAdSlot] ❌ MODAL CLOSED - Carousel still at index:', activeIndex);
               setShowModal(false);
             }}
             testID="ad-modal-close"
