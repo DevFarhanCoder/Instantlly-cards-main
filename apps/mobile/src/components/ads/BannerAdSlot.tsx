@@ -77,7 +77,6 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
   const scrollRef = useRef<ScrollView>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasInitialized = useRef(false);
-  const hasLogged = useRef(false);
 
   const [activeIndex, setActiveIndex] = useState(_savedCarouselIndex);
   const [initialized, setInitialized] = useState(false);
@@ -93,12 +92,6 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
       const hasBottomImage = getAdBottomImageUrl(ad) !== null;
       return hasBottomImage;
     });
-
-    // Log only once
-    if (!hasLogged.current && withImages.length > 0 && withImages !== DEMO_ADS) {
-      hasLogged.current = true;
-      console.log(`[BannerAdSlot] ✅ ${withImages.length}/${rawAds.length} ads with images`);
-    }
 
     return withImages;
   }, [rawAds]);
@@ -132,8 +125,6 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
     hasInitialized.current = true;
 
     const startIndex = _savedCarouselIndex;
-    console.log(`[BannerAdSlot] 🚀 Init | saved=${startIndex}`);
-
     setActiveIndex(startIndex);
 
     setTimeout(() => {
@@ -146,7 +137,6 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
   useEffect(() => {
     if (!isFocused || !initialized) return;
     const idx = _savedCarouselIndex;
-    console.log(`[BannerAdSlot] 👁️ Focus restored to index ${idx}`);
     setActiveIndex(idx);
     setTimeout(() => {
       scrollRef.current?.scrollTo({ x: idx * SCREEN_WIDTH, animated: false });
@@ -248,10 +238,7 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
           source={{ uri: url }}
           style={styles.media}
           resizeMode="cover"
-          onLoad={() => console.log(`[BannerAdSlot] ✅ Bottom ID ${ad.id}`)}
-          onError={(err) => {
-            console.log(`[BannerAdSlot] ❌ Bottom ID ${ad.id} | URL: ${url.substring(url.length - 50)}`);
-          }}
+          onError={() => {}}
         />
         {/* Overlay with "Tap to know more" */}
         <View style={styles.overlay}>
@@ -281,21 +268,14 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
         source={{ uri: url }}
         style={styles.fullMedia}
         resizeMode="contain"
-        onLoad={() => console.log(`[BannerAdSlot] ✅ Fullscreen ID ${ad.id}`)}
-        onError={() => {
-          console.log(`[BannerAdSlot] ❌ Fullscreen ID ${ad.id} | URL: ${url.substring(url.length - 50)}`);
-        }}
+        onError={() => {}}
       />
     );
   };
 
   /* ── Chat handler ── */
   const handleChat = (ad: any) => {
-    if (!ad) {
-      console.log('[BannerAdSlot] ❌ CHAT: No ad data');
-      return;
-    }
-    console.log(`[BannerAdSlot] 💬 CHAT: ID ${ad.id} | Card ${ad.business_card_id ? '✅' : '❌'}`);
+    if (!ad) return;
 
     if (ad.business_card_id) {
       setShowModal(false);
@@ -303,36 +283,24 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
         navigation.navigate("Messaging", { businessId: ad.business_card_id });
       }, 300);
     } else {
-      console.log('[BannerAdSlot] ⚠️ CHAT: Missing business_card_id');
       setShowModal(false);
     }
   };
 
   /* ── Call handler ── */
   const handleCall = (ad: any) => {
-    if (!ad) {
-      console.log('[BannerAdSlot] ❌ CALL: No ad data');
-      return;
-    }
+    if (!ad) return;
 
     const phone = ad.phone_number || ad.phone || ad.business?.phone;
-    console.log(`[BannerAdSlot] ☎️ CALL: ID ${ad.id} | Phone: ${phone ? '✅ ' + phone : '❌'}`);
-
     setShowModal(false);
 
     setTimeout(() => {
       if (phone) {
-        console.log(`[BannerAdSlot] ☎️ DIALING: ${phone}`);
-        Linking.openURL(`tel:${phone}`).catch(err => {
-          console.error('[BannerAdSlot] ❌ CALL failed:', err);
-        });
+        Linking.openURL(`tel:${phone}`).catch(() => {});
       } else if (ad.business_card_id) {
-        console.log(`[BannerAdSlot] ⚠️ CALL: No phone, navigating to BusinessDetail...`);
         navigation.navigate("BusinessDetail", {
           id: `card-${ad.business_card_id}`,
         });
-      } else {
-        console.log('[BannerAdSlot] ❌ CALL: No phone or business_card_id');
       }
     }, 300);
   };
@@ -379,7 +347,6 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
                 style={StyleSheet.absoluteFill}
                 onPress={() => {
                   if (ad.id > 0) recordClick(ad.id);
-                  console.log(`[BannerAdSlot] 👆 TAPPED: ID ${ad.id}`);
                   setSelectedAd(ad);
                   setShowModal(true);
                 }}

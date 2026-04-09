@@ -86,7 +86,6 @@ export const getAdBottomImageUrl = (
     const bottomUrl = ad.creative_urls.find(url => url && url.includes('/bottom'));
     if (bottomUrl) return normalizeImageUrl(bottomUrl);
     // If creative_urls exists but has NO /bottom, skip this ad entirely
-    console.log('[urlNormalizer] ⚠️ creative_urls found but no /bottom variant');
     return null;
   }
 
@@ -94,7 +93,6 @@ export const getAdBottomImageUrl = (
   if (ad.creative_url) {
     // Only use creative_url if it has /bottom or no specific variant indicator
     if (ad.creative_url.includes('/fullscreen')) {
-      console.log('[urlNormalizer] ⚠️ creative_url is fullscreen only, skipping');
       return null;
     }
     return normalizeImageUrl(ad.creative_url);
@@ -138,7 +136,6 @@ export const getAdFullscreenImageUrl = (
   // If we have a bottom URL, try to create fullscreen variant
   if (bottomUrl) {
     const fullscreenUrl = bottomUrl.replace('/bottom', '/fullscreen');
-    console.log('[urlNormalizer] 🔄 Converting /bottom to /fullscreen:', bottomUrl?.substring(0, 80), '→', fullscreenUrl?.substring(0, 80));
     return normalizeImageUrl(fullscreenUrl);
   }
 

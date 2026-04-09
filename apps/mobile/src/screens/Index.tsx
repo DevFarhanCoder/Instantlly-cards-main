@@ -63,7 +63,7 @@ const Index = () => {
   const { toggleFavorite, isFavorite } = useFavorites();
   const userLocation = useUserLocation();
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, isLoading: roleLoading } = useUserRole();
+  const { isAdmin, activeRole, isLoading: roleLoading } = useUserRole();
   const { data: myCards = [], isLoading: isLoadingMyCards, refetch: refetchMyCards } = useGetMyCardsQuery(undefined, { skip: !user });
   const { data: categoryData = [], isLoading: isLoadingCategories, isFetching: isFetchingCategories, refetch: refetchCategories } = useListMobileCategoriesQuery(undefined, { refetchOnMountOrArgChange: true });
 
@@ -80,12 +80,15 @@ const Index = () => {
   useEffect(() => {
     // Wait for auth hydration before checking admin role to avoid
     // firing replace() before the user's roles are loaded from SecureStore.
-    if (!authLoading && !roleLoading && isAdmin) {
+    // Only redirect if user has actively chosen admin role (not just has admin in roles)
+    console.log(`[Index] Auth check — authLoading=${authLoading}, roleLoading=${roleLoading}, activeRole=${activeRole}`);
+    if (!authLoading && !roleLoading && activeRole === 'admin') {
+      console.log('[Index] Admin role active → redirecting to AdminDashboard');
       navigation.replace("AdminDashboard");
     }
   // navigation is a stable ref from useNavigation() — omitting it is intentional.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, isAdmin, roleLoading]);
+  }, [authLoading, activeRole, roleLoading]);
 
   const normalizedCategories = useMemo(() => {
     if (categoryData.length > 0) {
