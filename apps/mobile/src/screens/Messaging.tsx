@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Image,
   Pressable,
   ScrollView,
   Text,
@@ -33,19 +34,145 @@ import {
   type DbConversation,
 } from "../hooks/useMessages";
 import { usePushNotifications } from "../contexts/PushNotificationContext";
+import { getBulkSentCards, type SentCardRecord } from "../components/BulkSendModal";
+import { FEATURES } from "../lib/featureFlags";
+import { useGetSharedCardsQuery } from "../store/api/businessCardsApi";
 
-const demoSentCards = [
-  { id: "s1", name: "Sharma Electronics", category: "AC & Appliances", sentTo: "Rahul Sharma", time: "2 days ago", emoji: "⚡" },
-  { id: "s2", name: "Green Farms Organic", category: "Agriculture", sentTo: "Priya Patel", time: "5 days ago", emoji: "🌿" },
-  { id: "s3", name: "FitZone Gym", category: "Health", sentTo: "Mumbai Entrepreneurs Group", time: "1 week ago", emoji: "💪" },
-];
+const demoReceivedCards: never[] = [];
 
-const demoReceivedCards = [
-  { id: "r1", name: "TechVista Solutions", category: "Technology", from: "Amit Kumar", time: "1 day ago", emoji: "💻" },
-  { id: "r2", name: "Kapoor Legal Associates", category: "Legal", from: "Neha Gupta", time: "3 days ago", emoji: "⚖️" },
-  { id: "r3", name: "StyleStreet Boutique", category: "Fashion", from: "Vikram Singh", time: "4 days ago", emoji: "👗" },
-  { id: "r4", name: "EduSpark Academy", category: "Education", from: "Sneha Roy", time: "1 week ago", emoji: "📚" },
-];
+function formatRelativeTime(isoString: string): string {
+  const diff = Date.now() - new Date(isoString).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return `${Math.floor(days / 7)}w ago`;
+}
+
+const SentReceivedCards = ({ tab }: { tab: string }) => {
+  const navigation = useNavigation<any>();
+  const { user } = useAuth();
+  const [sentCards, setSentCards] = useState<SentCardRecord[]>([]);
+
+  // Real received cards from API
+  const { data: sharedCards = [], isLoading: sharedLoading } = useGetSharedCardsQuery(undefined, {
+    skip: tab !== "Received",
+  });
+  const myUserId = String(user?.id ?? "");
+  const receivedCards = sharedCards.filter((s: any) => s.recipient_id === myUserId);
+
+  useEffect(() => {
+    if (tab === "Sent") getBulkSentCards().then(setSentCards);
+  }, [tab]);
+
+  if (tab === "Received") {
+    return (
+      <ScrollView className="px-4 pt-4 pb-4">
+        <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          📥 Cards Shared With You
+        </Text>
+        {sharedLoading ? (
+          <View className="items-center py-12">
+            <Text className="text-sm text-muted-foreground">Loading...</Text>
+          </View>
+        ) : receivedCards.length === 0 ? (
+          <View className="items-center py-12">
+            <Text className="text-4xl mb-3">📭</Text>
+            <Text className="text-sm font-semibold text-foreground">No cards received yet</Text>
+            <Text className="text-xs text-muted-foreground text-center mt-1 max-w-[220px]">
+              When someone bulk-sends their card to your category, it will appear here.
+            </Text>
+          </View>
+        ) : (
+          <View className="gap-3">
+            {receivedCards.map((card: any) => (
+              <Pressable
+                key={card.id}
+                className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3"
+                onPress={() => navigation.navigate("Home")}
+              >
+                <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+                  {card.card_photo ? (
+                    <Image source={{ uri: card.card_photo }} style={{ width: 44, height: 44 }} />
+                  ) : (
+                    <Text className="text-xl">🏢</Text>
+                  )}
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                    {card.card_title}
+                  </Text>
+                  <Text className="mt-0.5 text-[10px] text-muted-foreground">
+                    From {card.sender_name}
+                  </Text>
+                  <Text className="mt-0.5 text-[10px] text-muted-foreground">
+                    {formatRelativeTime(card.sent_at || card.created_at)}
+                  </Text>
+                </View>
+                <Text className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                  View
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+    );
+  }
+
+  // Sent tab — real data from AsyncStorage
+  return (
+    <ScrollView className="px-4 pt-4 pb-4">
+      <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        📤 Cards You've Bulk Sent
+      </Text>
+      {sentCards.length === 0 ? (
+        <View className="items-center py-12">
+          <Text className="text-4xl mb-3">📤</Text>
+          <Text className="text-sm font-semibold text-foreground">No cards sent yet</Text>
+          <Text className="text-xs text-muted-foreground text-center mt-1 max-w-[220px]">
+            Use the Bulk Send button to send your business cards to categories.
+          </Text>
+        </View>
+      ) : (
+        <View className="gap-3">
+          {sentCards.map((record) => (
+            <View
+              key={record.id}
+              className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3"
+            >
+              <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+                {record.cardLogo ? (
+                  <Image source={{ uri: record.cardLogo }} style={{ width: 44, height: 44 }} />
+                ) : (
+                  <Text className="text-xl">🏢</Text>
+                )}
+              </View>
+              <View className="flex-1">
+                <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                  {record.cardName}
+                </Text>
+                {record.cardCategory && (
+                  <Text className="text-[10px] text-muted-foreground">{record.cardCategory}</Text>
+                )}
+                <Text className="mt-0.5 text-[10px] text-muted-foreground">
+                  {record.sentToEmoji} {record.sentTo}
+                  {record.levelLabel ? ` · ${record.levelLabel} level` : ""} · {formatRelativeTime(record.sentAt)}
+                </Text>
+              </View>
+              <Text className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
+                Sent
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </ScrollView>
+  );
+};
 
 const demoConversations = [
   { id: "demo-1", name: "Sharma Electronics", avatar: "🔌", lastMsg: "Hi! We have the latest smartphones in stock. Visit us today!", time: "2m ago" },
@@ -55,7 +182,9 @@ const demoConversations = [
   { id: "demo-5", name: "Delhi Darbar Restaurant", avatar: "🍽️", lastMsg: "Thank you for your order! Your food will be ready in 30 mins.", time: "5h ago" },
 ];
 
-const tabs = ["Chats", "Groups", "Sent", "Received"];
+const tabs = FEATURES.BULK_SEND
+  ? ["Chats", "Groups", "Sent", "Received"]
+  : ["Chats", "Groups", "Received"];
 
 const faqKnowledge: Record<string, { q: string; a: string }[]> = {
   default: [
@@ -104,44 +233,6 @@ const TypingDot = ({ delay = 0 }: { delay?: number }) => {
       style={{ transform: [{ scale }] }}
       className="h-2 w-2 rounded-full bg-primary/40"
     />
-  );
-};
-
-const SentReceivedCards = ({ tab }: { tab: string }) => {
-  const navigation = useNavigation<any>();
-  const cards = tab === "Sent" ? demoSentCards : demoReceivedCards;
-
-  return (
-    <ScrollView className="px-4 pt-4 pb-4">
-      <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {tab === "Sent" ? "📤 Cards You've Shared" : "📥 Cards Shared With You"}
-      </Text>
-      <View className="gap-3">
-        {cards.map((card) => (
-          <Pressable
-            key={card.id}
-            className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3"
-            onPress={() => navigation.navigate("Home")}
-          >
-            <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
-              <Text className="text-xl">{card.emoji}</Text>
-            </View>
-            <View className="flex-1">
-              <Text className="text-sm font-semibold text-foreground">{card.name}</Text>
-              <Text className="text-[10px] text-muted-foreground">{card.category}</Text>
-              <Text className="mt-0.5 text-[10px] text-muted-foreground">
-                {tab === "Sent"
-                  ? `Sent to ${(card as any).sentTo}`
-                  : `From ${(card as any).from}`} • {card.time}
-              </Text>
-            </View>
-            <Text className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-              View
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-    </ScrollView>
   );
 };
 

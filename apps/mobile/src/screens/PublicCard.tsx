@@ -27,12 +27,20 @@ const PublicCard = () => {
   const id = route?.params?.id as string | undefined;
   const { data: card, isLoading, error, refetch: refetchCard } = useDirectoryCard(id || "");
   const [showShareCard, setShowShareCard] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const businessId = card?.business_card_id ?? card?.id ?? "";
 
   const shareUrl = useMemo(
     () => (id ? `https://instantlly.lovable.app/card/${id}` : "https://instantlly.lovable.app"),
     [id]
   );
+
+  const handleShare = () => setShowShareCard(true);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetchCard(); } finally { setRefreshing(false); }
+  }, [refetchCard]);
 
   if (isLoading) {
     return (
@@ -56,14 +64,6 @@ const PublicCard = () => {
       </View>
     );
   }
-
-  const handleShare = () => setShowShareCard(true);
-
-  const [refreshing, setRefreshing] = useState(false);
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try { await refetchCard(); } finally { setRefreshing(false); }
-  }, [refetchCard]);
 
   const socialLinks = [
     { url: card.instagram, label: "Instagram", icon: Globe },
@@ -157,32 +157,49 @@ const PublicCard = () => {
                 </View>
               </Pressable>
             )}
-            {card.business_hours && (
-              typeof card.business_hours === "string" ? (
-                <View className="flex-row items-center gap-2">
-                  <Clock size={14} color="#6a7181" />
-                  <Text className="text-sm text-foreground">{card.business_hours}</Text>
-                </View>
-              ) : typeof card.business_hours === "object" ? (
-                <View className="gap-1">
-                  <View className="flex-row items-center gap-2">
-                    <Clock size={14} color="#6a7181" />
-                    <Text className="text-sm font-medium text-foreground">Business Hours</Text>
-                  </View>
-                  {Object.entries(card.business_hours as Record<string, string>).map(([day, hours]) => (
-                    <View key={day} className="flex-row justify-between pl-6 pr-2">
-                      <Text className="text-xs text-muted-foreground capitalize">{day}</Text>
-                      <Text className="text-xs text-foreground">{String(hours)}</Text>
+            {card.business_hours && (() => {
+              let hoursObj: Record<string, any> | null = null;
+              if (typeof card.business_hours === "object" && card.business_hours !== null) {
+                hoursObj = card.business_hours as Record<string, any>;
+              } else if (typeof card.business_hours === "string") {
+                try { hoursObj = JSON.parse(card.business_hours); } catch { /* plain string */ }
+              }
+
+              const DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+              if (hoursObj && typeof hoursObj === "object") {
+                const entries = Object.entries(hoursObj).sort(
+                  ([a], [b]) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b)
+                );
+                return (
+                  <View className="gap-1">
+                    <View className="flex-row items-center gap-2">
+                      <Clock size={14} color="#6a7181" />
+                      <Text className="text-sm font-medium text-foreground">Business Hours</Text>
                     </View>
-                  ))}
-                </View>
-              ) : (
+                    {entries.map(([day, val]) => {
+                      const open: boolean = val?.open ?? true;
+                      const openTime: string = val?.openTime ?? "";
+                      const closeTime: string = val?.closeTime ?? "";
+                      const hoursText = open ? `${openTime} – ${closeTime}` : "Closed";
+                      return (
+                        <View key={day} className="flex-row justify-between pl-6 pr-2">
+                          <Text className="text-xs text-muted-foreground capitalize">{day}</Text>
+                          <Text className={`text-xs ${open ? "text-foreground" : "text-muted-foreground"}`}>{hoursText}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                );
+              }
+
+              return (
                 <View className="flex-row items-center gap-2">
                   <Clock size={14} color="#6a7181" />
                   <Text className="text-sm text-foreground">{String(card.business_hours)}</Text>
                 </View>
-              )
-            )}
+              );
+            })()}
             {card.established_year && (
               <View className="flex-row items-center gap-2">
                 <Calendar size={14} color="#6a7181" />
