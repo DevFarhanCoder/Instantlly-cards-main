@@ -585,10 +585,11 @@ const CardCreate = () => {
       longitude: pos.coords.longitude,
     });
     const addr = places[0];
+    const city = addr?.city || (addr as any)?.district || addr?.subregion || addr?.region;
     const loc = [
-      addr?.subregion || (addr as any)?.neighborhood,
-      addr?.city || addr?.region,
-      addr?.region,
+      (addr as any)?.neighborhood || addr?.name,
+      city,
+      city !== addr?.region ? addr?.region : null,
       addr?.country,
     ]
       .filter(Boolean)
@@ -613,12 +614,13 @@ const CardCreate = () => {
       longitude: pos.coords.longitude,
     });
     const addr = places[0];
+    const city = addr?.city || (addr as any)?.district || addr?.subregion || addr?.region;
     const loc = [
       addr?.name,
       addr?.street,
-      addr?.subregion || (addr as any)?.neighborhood,
-      addr?.city || addr?.region,
-      addr?.region,
+      (addr as any)?.neighborhood,
+      city,
+      city !== addr?.region ? addr?.region : null,
       addr?.postalCode,
       addr?.country,
     ]
@@ -1096,6 +1098,7 @@ const CardCreate = () => {
                     updateField("companyPhones", updated);
                   }}
                   keyboardType="phone-pad"
+                  maxLength={10}
                   className={cn("flex-1", inputClass)}
                 />
                 {form.companyPhones.length > 1 && (

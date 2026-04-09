@@ -1,13 +1,15 @@
-import { ReactNode, useEffect, useRef } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { Bell, MessageCircle, User } from "lucide-react-native";
+import { Bell, MessageCircle, Send, User } from "lucide-react-native";
 import BottomNav from "./BottomNav";
 import BannerAdSlot from "../ads/BannerAdSlot";
 import { colors } from "../../theme/colors";
 import { useAuth } from "../../hooks/useAuth";
 import { useNotifications } from "../../hooks/useNotifications";
+import { FEATURES } from "../../lib/featureFlags";
+import BulkSendModal from "../BulkSendModal";
 
 const iconImg = require("../../../assets/icon.png");
 
@@ -16,6 +18,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const { unreadCount } = useNotifications();
   const enterAnim = useRef(new Animated.Value(0)).current;
+  const [showBulkSend, setShowBulkSend] = useState(false);
 
   useEffect(() => {
     enterAnim.setValue(0);
@@ -99,6 +102,21 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
       </View>
 
       <BottomNav />
+
+      {/* Floating Bulk Send FAB — above banner ad + bottom nav */}
+      {FEATURES.BULK_SEND && (
+        <Pressable
+          onPress={() => setShowBulkSend(true)}
+          style={[styles.fab, { bottom: 175 }]}
+        >
+          <Send size={20} color="#fff" />
+          <Text style={styles.fabLabel}>Bulk Send</Text>
+        </Pressable>
+      )}
+
+      {FEATURES.BULK_SEND && (
+        <BulkSendModal open={showBulkSend} onClose={() => setShowBulkSend(false)} />
+      )}
     </SafeAreaView>
   );
 };
@@ -150,6 +168,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.muted,
     alignItems: "center",
     justifyContent: "center",
+  },
+  fab: {
+    position: "absolute",
+    right: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    zIndex: 100,
+  },
+  fabLabel: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "700",
   },
   avatarText: {
     fontSize: 12,

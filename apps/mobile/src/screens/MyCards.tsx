@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import * as Clipboard from "expo-clipboard";
 import {
   Image,
   Pressable,
@@ -57,7 +58,7 @@ const MyCards = () => {
   const handleCopyLink = async () => {
     if (!shareCard) return;
     const shareUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantly.app'}/card/${shareCard.id}`;
-    // TODO: Implement clipboard copy for React Native
+    await Clipboard.setStringAsync(shareUrl);
     toast.success("Link copied!");
     setShareCard(null);
   };
@@ -384,7 +385,7 @@ const MyCards = () => {
                       </Pressable>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onPress={() => navigation.navigate("PublicCard", { id: card.id })}>
+                      <DropdownMenuItem onPress={() => navigation.navigate("PublicCard", { id: `card-${card.id}` })}>
                         <Eye size={14} color="#111827" /> View
                       </DropdownMenuItem>
                       <DropdownMenuItem onPress={() => navigation.navigate("CardCreate", { cardId: card.id })}>
