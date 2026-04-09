@@ -18,6 +18,11 @@ const API_BASE_URL = 'https://api.instantllycards.com';
 export const normalizeImageUrl = (url: string | null | undefined): string | null => {
   if (!url || typeof url !== 'string') return null;
 
+  // Fix inconsistent URLs: /ads/{id} → /api/ads/image/{id}
+  if (url.includes('/ads/') && !url.includes('/api/ads')) {
+    url = url.replace(/\/ads\//, '/api/ads/image/');
+  }
+
   // Already absolute
   if (/^(https?:|\/\/)/.test(url)) {
     return url;
@@ -76,15 +81,23 @@ export const getAdBottomImageUrl = (
 ): string | null => {
   if (!ad) return null;
 
-  // Try creative_urls array first
+  // Try creative_urls array first - MUST have /bottom
   if (ad.creative_urls && ad.creative_urls.length > 0) {
     const bottomUrl = ad.creative_urls.find(url => url && url.includes('/bottom'));
     if (bottomUrl) return normalizeImageUrl(bottomUrl);
-    return normalizeImageUrl(ad.creative_urls[0]);
+    // If creative_urls exists but has NO /bottom, skip this ad entirely
+    return null;
   }
 
   // Fallback to creative_url (usually has /bottom already)
-  if (ad.creative_url) return normalizeImageUrl(ad.creative_url);
+  if (ad.creative_url) {
+    // Only use creative_url if it has /bottom or no specific variant indicator
+    if (ad.creative_url.includes('/fullscreen')) {
+      return null;
+    }
+    return normalizeImageUrl(ad.creative_url);
+  }
+
   if (ad.image_url) return normalizeImageUrl(ad.image_url);
 
   return null;
@@ -104,7 +117,7 @@ export const getAdFullscreenImageUrl = (
 ): string | null => {
   if (!ad) return null;
 
-  let bottomUrl: string | null = null;
+  let bottomUrl: string | undefined = undefined;
 
   // Try creative_urls first
   if (ad.creative_urls && ad.creative_urls.length > 0) {
@@ -123,7 +136,6 @@ export const getAdFullscreenImageUrl = (
   // If we have a bottom URL, try to create fullscreen variant
   if (bottomUrl) {
     const fullscreenUrl = bottomUrl.replace('/bottom', '/fullscreen');
-    console.log('[urlNormalizer] 🔄 Converting /bottom to /fullscreen:', bottomUrl?.substring(0, 80), '→', fullscreenUrl?.substring(0, 80));
     return normalizeImageUrl(fullscreenUrl);
   }
 

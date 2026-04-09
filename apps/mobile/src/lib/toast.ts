@@ -22,3 +22,7 @@ toast.success = (message: string) => {
 toast.error = (message: string) => {
   Alert.alert("Error", message);
 };
+
+toast.info = (message: string) => {
+  Alert.alert("Info", message);
+};

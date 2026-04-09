@@ -8,6 +8,7 @@ import { useAppDispatch, useAppSelector } from '../store';
 import {
   setCredentials,
   clearCredentials,
+  setActiveRole,
   selectCurrentUser,
   selectIsAuthenticated,
   selectAccessToken,
@@ -45,9 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function hydrate() {
       console.log('[AUTH] Hydrating session from SecureStore...');
       try {
-        const [storedAccess, storedRefresh] = await Promise.all([
+        const [storedAccess, storedRefresh, storedActiveRole] = await Promise.all([
           SecureStore.getItemAsync('accessToken'),
           SecureStore.getItemAsync('refreshToken'),
+          SecureStore.getItemAsync('activeRole'),
         ]);
 
         if (storedAccess && storedRefresh) {
@@ -69,6 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               console.log(`[AUTH] Full profile loaded for userId: ${payload.userId}`);
             } catch {
               console.warn('[AUTH] Could not fetch full profile, using JWT data');
+            }
+            // Restore active role from SecureStore
+            if (storedActiveRole) {
+              dispatch(setActiveRole(storedActiveRole));
+              console.log(`[AUTH] Restored activeRole: ${storedActiveRole}`);
+            } else if (payload.roles?.length === 1) {
+              dispatch(setActiveRole(payload.roles[0]));
             }
           } else if (storedRefresh) {
             // Access token expired — attempt refresh before giving up
@@ -98,6 +107,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   dispatch(setCredentials({ user: me, accessToken: tokens.accessToken, refreshToken: tokens.refreshToken }));
                 } catch {
                   console.warn('[AUTH] Could not fetch full profile after refresh');
+                }
+                // Restore active role from SecureStore
+                if (storedActiveRole) {
+                  dispatch(setActiveRole(storedActiveRole));
+                } else if (freshPayload.roles?.length === 1) {
+                  dispatch(setActiveRole(freshPayload.roles[0]));
                 }
               } else {
                 console.log('[AUTH] Refresh failed, starting unauthenticated');
@@ -133,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     phoneOrEmail: string,
     password: string,
     isEmail = phoneOrEmail.includes('@')
-  ): Promise<{ error?: string; user?: AuthUser }> => {
+  ): Promise<{ error?: string; user?: AuthUser; businessApprovalStatus?: string | null }> => {
     console.log(`[SIGNIN] Attempt — identifier: ${phoneOrEmail}, via: ${isEmail ? 'email' : 'phone'}`);
     try {
       const body = isEmail
@@ -144,7 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await SecureStore.setItemAsync('accessToken', data.accessToken);
       await SecureStore.setItemAsync('refreshToken', data.refreshToken);
       console.log(`[SIGNIN] Success — userId: ${data.user.id}, roles: [${data.user.roles.join(', ')}]`);
-      return { user: data.user };
+      return { user: data.user, businessApprovalStatus: (data as any).businessApprovalStatus ?? null };
     } catch (e: any) {
       const msg = e?.data?.error ?? e?.message ?? 'Login failed';
       console.warn(`[SIGNIN] Failed — ${msg}`, e?.status ?? '');
@@ -188,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     dispatch(clearCredentials());
     await SecureStore.deleteItemAsync('accessToken');
     await SecureStore.deleteItemAsync('refreshToken');
+    await SecureStore.deleteItemAsync('activeRole');
   };
 
   return (

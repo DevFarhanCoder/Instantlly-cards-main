@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Pressable,
 } from "react-native";
-import { useListActiveCampaignsQuery } from "../../store/api/adsApi";
+import { useListActiveCampaignsQuery } from "../store/api/adsApi";
 
 const AdDebugScreen = () => {
   const { data: ads = [], isLoading, error, refetch } = useListActiveCampaignsQuery();

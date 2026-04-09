@@ -33,6 +33,9 @@ interface AdsCarouselState {
 
   // Auto-scroll state
   isAutoScrolling: boolean;
+
+  // Initialization tracking (survives navigation)
+  lastInitializedAdIds: string; // CSV of ad IDs we last initialized
 }
 
 const initialState: AdsCarouselState = {
@@ -43,6 +46,7 @@ const initialState: AdsCarouselState = {
   isLoading: false,
   error: null,
   isAutoScrolling: true,
+  lastInitializedAdIds: '',
 };
 
 const adsCarouselSlice = createSlice({
@@ -64,8 +68,7 @@ const adsCarouselSlice = createSlice({
     // Update current carousel index
     setCurrentAdIndex(state, action: PayloadAction<number>) {
       const newIndex = action.payload;
-      if (newIndex >= 0 && newIndex < state.adsList.length) {
-        console.log(`[adsCarousel] Index: ${newIndex}/${state.adsList.length}`);
+      if (newIndex >= 0) {
         state.currentAdIndex = newIndex;
       }
     },
@@ -140,6 +143,11 @@ const adsCarouselSlice = createSlice({
       state.error = null;
       console.log('[adsCarousel] Carousel reset');
     },
+
+    // Mark ads as initialized (for detecting first load vs. return from nav)
+    markAdsInitialized(state, action: PayloadAction<string>) {
+      state.lastInitializedAdIds = action.payload;
+    },
   },
 });
 
@@ -156,6 +164,7 @@ export const {
   setLoading,
   setError,
   resetCarousel,
+  markAdsInitialized,
 } = adsCarouselSlice.actions;
 
 export default adsCarouselSlice.reducer;
@@ -186,3 +195,6 @@ export const selectAdsLoading = (state: { adsCarousel: AdsCarouselState }) =>
 
 export const selectAdsError = (state: { adsCarousel: AdsCarouselState }) =>
   state.adsCarousel.error;
+
+export const selectLastInitializedAdIds = (state: { adsCarousel: AdsCarouselState }) =>
+  state.adsCarousel.lastInitializedAdIds;

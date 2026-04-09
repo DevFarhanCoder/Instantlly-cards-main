@@ -1,6 +1,8 @@
 import { baseApi } from './baseApi';
 
 export interface AdCampaign {
+  phone: any;
+  phone_number: any;
   id: number;
   user_id: number;
   business_card_id: number | null;

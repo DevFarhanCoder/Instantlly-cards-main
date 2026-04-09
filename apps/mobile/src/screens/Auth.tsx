@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, ScrollView, Pressable, Text, Modal, StyleSheet, Image, KeyboardAvoidingView, Platform } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Users, Store, Shield, ChevronDown, Eye, EyeOff } from "lucide-react-native";
+import * as SecureStore from "expo-secure-store";
 import { useAuth } from "../hooks/useAuth";
 import { useAppDispatch } from "../store";
 import { setActiveRole } from "../store/authSlice";
@@ -170,13 +171,14 @@ const Auth = ({ navigation }: Props) => {
           console.warn('[Auth Screen] signUp error:', error);
           toast.error(error);
         } else {
-          console.log('[Auth Screen] signUp success → navigating to MyPasses');
+          console.log('[Auth Screen] signUp success → navigating to Home');
           toast.success("Account created! Welcome to Instantlly.");
-          navigation.navigate("MyPasses");
+          navigation.navigate("Home");
         }
       } else {
         console.log('[Auth Screen] Calling signIn...');
-        const { error, user: freshUser } = await signIn(fullPhone, password);
+        const { error, user: freshUser, businessApprovalStatus } = await signIn(fullPhone, password);
+        console.log(`[Auth Screen] signIn result: error=${error}, user=${freshUser?.id}, roles=[${freshUser?.roles?.join(', ')}], approvalStatus=${businessApprovalStatus}`);
         if (error) {
           console.warn('[Auth Screen] signIn error:', error);
           toast.error(error);
@@ -186,8 +188,12 @@ const Auth = ({ navigation }: Props) => {
           setLoginRoles(freshUser.roles);
           setShowRoleSelection(true);
         } else {
-          console.log('[Auth Screen] Single role login → navigating to MyPasses');
-          navigation.navigate("MyPasses");
+          console.log('[Auth Screen] Single role login → navigating to Home');
+          navigation.navigate("Home");
+          // Show pending approval message after navigation
+          if (freshUser && !freshUser.roles.includes('business') && businessApprovalStatus === 'pending') {
+            toast.info("Your business card is pending admin approval.");
+          }
         }
       }
     } finally {
@@ -446,6 +452,7 @@ const Auth = ({ navigation }: Props) => {
                   onPress={() => {
                     console.log('[Auth Screen] Selected role: customer → navigating to MyPasses');
                     dispatch(setActiveRole('customer'));
+                    SecureStore.setItemAsync('activeRole', 'customer');
                     setShowRoleSelection(false);
                     navigation.navigate("MyPasses");
                   }}
@@ -462,6 +469,7 @@ const Auth = ({ navigation }: Props) => {
                   onPress={() => {
                     console.log('[Auth Screen] Selected role: business → navigating to MyPasses');
                     dispatch(setActiveRole('business'));
+                    SecureStore.setItemAsync('activeRole', 'business');
                     setShowRoleSelection(false);
                     navigation.navigate("MyPasses");
                   }}
@@ -470,6 +478,23 @@ const Auth = ({ navigation }: Props) => {
                   <Store size={28} color="#16a34a" />
                   <Text style={styles.roleSelectionButtonText}>Business</Text>
                   <Text style={styles.roleSelectionButtonDesc}>Manage listings</Text>
+                </Pressable>
+              )}
+
+              {loginRoles.includes('admin') && (
+                <Pressable
+                  onPress={() => {
+                    console.log('[Auth Screen] Selected role: admin → navigating to AdminDashboard');
+                    dispatch(setActiveRole('admin'));
+                    SecureStore.setItemAsync('activeRole', 'admin');
+                    setShowRoleSelection(false);
+                    navigation.navigate("AdminDashboard");
+                  }}
+                  style={styles.roleSelectionButton}
+                >
+                  <Shield size={28} color="#dc2626" />
+                  <Text style={styles.roleSelectionButtonText}>Admin</Text>
+                  <Text style={styles.roleSelectionButtonDesc}>Platform management</Text>
                 </Pressable>
               )}
             </View>
