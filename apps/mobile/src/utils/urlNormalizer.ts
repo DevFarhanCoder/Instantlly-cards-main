@@ -64,6 +64,76 @@ export const getAdImageUrl = (
 };
 
 /**
+ * Get bottom ad image URL (for carousel display)
+ * Priority: /bottom URL from creative_urls or creative_url
+ */
+export const getAdBottomImageUrl = (
+  ad: {
+    creative_url?: string | null;
+    creative_urls?: string[];
+    image_url?: string | null;
+  } | null
+): string | null => {
+  if (!ad) return null;
+
+  // Try creative_urls array first
+  if (ad.creative_urls && ad.creative_urls.length > 0) {
+    const bottomUrl = ad.creative_urls.find(url => url && url.includes('/bottom'));
+    if (bottomUrl) return normalizeImageUrl(bottomUrl);
+    return normalizeImageUrl(ad.creative_urls[0]);
+  }
+
+  // Fallback to creative_url (usually has /bottom already)
+  if (ad.creative_url) return normalizeImageUrl(ad.creative_url);
+  if (ad.image_url) return normalizeImageUrl(ad.image_url);
+
+  return null;
+};
+
+/**
+ * Get fullscreen ad image URL (for modal display)
+ * Strategy: Replace /bottom with /fullscreen in the URL
+ * Fallback to bottom if fullscreen unavailable
+ */
+export const getAdFullscreenImageUrl = (
+  ad: {
+    creative_url?: string | null;
+    creative_urls?: string[];
+    image_url?: string | null;
+  } | null
+): string | null => {
+  if (!ad) return null;
+
+  let bottomUrl: string | null = null;
+
+  // Try creative_urls first
+  if (ad.creative_urls && ad.creative_urls.length > 0) {
+    const fullUrl = ad.creative_urls.find(url => url && url.includes('/fullscreen'));
+    if (fullUrl) return normalizeImageUrl(fullUrl);
+
+    bottomUrl = ad.creative_urls.find(url => url && url.includes('/bottom'));
+    if (!bottomUrl && ad.creative_urls[0]) bottomUrl = ad.creative_urls[0];
+  }
+
+  // Use creative_url as fallback for bottom
+  if (!bottomUrl && ad.creative_url) {
+    bottomUrl = ad.creative_url;
+  }
+
+  // If we have a bottom URL, try to create fullscreen variant
+  if (bottomUrl) {
+    const fullscreenUrl = bottomUrl.replace('/bottom', '/fullscreen');
+    console.log('[urlNormalizer] 🔄 Converting /bottom to /fullscreen:', bottomUrl?.substring(0, 80), '→', fullscreenUrl?.substring(0, 80));
+    return normalizeImageUrl(fullscreenUrl);
+  }
+
+  // Last resort: image_url
+  if (ad.image_url) return normalizeImageUrl(ad.image_url);
+
+  return null;
+};
+
+/**
  * Normalize multiple creative URLs (for carousel or gallery)
  */
 export const normalizeAdCreativeUrls = (

@@ -18,7 +18,7 @@ import {
   useRecordImpression,
   useRecordClick,
 } from "../../hooks/useActiveAds";
-import { getAdImageUrl, prepareAdsForDisplay } from "../../utils/urlNormalizer";
+import { getAdBottomImageUrl, getAdFullscreenImageUrl, prepareAdsForDisplay } from "../../utils/urlNormalizer";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const BOTTOM_HEIGHT = 100;
@@ -99,16 +99,28 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
 
     // Prepare ads with normalized URLs
     const prepared = active.length > 0 ? prepareAdsForDisplay(active) : DEMO_ADS;
-    console.log('[BannerAdSlot] 🎯 Using', prepared.length, 'ads for display');
 
-    if (prepared.length > 0 && prepared !== DEMO_ADS) {
-      console.log('[BannerAdSlot] 🌐 Prepared URLs:', prepared.slice(0, 2).map(a => ({
+    // Filter out ads without images
+    const withImages = prepared.filter((ad) => {
+      const hasBottomImage = getAdBottomImageUrl(ad) !== null;
+      if (!hasBottomImage) {
+        console.log(`🗑️ Skipping ad without bottom image: "${ad.title}"`);
+      }
+      return hasBottomImage;
+    });
+
+    console.log('[BannerAdSlot] 🎯 Using', withImages.length, 'ads with images for display');
+
+    if (withImages.length > 0 && withImages !== DEMO_ADS) {
+      console.log('[BannerAdSlot] 🌐 Prepared URLs:', withImages.slice(0, 2).map(a => ({
         id: a.id,
-        image_url: getAdImageUrl(a)?.substring(0, 80)
+        creative_urls: a.creative_urls,
+        bottomUrl: getAdBottomImageUrl(a)?.substring(0, 80),
+        fullscreenUrl: getAdFullscreenImageUrl(a)?.substring(0, 80)
       })));
     }
 
-    return prepared;
+    return withImages;
   }, [rawAds]);
 
   const isDemo = ads === DEMO_ADS;
@@ -221,13 +233,22 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
     [activeIndex, hasInfinite, infiniteAds.length],
   );
 
-  /* ── Image URL helper ── */
-  const getImageUrl = (ad: any) => getAdImageUrl(ad);
+  /* ── Image URL helpers ── */
+  const getBottomImageUrl = (ad: any) => getAdBottomImageUrl(ad);
+  const getFullscreenImageUrl = (ad: any) => getAdFullscreenImageUrl(ad);
 
   /* ── Bottom media render (full-width image, exactly like FooterCarousel) ── */
   const renderBottomMedia = (ad: any) => {
-    const url = getImageUrl(ad);
+    const url = getBottomImageUrl(ad);
+    console.log('[BannerAdSlot] 📍 BOTTOM IMAGE');
+    console.log('  - Ad ID:', ad.id);
+    console.log('  - Title:', ad.title);
+    console.log('  - creative_url:', ad.creative_url?.substring(0, 100));
+    console.log('  - creative_urls:', ad.creative_urls);
+    console.log('  - Final URL:', url);
+
     if (!url) {
+      console.log('[BannerAdSlot] ❌ No bottom image URL found - showing fallback');
       return (
         <View style={[styles.media, styles.noImageBg]}>
           <Text style={styles.noImageEmoji}>📣</Text>
@@ -238,13 +259,35 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
         </View>
       );
     }
-    return <Image source={{ uri: url }} style={styles.media} resizeMode="cover" />;
+    return (
+      <View style={styles.mediaContainer}>
+        <Image
+          source={{ uri: url }}
+          style={styles.media}
+          resizeMode="cover"
+          onLoad={() => console.log('[BannerAdSlot] ✅ Bottom image loaded successfully')}
+          onError={(err) => console.log('[BannerAdSlot] ❌ Bottom image failed to load:', err)}
+        />
+        {/* Overlay with "Tap to know more" */}
+        <View style={styles.overlay}>
+          <Text style={styles.overlayText}>Tap to know more</Text>
+        </View>
+      </View>
+    );
   };
 
   /* ── Fullscreen media render ── */
   const renderFullscreenMedia = (ad: any) => {
-    const url = getImageUrl(ad);
+    const url = getFullscreenImageUrl(ad);
+    console.log('[BannerAdSlot] 🖼️ FULLSCREEN IMAGE');
+    console.log('  - Ad ID:', ad.id);
+    console.log('  - Title:', ad.title);
+    console.log('  - creative_url:', ad.creative_url?.substring(0, 100));
+    console.log('  - creative_urls:', ad.creative_urls);
+    console.log('  - Final URL:', url);
+
     if (!url) {
+      console.log('[BannerAdSlot] ❌ No image URL found - showing fallback');
       return (
         <View style={[styles.fullMedia, styles.noImageBg]}>
           <Text style={{ fontSize: 64, marginBottom: 16 }}>📣</Text>
@@ -255,32 +298,65 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
         </View>
       );
     }
+
     return (
-      <Image source={{ uri: url }} style={styles.fullMedia} resizeMode="contain" />
+      <Image
+        source={{ uri: url }}
+        style={styles.fullMedia}
+        resizeMode="contain"
+        onLoad={() => console.log('[BannerAdSlot] ✅ Fullscreen image loaded successfully')}
+        onError={(err) => console.log('[BannerAdSlot] ❌ Fullscreen image failed to load:', err)}
+      />
     );
   };
 
   /* ── Chat handler ── */
   const handleChat = (ad: any) => {
-    if (!ad) return;
-    setShowModal(false);
+    if (!ad) {
+      console.log('[BannerAdSlot] ❌ CHAT: No ad data');
+      return;
+    }
+    console.log('[BannerAdSlot] 💬 CHAT CLICKED - Ad ID:', ad.id, 'Business Card ID:', ad.business_card_id, 'Full Ad:', JSON.stringify(ad, null, 2));
+
     if (ad.business_card_id) {
-      navigation.navigate("Messaging", { businessId: ad.business_card_id });
+      console.log('[BannerAdSlot] 💬 Navigating to Messaging screen...');
+      setShowModal(false);
+      setTimeout(() => {
+        navigation.navigate("Messaging", { businessId: ad.business_card_id });
+      }, 300); // Wait for modal animation
+    } else {
+      console.log('[BannerAdSlot] ⚠️ CHAT: No business_card_id found');
+      setShowModal(false);
     }
   };
 
   /* ── Call handler ── */
   const handleCall = (ad: any) => {
-    if (!ad) return;
-    setShowModal(false);
-    // If business card has phone, use it; otherwise navigate to business
-    if (ad.phone) {
-      Linking.openURL(`tel:${ad.phone}`);
-    } else if (ad.business_card_id) {
-      navigation.navigate("BusinessDetail", {
-        id: `card-${ad.business_card_id}`,
-      });
+    if (!ad) {
+      console.log('[BannerAdSlot] ❌ CALL: No ad data');
+      return;
     }
+
+    const phone = ad.phone || ad.phone_number;
+    console.log('[BannerAdSlot] ☎️ CALL CLICKED - Ad ID:', ad.id, 'Phone:', phone, 'Business Card ID:', ad.business_card_id, 'Full Ad:', JSON.stringify(ad, null, 2));
+
+    setShowModal(false);
+
+    setTimeout(() => {
+      if (phone) {
+        console.log('[BannerAdSlot] ☎️ Initiating call to:', phone);
+        Linking.openURL(`tel:${phone}`).catch(err => {
+          console.error('[BannerAdSlot] ❌ Call failed:', err);
+        });
+      } else if (ad.business_card_id) {
+        console.log('[BannerAdSlot] ☎️ Navigating to BusinessDetail...');
+        navigation.navigate("BusinessDetail", {
+          id: `card-${ad.business_card_id}`,
+        });
+      } else {
+        console.log('[BannerAdSlot] ⚠️ CALL: No phone or business_card_id found');
+      }
+    }, 300); // Wait for modal animation
   };
 
   if (ads.length === 0 && !isLoading) {
@@ -291,18 +367,18 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
   console.log('[BannerAdSlot] 🎨 Render - ads:', ads.length, 'isLoading:', isLoading, 'isDemo:', isDemo);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="banner-ad-slot">
       {/* Loading state */}
       {isLoading && (
-        <View style={styles.center}>
-          <ActivityIndicator color="#10B981" />
+        <View style={styles.center} testID="ad-loading">
+          <ActivityIndicator color="#10B981" testID="ad-loading-spinner" />
           <Text style={styles.loadingText}>Loading ads...</Text>
         </View>
       )}
 
       {/* Empty state */}
       {!isLoading && ads.length === 0 && (
-        <View style={styles.center}>
+        <View style={styles.center} testID="ad-empty">
           <Text style={styles.emptyText}>No ads available</Text>
         </View>
       )}
@@ -317,9 +393,10 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
           removeClippedSubviews={false}
           onMomentumScrollEnd={handleScrollEnd}
           scrollEventThrottle={16}
+          testID="ad-carousel"
         >
           {(hasInfinite ? infiniteAds : ads).map((ad, index) => (
-            <View key={`${ad.id}-${index}`} style={styles.slide}>
+            <View key={`${ad.id}-${index}`} style={styles.slide} testID={`ad-slide-${ad.id}`}>
               {renderBottomMedia(ad)}
 
               {/* Tap layer */}
@@ -327,9 +404,11 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
                 style={StyleSheet.absoluteFill}
                 onPress={() => {
                   if (ad.id > 0) recordClick(ad.id);
+                  console.log('[BannerAdSlot] 👆 AD TAPPED - Ad ID:', ad.id, 'Title:', ad.title, 'Current carousel index:', activeIndex, 'Modal opening...');
                   setSelectedAd(ad);
                   setShowModal(true);
                 }}
+                testID={`ad-tap-${ad.id}`}
               />
             </View>
           ))}
@@ -337,12 +416,19 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
       )}
 
       {/* ── FULLSCREEN MODAL ── */}
-      <Modal visible={showModal} animationType="fade">
+      <Modal visible={showModal} animationType="fade" testID="ad-fullscreen-modal">
         <View style={styles.modal}>
           {selectedAd && renderFullscreenMedia(selectedAd)}
 
           {/* Close button */}
-          <Pressable style={styles.close} onPress={() => setShowModal(false)}>
+          <Pressable
+            style={styles.close}
+            onPress={() => {
+              console.log('[BannerAdSlot] ❌ MODAL CLOSED - Carousel still at index:', activeIndex);
+              setShowModal(false);
+            }}
+            testID="ad-modal-close"
+          >
             <X size={28} color="#fff" />
           </Pressable>
 
@@ -351,6 +437,7 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
             <Pressable
               style={[styles.ctaButton, { backgroundColor: "#3B82F6" }]}
               onPress={() => handleChat(selectedAd)}
+              testID="ad-chat-button"
             >
               <Text style={styles.ctaText}>Chat</Text>
             </Pressable>
@@ -358,6 +445,7 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
             <Pressable
               style={[styles.ctaButton, { backgroundColor: "#10B981" }]}
               onPress={() => handleCall(selectedAd)}
+              testID="ad-call-button"
             >
               <Text style={styles.ctaText}>Call Now</Text>
             </Pressable>
@@ -381,9 +469,29 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     height: BOTTOM_HEIGHT,
   },
+  mediaContainer: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+  },
   media: {
     width: "100%",
     height: "100%",
+  },
+  overlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: "center",
+  },
+  overlayText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
   },
 
   /* No-image fallback for bottom */
