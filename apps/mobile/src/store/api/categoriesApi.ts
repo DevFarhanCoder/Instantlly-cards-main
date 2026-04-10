@@ -8,10 +8,17 @@ export type MobileCategorySummary = {
   child_count: number;
 };
 
+export type MobileSubcategoryItem = {
+  id: number | null;
+  name: string;
+  icon: string | null;
+  child_count: number;
+};
+
 export type MobileSubcategoriesResponse = {
   categoryId: number;
   categoryName: string;
-  subcategories: string[];
+  subcategories: MobileSubcategoryItem[];
 };
 
 export type MobileSubcategoriesMeta = {

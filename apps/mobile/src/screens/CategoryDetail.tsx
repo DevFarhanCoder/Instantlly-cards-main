@@ -4,14 +4,22 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft } from "lucide-react-native";
 import { Skeleton } from "../components/ui/skeleton";
 import { useListMobileCategoriesQuery, useGetMobileSubcategoriesQuery } from "../store/api/categoriesApi";
+import type { MobileSubcategoryItem } from "../store/api/categoriesApi";
 
 const CategoryDetail = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const id = route.params?.id as string | undefined;
   const categoryId = Number(id);
+  const categoryName = route.params?.name as string | undefined;
+  const categoryIcon = route.params?.icon as string | undefined;
+
   const { data: categoryData = [], refetch: refetchCats } = useListMobileCategoriesQuery();
   const category = categoryData.find((c) => String(c.id) === String(categoryId));
+
+  const displayName = categoryName || category?.name || "Category";
+  const displayIcon = categoryIcon || category?.icon || "📁";
+
   const { data: subcategoryResponse, isLoading: isLoadingSubs, refetch: refetchSubs } = useGetMobileSubcategoriesQuery(
     { id: categoryId, page: 1, limit: 200 },
     { skip: !categoryId }
@@ -22,7 +30,25 @@ const CategoryDetail = () => {
     setRefreshing(true);
     try { await Promise.all([refetchCats(), refetchSubs()]); } finally { setRefreshing(false); }
   }, [refetchCats, refetchSubs]);
-  const subcategories = subcategoryResponse?.data?.subcategories ?? [];
+  const subcategories: MobileSubcategoryItem[] = subcategoryResponse?.data?.subcategories ?? [];
+
+  const handleSubcategoryPress = (sub: MobileSubcategoryItem) => {
+    if (sub.child_count > 0 && sub.id) {
+      // Has children — drill deeper into another CategoryDetail
+      navigation.push("CategoryDetail", {
+        id: String(sub.id),
+        name: sub.name,
+        icon: sub.icon || displayIcon,
+      });
+    } else {
+      // Leaf node — show business cards
+      navigation.navigate("SubcategoryDetail", {
+        subcategory: sub.name,
+        categoryName: displayName,
+        categoryIcon: displayIcon,
+      });
+    }
+  };
 
   const getSubcategoryIcon = (subcategory: string): string => {
     const name = subcategory.toLowerCase();
@@ -241,8 +267,8 @@ const CategoryDetail = () => {
             <Pressable onPress={() => navigation.goBack()}>
               <ArrowLeft size={20} color="#111827" />
             </Pressable>
-            <Text className="text-2xl">{category?.icon || "📁"}</Text>
-            <Text className="text-xl font-bold text-foreground">{category?.name || "Category"}</Text>
+            <Text className="text-2xl">{displayIcon}</Text>
+            <Text className="text-xl font-bold text-foreground">{displayName}</Text>
           </View>
         </View>
       </View>
@@ -272,7 +298,7 @@ const CategoryDetail = () => {
             {subcategories.map((sub, index) => {
               const bgColors = [
                 "bg-pink-50",
-                "bg-amber-50", 
+                "bg-amber-50",
                 "bg-emerald-50",
                 "bg-cyan-50",
                 "bg-purple-50",
@@ -281,29 +307,26 @@ const CategoryDetail = () => {
                 "bg-teal-50"
               ];
               const bgColor = bgColors[index % bgColors.length];
-              
+
               return (
                 <Pressable
-                  key={sub}
-                  onPress={() => 
-                    navigation.navigate("SubcategoryDetail", {
-                      subcategory: sub,
-                      categoryName: category?.name || "Category",
-                      categoryIcon: category?.icon || "📁"
-                    })
-                  }
+                  key={sub.id ?? sub.name}
+                  onPress={() => handleSubcategoryPress(sub)}
                   style={{ width: '23%' }}
                   className={`rounded-xl px-1 py-2 items-center ${bgColor}`}
                 >
                   <View className="w-11 h-11 rounded-lg items-center justify-center mb-1 bg-white/60">
-                    <Text className="text-xl">{getSubcategoryIcon(sub)}</Text>
+                    <Text className="text-xl">{sub.icon || getSubcategoryIcon(sub.name)}</Text>
                   </View>
-                  <Text 
+                  <Text
                     className="text-[8px] text-center text-gray-800"
                     numberOfLines={2}
                   >
-                    {sub}
+                    {sub.name}
                   </Text>
+                  {sub.child_count > 0 && (
+                    <Text className="text-[7px] text-gray-400 mt-0.5">{sub.child_count} sub</Text>
+                  )}
                 </Pressable>
               );
             })}
