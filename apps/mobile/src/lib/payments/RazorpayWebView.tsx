@@ -1,6 +1,13 @@
-import React, { useCallback } from 'react';
-import { Modal, View, ActivityIndicator, StyleSheet } from 'react-native';
-import { WebView, type WebViewMessageEvent } from 'react-native-webview';
+import React, { useCallback, useMemo } from 'react';
+import { Modal, View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+
+// Dynamic import — react-native-webview may not be in the native build
+let WebViewComponent: any = null;
+try {
+  WebViewComponent = require('react-native-webview').WebView;
+} catch {
+  // not available
+}
 
 type RazorpayWebViewProps = {
   visible: boolean;
@@ -31,7 +38,7 @@ export function RazorpayWebView({
   onError,
 }: RazorpayWebViewProps) {
   const handleMessage = useCallback(
-    (event: WebViewMessageEvent) => {
+    (event: any) => {
       try {
         const data = JSON.parse(event.nativeEvent.data);
         console.log('[RazorpayWebView] message:', data.type);
@@ -49,7 +56,7 @@ export function RazorpayWebView({
     [onSuccess, onCancel, onError]
   );
 
-  const html = `
+  const html = useMemo(() => `
 <!DOCTYPE html>
 <html>
 <head>
@@ -111,18 +118,30 @@ export function RazorpayWebView({
     }
   </script>
 </body>
-</html>`;
+</html>`, [options]);
+
+  if (!WebViewComponent) {
+    // WebView not available in this build — show error
+    return (
+      <Modal visible={visible} animationType="slide" transparent={false}>
+        <View style={[styles.container, styles.loader]}>
+          <Text style={{ fontSize: 16, color: '#64748b', textAlign: 'center', padding: 32 }}>
+            Payment checkout is not available in this build.{'\n'}Please update the app to complete payment.
+          </Text>
+        </View>
+      </Modal>
+    );
+  }
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
       <View style={styles.container}>
-        <WebView
+        <WebViewComponent
           source={{ html }}
           originWhitelist={['*']}
           javaScriptEnabled
           domStorageEnabled
           onMessage={handleMessage}
-          startInLoadingState
           renderLoading={() => (
             <View style={styles.loader}>
               <ActivityIndicator size="large" color="#2563eb" />
