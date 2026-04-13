@@ -17,8 +17,16 @@ import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useAuth } from "../hooks/useAuth";
-import { useEvent, useRegisterForEvent, useMyRegistrations } from "../hooks/useEvents";
+import {
+  useCreateEventPaymentIntent,
+  useEvent,
+  useMyRegistrations,
+  useRegisterForEvent,
+} from "../hooks/useEvents";
 import { toast } from "../lib/toast";
+import { openRazorpayCheckout, isNativeRazorpayAvailable } from "../lib/payments/razorpayCheckout";
+import type { RazorpayCheckoutOptions } from "../lib/payments/razorpayCheckout";
+import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
 
 const EventDetail = () => {
   const navigation = useNavigation<any>();
@@ -26,6 +34,7 @@ const EventDetail = () => {
   const id = route?.params?.id;
   const { data: event, isLoading, refetch: refetchEvent } = useEvent(id || "");
   const registerMutation = useRegisterForEvent();
+  const paymentIntentMutation = useCreateEventPaymentIntent();
   const { user } = useAuth();
   const { registrations, refetch: refetchRegistrations } = useMyRegistrations();
 
@@ -45,31 +54,123 @@ const EventDetail = () => {
   const [registration, setRegistration] = useState<any>(null);
   const [form, setForm] = useState({ full_name: "", email: "", phone: "" });
 
+  // WebView Razorpay fallback state (for Expo Go)
+  const [razorpayWebViewVisible, setRazorpayWebViewVisible] = useState(false);
+  const [razorpayWebViewOptions, setRazorpayWebViewOptions] = useState<RazorpayCheckoutOptions | null>(null);
+
+  const completeRegistration = async (paymentPayload?: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }) => {
+    const result = await registerMutation.mutateAsync({
+      event_id: id!,
+      full_name: form.full_name,
+      email: form.email,
+      phone: form.phone || undefined,
+      ticket_count: 1,
+      payment: paymentPayload,
+    });
+    console.log('[EventDetail.completeRegistration] SUCCESS — regId:', result.id, 'qr:', result.qr_code, 'paymentStatus:', result.payment_status);
+    setRegistration(result);
+    toast.success("Registration successful! Your QR pass is ready");
+  };
+
   const handleRegister = async () => {
+    console.log('[EventDetail.handleRegister] starting — user:', user?.id, 'eventId:', id, 'form:', form.full_name, form.email);
     if (!user) {
+      console.log('[EventDetail.handleRegister] no user — redirecting to Auth');
       toast.error("Please sign in to register");
       navigation.navigate("Auth");
       return;
     }
     if (!form.full_name || !form.email) {
+      console.log('[EventDetail.handleRegister] validation failed — name:', form.full_name, 'email:', form.email);
       toast.error("Please fill in your name and email");
       return;
     }
+
+    const ticketCount = 1;
+    const isPaid = !!event?.ticket_price && event.ticket_price > 0;
+    console.log('[EventDetail.handleRegister] isPaid:', isPaid, 'ticketPrice:', event?.ticket_price);
+
     try {
-      const result = await registerMutation.mutateAsync({
-        event_id: id!,
-        full_name: form.full_name,
-        email: form.email,
-        phone: form.phone || undefined,
-      });
-      setRegistration(result);
-      toast.success("Registration successful! Your QR pass is ready");
+      let paymentPayload:
+        | {
+            razorpay_order_id: string;
+            razorpay_payment_id: string;
+            razorpay_signature: string;
+          }
+        | undefined;
+
+      if (isPaid) {
+        console.log('[EventDetail.handleRegister] creating payment intent...');
+        const intent = await paymentIntentMutation.mutateAsync({
+          event_id: id!,
+          ticket_count: ticketCount,
+        });
+        console.log('[EventDetail.handleRegister] got intent — orderId:', intent.order_id, 'amount:', intent.amount, intent.currency);
+
+        const checkoutOptions: RazorpayCheckoutOptions = {
+          key: intent.key_id,
+          amount: intent.amount,
+          currency: intent.currency,
+          order_id: intent.order_id,
+          name: event?.title || "Event Ticket",
+          description: `Ticket for ${intent.event_title}`,
+          prefill: {
+            name: form.full_name,
+            email: form.email,
+            contact: form.phone || undefined,
+          },
+          theme: { color: "#2563eb" },
+        };
+
+        if (isNativeRazorpayAvailable()) {
+          console.log('[EventDetail.handleRegister] trying native Razorpay SDK...');
+          try {
+            const checkoutResult = await openRazorpayCheckout(checkoutOptions);
+            console.log('[EventDetail.handleRegister] Razorpay result — order:', checkoutResult.razorpay_order_id, 'payment:', checkoutResult.razorpay_payment_id);
+            paymentPayload = checkoutResult;
+          } catch (nativeErr: any) {
+            // Native SDK resolved but bridge is null (Expo Go) — fall back to WebView
+            if (/null|undefined|not a function/i.test(nativeErr?.message || '')) {
+              console.log('[EventDetail.handleRegister] native SDK bridge failed, falling back to WebView');
+              setRazorpayWebViewOptions(checkoutOptions);
+              setRazorpayWebViewVisible(true);
+              return;
+            }
+            throw nativeErr; // re-throw real errors (user cancelled, etc.)
+          }
+        } else {
+          // Expo Go fallback — show WebView checkout
+          console.log('[EventDetail.handleRegister] native SDK unavailable, using WebView fallback');
+          setRazorpayWebViewOptions(checkoutOptions);
+          setRazorpayWebViewVisible(true);
+          return; // WebView callbacks will handle completeRegistration
+        }
+      }
+
+      await completeRegistration(paymentPayload);
     } catch (err: any) {
+      console.log('[EventDetail.handleRegister] ERROR:', err?.status, err?.data?.error || err?.message, JSON.stringify(err));
+      if (err?.code === 0 || /cancelled|canceled/i.test(err?.description || err?.message || "")) {
+        console.log('[EventDetail.handleRegister] payment cancelled by user');
+        toast.error("Payment cancelled");
+        return;
+      }
+
       // Handle 409 — already registered
       if (err?.status === 409 || err?.data?.error === "Already registered") {
         toast.error("You are already registered for this event");
         return;
       }
+
+      if (/Razorpay checkout module is not available/i.test(err?.message || "")) {
+        toast.error("Payment is unavailable on this build. Please use a native build with Razorpay enabled.");
+        return;
+      }
+
       toast.error(err?.data?.error || err?.message || "Registration failed");
     }
   };
@@ -145,6 +246,15 @@ const EventDetail = () => {
                   {registration.qr_code}
                 </Text>
               </View>
+              {registration.payment_status === 'paid' && (
+                <View className="flex-row items-center justify-center gap-2 bg-success/10 rounded-lg px-3 py-2">
+                  <CheckCircle size={14} color="#16a34a" />
+                  <Text className="text-sm font-semibold text-success">Payment Confirmed</Text>
+                  {registration.amount_paid != null && (
+                    <Text className="text-sm text-success">— ₹{registration.amount_paid}</Text>
+                  )}
+                </View>
+              )}
               <View className="gap-2 rounded-xl bg-muted p-4">
                 <View className="flex-row items-center gap-2">
                   <Calendar size={14} color="#6a7181" />
@@ -281,7 +391,7 @@ const EventDetail = () => {
                   <Text className="text-xs text-muted-foreground mt-1">Ticket Price</Text>
                 </View>
                 <Text className="text-xs text-muted-foreground text-center">
-                  Payment will be collected at the venue. By proceeding, you confirm your intent to attend.
+                  You'll complete a secure online payment via Razorpay after filling in your details.
                 </Text>
                 <Button className="w-full" size="lg" onPress={handleConfirmPaid}>
                   Proceed to Register
@@ -305,7 +415,7 @@ const EventDetail = () => {
                   <View className="flex-row items-center gap-2 bg-primary/5 rounded-lg px-3 py-2">
                     <Text className="text-xs text-muted-foreground">Ticket:</Text>
                     <Text className="text-sm font-bold text-primary">₹{event.ticket_price}</Text>
-                    <Text className="text-xs text-muted-foreground">(pay at venue)</Text>
+                    <Text className="text-xs text-muted-foreground">(secure online checkout)</Text>
                   </View>
                 )}
                 <View className="gap-2">
@@ -339,10 +449,12 @@ const EventDetail = () => {
                   className="w-full"
                   size="lg"
                   onPress={handleRegister}
-                  disabled={registerMutation.isPending}
+                  disabled={registerMutation.isPending || paymentIntentMutation.isPending}
                 >
-                  {registerMutation.isPending
-                    ? "Registering..."
+                  {registerMutation.isPending || paymentIntentMutation.isPending
+                    ? isFree
+                      ? "Registering..."
+                      : "Processing Payment..."
                     : isFree
                     ? "Confirm Registration"
                     : `Confirm & Register — ₹${event.ticket_price}`}
@@ -352,6 +464,37 @@ const EventDetail = () => {
           </CardContent>
         </Card>
       </ScrollView>
+
+      {/* Razorpay WebView fallback for Expo Go */}
+      {razorpayWebViewVisible && razorpayWebViewOptions && (
+        <RazorpayWebView
+          visible={razorpayWebViewVisible}
+          options={razorpayWebViewOptions}
+          onSuccess={async (data) => {
+            console.log('[EventDetail.RazorpayWebView] onSuccess — order:', data.razorpay_order_id, 'payment:', data.razorpay_payment_id);
+            setRazorpayWebViewVisible(false);
+            setRazorpayWebViewOptions(null);
+            try {
+              await completeRegistration(data);
+            } catch (err: any) {
+              console.log('[EventDetail.RazorpayWebView] registration error:', err?.data?.error || err?.message);
+              toast.error(err?.data?.error || err?.message || "Registration failed after payment");
+            }
+          }}
+          onCancel={() => {
+            console.log('[EventDetail.RazorpayWebView] cancelled');
+            setRazorpayWebViewVisible(false);
+            setRazorpayWebViewOptions(null);
+            toast.error("Payment cancelled");
+          }}
+          onError={(msg) => {
+            console.log('[EventDetail.RazorpayWebView] error:', msg);
+            setRazorpayWebViewVisible(false);
+            setRazorpayWebViewOptions(null);
+            toast.error(msg || "Payment failed");
+          }}
+        />
+      )}
     </View>
   );
 };

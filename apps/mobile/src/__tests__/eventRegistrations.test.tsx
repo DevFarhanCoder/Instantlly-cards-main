@@ -119,4 +119,38 @@ describe('EventRegistrations', () => {
     expect(getByText('100')).toBeTruthy();
     expect(getByText('Max Capacity')).toBeTruthy();
   });
+
+  it('shows Paid badge for paid registrations', () => {
+    mockRegistrations = [
+      {
+        id: 1,
+        event_id: 3,
+        user_id: 10,
+        ticket_count: 1,
+        payment_status: 'paid',
+        amount_paid: 299,
+        registered_at: '2026-03-30T10:00:00Z',
+        user: { id: 10, name: 'Alice', phone: '+91 111', profile_picture: null },
+      },
+    ];
+    const { getByText } = renderScreen();
+    expect(getByText('Paid')).toBeTruthy();
+    expect(getByText('₹299')).toBeTruthy();
+  });
+
+  it('does not show payment badge for free event registrations', () => {
+    mockRegistrations = [
+      {
+        id: 1,
+        event_id: 3,
+        user_id: 10,
+        ticket_count: 1,
+        payment_status: 'not_required',
+        registered_at: '2026-03-30T10:00:00Z',
+        user: { id: 10, name: 'Bob', phone: '+91 222', profile_picture: null },
+      },
+    ];
+    const { queryByText } = renderScreen();
+    expect(queryByText('Paid')).toBeNull();
+  });
 });

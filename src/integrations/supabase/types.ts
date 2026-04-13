@@ -945,36 +945,57 @@ export type Database = {
       }
       event_registrations: {
         Row: {
+          amount_paid: number | null
           created_at: string
           email: string
           event_id: string
           full_name: string
           id: string
           is_verified: boolean | null
+          payment_id: string | null
+          payment_order_id: string | null
+          payment_signature: string | null
+          payment_status: string
           phone: string | null
           qr_code: string
+          ticket_count: number
+          user_id: string | null
           verified_at: string | null
         }
         Insert: {
+          amount_paid?: number | null
           created_at?: string
           email: string
           event_id: string
           full_name: string
           id?: string
           is_verified?: boolean | null
+          payment_id?: string | null
+          payment_order_id?: string | null
+          payment_signature?: string | null
+          payment_status?: string
           phone?: string | null
           qr_code: string
+          ticket_count?: number
+          user_id?: string | null
           verified_at?: string | null
         }
         Update: {
+          amount_paid?: number | null
           created_at?: string
           email?: string
           event_id?: string
           full_name?: string
           id?: string
           is_verified?: boolean | null
+          payment_id?: string | null
+          payment_order_id?: string | null
+          payment_signature?: string | null
+          payment_status?: string
           phone?: string | null
           qr_code?: string
+          ticket_count?: number
+          user_id?: string | null
           verified_at?: string | null
         }
         Relationships: [
