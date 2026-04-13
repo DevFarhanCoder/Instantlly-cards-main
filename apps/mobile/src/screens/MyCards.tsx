@@ -9,7 +9,7 @@ import {
   View,
   Linking,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import {
   Calendar,
   Edit,
@@ -42,6 +42,8 @@ import { toast } from "../lib/toast";
 
 const MyCards = () => {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const plan = route.params?.plan;
   const { user } = useAuth();
   const { cards, isLoading, deleteCard, refetch: refetchCards } = useBusinessCards() as any;
   const { data: directoryCards = [], isLoading: isFetchingNetwork, refetch: refetchDirectory } = useDirectoryCards();
@@ -298,7 +300,7 @@ const MyCards = () => {
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center justify-between">
         <Text className="text-xl font-bold text-foreground">My Business Cards</Text>
         <Pressable
-          onPress={() => navigation.navigate("CardCreate")}
+          onPress={() => navigation.navigate("CardCreate", plan ? { plan, skipPreview: true } : { skipPreview: true })}
           className="h-10 w-10 items-center justify-center rounded-full bg-primary"
         >
           <Plus size={18} color="#ffffff" />
@@ -329,7 +331,7 @@ const MyCards = () => {
               </Text>
               <Button
                 className="mt-6 rounded-xl"
-                onPress={() => navigation.navigate("CardCreate")}
+                onPress={() => navigation.navigate("CardCreate", plan ? { plan, skipPreview: true } : { skipPreview: true })}
               >
                 <Plus size={14} color="#ffffff" />
                 <Text className="text-sm font-medium text-primary-foreground">Create Card</Text>

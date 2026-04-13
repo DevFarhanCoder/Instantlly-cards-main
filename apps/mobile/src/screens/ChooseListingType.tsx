@@ -12,6 +12,8 @@ import {
 } from "lucide-react-native";
 import { cn } from "../lib/utils";
 import { colors } from "../theme/colors";
+import { useAuth } from "../hooks/useAuth";
+import { toast } from "../lib/toast";
 
 const listingPlans = [
   {
@@ -60,9 +62,22 @@ const trustPoints = [
 const ChooseListingType = () => {
   const navigation = useNavigation<any>();
   const [selected, setSelected] = useState<string | null>(null);
+  const { user } = useAuth();
 
-  const handleContinue = () => {
-    navigation.navigate("CardCreate", { plan: selected });
+  const handleContinue = (planId: string) => {
+    // Check if user is authenticated before proceeding
+    if (!user) {
+      toast.info("Please sign in to create your business listing");
+      // Navigate to Auth with redirect info
+      navigation.navigate("Auth", { 
+        redirect: "BusinessPromotionForm", 
+        redirectParams: { plan: planId } 
+      });
+      return;
+    }
+    
+    // User is authenticated, navigate to business promotion form
+    navigation.navigate("BusinessPromotionForm", { plan: planId });
   };
 
   return (
@@ -135,7 +150,7 @@ const ChooseListingType = () => {
               <Pressable
                 onPress={() => {
                   setSelected(plan.id);
-                  navigation.navigate("CardCreate", { plan: plan.id });
+                  handleContinue(plan.id);
                 }}
                 className={cn(
                   "mt-5 w-full flex-row items-center justify-center gap-2 rounded-xl border-2 py-5",
@@ -213,7 +228,7 @@ const ChooseListingType = () => {
         <View className="border-t border-border bg-card px-4 py-3">
           <Pressable
             className="w-full flex-row items-center justify-center gap-2 rounded-xl bg-primary py-6"
-            onPress={handleContinue}
+            onPress={() => handleContinue(selected)}
           >
             <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: "700" }}>
               Continue

@@ -1,7 +1,9 @@
 export type RootStackParamList = {
   Home: undefined;
   MyCards: undefined;
-  CardCreate: { cardId?: string; plan?: string } | undefined;
+  CardCreate: { cardId?: string; plan?: string; skipPreview?: boolean } | undefined;
+  BusinessPromotionForm: { plan?: string } | undefined;
+  PremiumPlanSelection: { formData?: any } | undefined;
   BusinessDetail: { id: string } | undefined;
   CategoryDetail: { id: string } | undefined;
   SubcategoryDetail: { subcategory: string; categoryName: string; categoryIcon: string } | undefined;
@@ -41,7 +43,7 @@ export type RootStackParamList = {
   Support: undefined;
   NearbyBusinesses: undefined;
   LoyaltyPoints: undefined;
-  Auth: undefined;
+  Auth: { redirect?: string; redirectParams?: any } | undefined;
   ForgotPasswordPhone: undefined;
   ForgotPasswordOTP: { phone: string } | undefined;
   ForgotPasswordReset: { phone: string; otp: string } | undefined;

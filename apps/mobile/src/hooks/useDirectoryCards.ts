@@ -191,9 +191,11 @@ export function useDirectoryCards(options?: { skip?: boolean }) {
 
 /** Parse a prefixed DirectoryCard ID: "promo-123" or "card-456" or bare "789" (legacy). */
 function parseDirectoryId(id: string): { source: 'promotion' | 'card' | 'unknown'; numericId: number } {
-  if (id.startsWith('promo-')) return { source: 'promotion', numericId: Number(id.slice(6)) };
-  if (id.startsWith('card-')) return { source: 'card', numericId: Number(id.slice(5)) };
-  return { source: 'unknown', numericId: Number(id) };
+  // Ensure id is a string
+  const idStr = String(id || '');
+  if (idStr.startsWith('promo-')) return { source: 'promotion', numericId: Number(idStr.slice(6)) };
+  if (idStr.startsWith('card-')) return { source: 'card', numericId: Number(idStr.slice(5)) };
+  return { source: 'unknown', numericId: Number(idStr) };
 }
 
 export function useDirectoryCard(id: string) {
