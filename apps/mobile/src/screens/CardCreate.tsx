@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import {
+  ArrowLeft,
   Building2,
   Camera,
   Check,
@@ -43,7 +44,7 @@ import { useGetCategoryTreeQuery } from "../store/api/categoriesApi";
 import type { CategoryTreeNode } from "../store/api/categoriesApi";
 import { useAuth } from "../hooks/useAuth";
 import { useBusinessCards } from "../hooks/useBusinessCards";
-import { useUploadImageMutation } from "../store/api/businessCardsApi";
+import { useUploadImageMutation, useGetMyCardsQuery } from "../store/api/businessCardsApi";
 import { toast } from "../lib/toast";
 import { cn } from "../lib/utils";
 import { colors } from "../theme/colors";
@@ -138,16 +139,37 @@ const CategoryPickerModal = ({
 }) => {
   const [search, setSearch] = useState("");
   const [path, setPath] = useState<CategoryTreeNode[]>([]);
+  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!visible) {
       setSearch("");
       setPath([]);
+      setSelectedSubcategories([]);
+      setExpandedItems(new Set());
+    } else {
+      // Parse existing selection when modal opens
+      if (selected && selected.includes(" > ")) {
+        const parts = selected.split(" > ");
+        if (parts.length === 2) {
+          const parentCategoryName = parts[0];
+          const subcategories = parts[1].includes(", ") ? parts[1].split(", ") : [parts[1]];
+          setSelectedSubcategories(subcategories);
+          
+          // Auto-navigate to parent category
+          const parentNode = tree.find(n => n.name === parentCategoryName);
+          if (parentNode) {
+            setPath([parentNode]);
+          }
+        }
+      }
     }
-  }, [visible]);
+  }, [visible, selected, tree]);
 
   const currentNodes = path.length > 0 ? path[path.length - 1].children : tree;
   const parentLabel = path.length > 0 ? path[path.length - 1].name : null;
+  const isSubcategoryView = path.length > 0;
 
   // Flatten tree for search
   const flattenTree = useCallback(
@@ -158,6 +180,67 @@ const CategoryPickerModal = ({
       ),
     []
   );
+
+  const toggleExpanded = (itemName: string) => {
+    setExpandedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemName)) {
+        newSet.delete(itemName);
+      } else {
+        newSet.add(itemName);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSubcategory = (name: string, hasChildren: boolean = false) => {
+    setSelectedSubcategories(prev => {
+      const isCurrentlySelected = prev.includes(name);
+      
+      // If selecting (not deselecting) and has children, auto-expand
+      if (!isCurrentlySelected && hasChildren) {
+        setExpandedItems(prevExpanded => {
+          const newSet = new Set(prevExpanded);
+          newSet.add(name);
+          return newSet;
+        });
+      }
+      
+      // If deselecting, collapse it
+      if (isCurrentlySelected && hasChildren) {
+        setExpandedItems(prevExpanded => {
+          const newSet = new Set(prevExpanded);
+          newSet.delete(name);
+          return newSet;
+        });
+      }
+      
+      return isCurrentlySelected 
+        ? prev.filter(s => s !== name)
+        : [...prev, name];
+    });
+  };
+
+  // Recursively build display items with nested children
+  const buildDisplayItems = useCallback((nodes: CategoryTreeNode[], level: number = 0): any[] => {
+    const items: any[] = [];
+    nodes.forEach((node) => {
+      items.push({
+        id: String(node.id),
+        name: node.name,
+        icon: node.icon,
+        hasChildren: node.children.length > 0,
+        node: node,
+        level: level,
+      });
+      
+      // If this item is expanded and has children, add them
+      if (expandedItems.has(node.name) && node.children.length > 0) {
+        items.push(...buildDisplayItems(node.children, level + 1));
+      }
+    });
+    return items;
+  }, [expandedItems]);
 
   const displayItems = useMemo(() => {
     if (search) {
@@ -171,25 +254,28 @@ const CategoryPickerModal = ({
             icon: n.icon,
             hasChildren: n.children.length > 0,
             node: n,
+            level: 0,
           }));
       }
       return fallback
         .filter((c) => c.name.toLowerCase().includes(q))
-        .map((c) => ({ id: c.id, name: c.name, icon: c.emoji, hasChildren: false, node: null as CategoryTreeNode | null }));
+        .map((c) => ({ id: c.id, name: c.name, icon: c.emoji, hasChildren: false, node: null as CategoryTreeNode | null, level: 0 }));
     }
     if (tree.length > 0) {
-      return currentNodes.map((n) => ({
-        id: String(n.id),
-        name: n.name,
-        icon: n.icon,
-        hasChildren: n.children.length > 0,
-        node: n,
-      }));
+      return buildDisplayItems(currentNodes);
     }
-    return fallback.map((c) => ({ id: c.id, name: c.name, icon: c.emoji, hasChildren: false, node: null as CategoryTreeNode | null }));
-  }, [search, tree, currentNodes, fallback, flattenTree]);
+    return fallback.map((c) => ({ id: c.id, name: c.name, icon: c.emoji, hasChildren: false, node: null as CategoryTreeNode | null, level: 0 }));
+  }, [search, tree, currentNodes, fallback, flattenTree, buildDisplayItems]);
 
   const goBack = () => setPath((p) => p.slice(0, -1));
+
+  const handleDone = () => {
+    if (selectedSubcategories.length > 0 && parentLabel) {
+      const categoryString = `${parentLabel} > ${selectedSubcategories.join(", ")}`;
+      onSelect(categoryString);
+    }
+    onClose();
+  };
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -197,14 +283,20 @@ const CategoryPickerModal = ({
         <Pressable style={s.catDropdown} onPress={(e) => e.stopPropagation()}>
           <View style={s.sheetHeader}>
             {path.length > 0 && !search ? (
-              <Pressable onPress={goBack} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <ChevronLeft size={18} color="#6b7280" />
-                <Text style={{ fontSize: 13, color: "#6b7280" }}>Back</Text>
+              <Pressable onPress={goBack} hitSlop={8} style={{ padding: 4 }}>
+                <ArrowLeft size={20} color="#6b7280" />
               </Pressable>
             ) : null}
-            <Text style={[s.sheetTitle, { flex: 1 }]}>
-              {parentLabel && !search ? parentLabel : "Select Category"}
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.sheetTitle}>
+                {parentLabel && !search ? parentLabel : "Select Category"}
+              </Text>
+              {isSubcategoryView && !search && (
+                <Text style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                  Select services • Children expand automatically
+                </Text>
+              )}
+            </View>
             <Pressable onPress={onClose} hitSlop={8}>
               <X size={20} color="#6b7280" />
             </Pressable>
@@ -234,28 +326,74 @@ const CategoryPickerModal = ({
           >
             {displayItems.map((item) => {
               const active = selected === item.name;
+              const isSelected = isSubcategoryView && selectedSubcategories.includes(item.name);
+              const isExpanded = expandedItems.has(item.name);
+              const showCheckbox = isSubcategoryView && !search;
+              const paddingLeft = 12 + (item.level * 20);
+              
               return (
-                <Pressable
-                  key={item.id}
-                  style={[s.pickItem, active && s.pickItemActive]}
-                  onPress={() => {
-                    if (item.hasChildren && item.node && !search) {
-                      setPath((p) => [...p, item.node!]);
-                    } else {
-                      onSelect(item.name);
-                      onClose();
-                    }
-                  }}
-                >
-                  <Text style={s.pickEmoji}>{item.icon || "\u{1F4C1}"}</Text>
-                  <Text style={[s.pickText, active && s.pickTextActive, { flex: 1 }]}>
-                    {item.name}
-                  </Text>
-                  {active && <Check size={18} color="#2563eb" />}
-                  {item.hasChildren && !search && (
-                    <ChevronRight size={16} color="#9ca3af" />
-                  )}
-                </Pressable>
+                <View key={item.id}>
+                  <Pressable
+                    style={[s.pickItem, (active || isSelected) && s.pickItemActive, { paddingLeft }]}
+                    onPress={() => {
+                      if (!isSubcategoryView && item.hasChildren && item.node && !search) {
+                        // Root level: Navigate into category
+                        setPath((p) => [...p, item.node!]);
+                        setSelectedSubcategories([]);
+                      } else if (isSubcategoryView && item.hasChildren && !search) {
+                        // Subcategory with children: Select and auto-expand
+                        toggleSubcategory(item.name, item.hasChildren);
+                      } else if (isSubcategoryView && !search) {
+                        // Leaf item: Toggle selection
+                        toggleSubcategory(item.name, item.hasChildren);
+                      } else {
+                        // Search result: Select and close
+                        onSelect(item.name);
+                        onClose();
+                      }
+                    }}
+                  >
+                    {showCheckbox && (
+                      <Pressable
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          toggleSubcategory(item.name, item.hasChildren);
+                        }}
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: 6,
+                          borderWidth: 2,
+                          borderColor: isSelected ? "#2563eb" : "#d1d5db",
+                          backgroundColor: isSelected ? "#dbeafe" : "transparent",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          marginRight: 10,
+                        }}
+                      >
+                        {isSelected && <Check size={16} color="#2563eb" />}
+                      </Pressable>
+                    )}
+                    {!showCheckbox && (
+                      <Text style={s.pickEmoji}>{item.icon || "\u{1F4C1}"}</Text>
+                    )}
+                    <Text style={[s.pickText, (active || isSelected) && s.pickTextActive, { flex: 1 }]}>
+                      {item.name}
+                    </Text>
+                    {isSubcategoryView && item.hasChildren && !search && (
+                      <View style={{ padding: 4 }}>
+                        {isExpanded ? (
+                          <ChevronDown size={18} color="#6b7280" />
+                        ) : (
+                          <ChevronRight size={16} color="#9ca3af" />
+                        )}
+                      </View>
+                    )}
+                    {!isSubcategoryView && item.hasChildren && !search && (
+                      <ChevronRight size={16} color="#9ca3af" />
+                    )}
+                  </Pressable>
+                </View>
               );
             })}
             {displayItems.length === 0 && (
@@ -264,6 +402,18 @@ const CategoryPickerModal = ({
               </View>
             )}
           </ScrollView>
+          {isSubcategoryView && selectedSubcategories.length > 0 && !search && (
+            <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: "#e5e7eb" }}>
+              <Button 
+                onPress={handleDone}
+                className="bg-primary rounded-xl py-3"
+              >
+                <Text style={{ color: "#ffffff", fontWeight: "600", fontSize: 16 }}>
+                  Done ({selectedSubcategories.length} selected)
+                </Text>
+              </Button>
+            </View>
+          )}
         </Pressable>
       </Pressable>
     </Modal>
@@ -330,10 +480,13 @@ const CardCreate = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const cardId = route?.params?.cardId as string | undefined;
+  const plan = route?.params?.plan as string | undefined;
+  const skipPreview = route?.params?.skipPreview as boolean | undefined;
   const { user } = useAuth();
   const { cards, createCard, updateCard } = useBusinessCards();
   const [uploadImage] = useUploadImageMutation();
   const { data: categoryTree = [] } = useGetCategoryTreeQuery();
+  const { data: myCards = [], isLoading: isLoadingMyCards } = useGetMyCardsQuery(undefined, { skip: !user });
   const categoryOptions = useMemo(() => {
     // Flatten the tree for display in the category trigger text
     const flatten = (nodes: CategoryTreeNode[]): Array<{ id: string; name: string; emoji: string }> =>
@@ -362,6 +515,7 @@ const CardCreate = () => {
   const [showWhatsappCountryPicker, setShowWhatsappCountryPicker] = useState(false);
   const [showCompanyPhoneCountryPicker, setShowCompanyPhoneCountryPicker] = useState(false);
   const isEdit = !!cardId;
+  const [showForm, setShowForm] = useState(false);
 
   const [form, setForm] = useState({
     fullName: "",
@@ -726,6 +880,111 @@ const CardCreate = () => {
     createCard.isPending || updateCard.isPending || uploading || !isValid;
 
   /* ── Render ── */
+  
+  // Show form if: editing, user explicitly clicked create, skip preview flag, or no existing cards
+  const shouldShowForm = isEdit || showForm || skipPreview || !myCards.length;
+
+  // Debug logging
+  useEffect(() => {
+    if (myCards.length > 0) {
+      console.log('[CardCreate] User ID:', user?.id);
+      console.log('[CardCreate] User Email:', user?.email);
+      console.log('[CardCreate] Found cards:', myCards.length);
+      console.log('[CardCreate] First card user_id:', myCards[0]?.user_id);
+      console.log('[CardCreate] All card user_ids:', myCards.map((c: any) => c.user_id));
+    }
+  }, [myCards, user]);
+
+  // If not showing form, show existing cards view
+  if (!shouldShowForm && !isEdit && user && !isLoadingMyCards && myCards.length > 0) {
+    return (
+      <View className="flex-1 bg-background">
+        {/* ── Simple Header ── */}
+        <View className="border-b border-border bg-card px-4 py-4">
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1">
+              <Text className="text-lg font-bold text-foreground">Your Business Cards</Text>
+              <Text className="text-xs text-muted-foreground">
+                {user?.email || 'User'} • {myCards.length} {myCards.length === 1 ? 'card' : 'cards'}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => navigation.goBack()}
+              className="h-8 w-8 items-center justify-center rounded-full bg-muted"
+            >
+              <X size={16} color="#111827" />
+            </Pressable>
+          </View>
+        </View>
+
+        <ScrollView 
+          className="flex-1"
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 }}
+        >
+          {/* Existing Cards */}
+          <View className="gap-3">
+            {myCards.map((card: any) => (
+              <Pressable
+                key={card.id}
+                onPress={() => navigation.navigate("BusinessDetail", { id: String(card.id) })}
+                className="rounded-2xl border border-border bg-card p-4"
+              >
+                <View className="flex-row items-start gap-3">
+                  <View className="h-14 w-14 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+                    {card.logo_url ? (
+                      <Image source={{ uri: card.logo_url }} className="h-full w-full" resizeMode="cover" />
+                    ) : (
+                      <Text className="text-2xl">🏢</Text>
+                    )}
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-base font-bold text-foreground">
+                      {card.full_name}
+                    </Text>
+                    {card.job_title && (
+                      <Text className="text-sm font-medium text-primary">{card.job_title}</Text>
+                    )}
+                    {card.company_name && (
+                      <Text className="text-sm text-muted-foreground">{card.company_name}</Text>
+                    )}
+                  </View>
+                </View>
+                {card.category && (
+                  <View className="mt-3">
+                    <Text className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+                      {card.category}
+                    </Text>
+                  </View>
+                )}
+                {card.offer && (
+                  <View className="mt-2 rounded-lg bg-accent px-3 py-2">
+                    <Text className="text-xs font-medium text-accent-foreground">
+                      🎁 {card.offer}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Create New Card Button */}
+          <View className="mt-6">
+            <Pressable
+              onPress={() => setShowForm(true)}
+              className="rounded-2xl bg-primary p-4 flex-row items-center justify-center gap-2"
+            >
+              <Plus size={20} color="#ffffff" />
+              <Text className="text-base font-bold text-primary-foreground">Create New Business Card</Text>
+            </Pressable>
+            <Text className="text-xs text-muted-foreground text-center mt-3">
+              Create additional business cards for different services or locations
+            </Text>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-background"
@@ -1278,17 +1537,33 @@ const CardCreate = () => {
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "space-between",
+                minHeight: 56,
               }}
             >
               <Text
+                numberOfLines={2}
                 style={{
-                  fontSize: 16,
+                  fontSize: 13,
+                  lineHeight: 18,
+                  flex: 1,
+                  marginRight: 8,
                   color: form.category ? colors.foreground : "#9ca3af",
                 }}
               >
-                {form.category
-                  ? `${categoryOptions.find((c) => c.name === form.category)?.emoji || "\u{1F4C1}"} ${form.category}`
-                  : "Select category"}
+                {(() => {
+                  if (!form.category) return "Select category";
+                  
+                  // Check if it's a multi-subcategory selection
+                  if (form.category.includes(" > ")) {
+                    const [parent, subs] = form.category.split(" > ");
+                    const parentEmoji = categoryOptions.find((c) => c.name === parent)?.emoji || "\u{1F4C1}";
+                    return `${parentEmoji} ${parent} > ${subs}`;
+                  }
+                  
+                  // Single category selection
+                  const emoji = categoryOptions.find((c) => c.name === form.category)?.emoji || "\u{1F4C1}";
+                  return `${emoji} ${form.category}`;
+                })()}
               </Text>
               <ChevronDown size={16} color="#6b7280" />
             </Pressable>

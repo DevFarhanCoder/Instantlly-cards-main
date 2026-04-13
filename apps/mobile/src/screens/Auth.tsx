@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View, ScrollView, Pressable, Text, Modal, StyleSheet, Image, KeyboardAvoidingView, Platform } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { Users, Store, Shield, ChevronDown, Eye, EyeOff } from "lucide-react-native";
 import * as SecureStore from "expo-secure-store";
 import { useAuth } from "../hooks/useAuth";
@@ -96,6 +96,10 @@ const DEMO_ACCOUNTS: Record<string, { phone: string; password: string }> = {
 };
 
 const Auth = ({ navigation }: Props) => {
+  const route = useRoute<any>();
+  const redirectScreen = route.params?.redirect;
+  const redirectParams = route.params?.redirectParams;
+  
   const dispatch = useAppDispatch();
   const [isSignUp, setIsSignUp] = useState(false);
   const [phone, setPhone] = useState("");
@@ -171,14 +175,19 @@ const Auth = ({ navigation }: Props) => {
           console.warn('[Auth Screen] signUp error:', error);
           toast.error(error);
         } else {
-          console.log('[Auth Screen] signUp success → navigating to Home');
+          console.log('[Auth Screen] signUp success → navigating');
           toast.success("Account created! Welcome to Instantlly.");
-          navigation.navigate("Home");
+          // Navigate to redirect screen if specified, otherwise Home
+          if (redirectScreen) {
+            navigation.navigate(redirectScreen, redirectParams);
+          } else {
+            navigation.navigate("Home");
+          }
         }
       } else {
         console.log('[Auth Screen] Calling signIn...');
-        const { error, user: freshUser, businessApprovalStatus } = await signIn(fullPhone, password);
-        console.log(`[Auth Screen] signIn result: error=${error}, user=${freshUser?.id}, roles=[${freshUser?.roles?.join(', ')}], approvalStatus=${businessApprovalStatus}`);
+        const { error, user: freshUser } = await signIn(fullPhone, password);
+        console.log(`[Auth Screen] signIn result: error=${error}, user=${freshUser?.id}, roles=[${freshUser?.roles?.join(', ')}]`);
         if (error) {
           console.warn('[Auth Screen] signIn error:', error);
           toast.error(error);
@@ -188,11 +197,12 @@ const Auth = ({ navigation }: Props) => {
           setLoginRoles(freshUser.roles);
           setShowRoleSelection(true);
         } else {
-          console.log('[Auth Screen] Single role login → navigating to Home');
-          navigation.navigate("Home");
-          // Show pending approval message after navigation
-          if (freshUser && !freshUser.roles.includes('business') && businessApprovalStatus === 'pending') {
-            toast.info("Your business card is pending admin approval.");
+          console.log('[Auth Screen] Single role login → navigating');
+          // Navigate to redirect screen if specified, otherwise Home
+          if (redirectScreen) {
+            navigation.navigate(redirectScreen, redirectParams);
+          } else {
+            navigation.navigate("Home");
           }
         }
       }
@@ -450,11 +460,16 @@ const Auth = ({ navigation }: Props) => {
               {loginRoles.includes('customer') && (
                 <Pressable
                   onPress={() => {
-                    console.log('[Auth Screen] Selected role: customer → navigating to MyPasses');
+                    console.log('[Auth Screen] Selected role: customer');
                     dispatch(setActiveRole('customer'));
                     SecureStore.setItemAsync('activeRole', 'customer');
                     setShowRoleSelection(false);
-                    navigation.navigate("MyPasses");
+                    // Navigate to redirect screen if specified, otherwise MyPasses
+                    if (redirectScreen) {
+                      navigation.navigate(redirectScreen, redirectParams);
+                    } else {
+                      navigation.navigate("MyPasses");
+                    }
                   }}
                   style={styles.roleSelectionButton}
                 >
@@ -467,11 +482,16 @@ const Auth = ({ navigation }: Props) => {
               {loginRoles.includes('business') && (
                 <Pressable
                   onPress={() => {
-                    console.log('[Auth Screen] Selected role: business → navigating to MyPasses');
+                    console.log('[Auth Screen] Selected role: business');
                     dispatch(setActiveRole('business'));
                     SecureStore.setItemAsync('activeRole', 'business');
                     setShowRoleSelection(false);
-                    navigation.navigate("MyPasses");
+                    // Navigate to redirect screen if specified, otherwise MyPasses
+                    if (redirectScreen) {
+                      navigation.navigate(redirectScreen, redirectParams);
+                    } else {
+                      navigation.navigate("MyPasses");
+                    }
                   }}
                   style={styles.roleSelectionButton}
                 >
@@ -484,10 +504,11 @@ const Auth = ({ navigation }: Props) => {
               {loginRoles.includes('admin') && (
                 <Pressable
                   onPress={() => {
-                    console.log('[Auth Screen] Selected role: admin → navigating to AdminDashboard');
+                    console.log('[Auth Screen] Selected role: admin');
                     dispatch(setActiveRole('admin'));
                     SecureStore.setItemAsync('activeRole', 'admin');
                     setShowRoleSelection(false);
+                    // Admin always goes to AdminDashboard regardless of redirect
                     navigation.navigate("AdminDashboard");
                   }}
                   style={styles.roleSelectionButton}

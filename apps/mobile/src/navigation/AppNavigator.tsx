@@ -36,6 +36,8 @@ import EventDetail from "../screens/EventDetail";
 import EventCreate from "../screens/EventCreate";
 import EventScanner from "../screens/EventScanner";
 import CardCreate from "../screens/CardCreate";
+import BusinessPromotionForm from "../screens/BusinessPromotionForm";
+import PremiumPlanSelection from "../screens/PremiumPlanSelection";
 import ChooseListingType from "../screens/ChooseListingType";
 import PublicCard from "../screens/PublicCard";
 import MyPasses from "../screens/MyPasses";
@@ -89,6 +91,8 @@ const plainPlaceholder = (title: string) => (props: any) => (
 const HomeScreen           = withLayout(Index);
 const MyCardsScreen        = withLayout(MyCards);
 const CardCreateScreen     = withLayout(CardCreate);
+const BusinessPromotionFormScreen = withLayout(BusinessPromotionForm);
+const PremiumPlanSelectionScreen = withLayout(PremiumPlanSelection);
 const BusinessDetailScreen = withLayout(BusinessDetail);
 const CategoryDetailScreen = withLayout(CategoryDetail);
 const SubcategoryDetailScreen = withLayout(SubcategoryDetail);
@@ -190,43 +194,45 @@ const AppNavigator = () => {
         <Stack.Screen name="AdminAdDetail" component={AdminAdDetailScreen} />
 
         {/* Other screens with default slide animation */}
-        <Stack.Screen name="CardCreate"        component={CardCreateScreen} />
-        <Stack.Screen name="BusinessDetail"    component={BusinessDetailScreen} />
-        <Stack.Screen name="CategoryDetail"    component={CategoryDetailScreen} />
+        <Stack.Screen name="CardCreate" component={CardCreateScreen} />
+        <Stack.Screen name="BusinessPromotionForm" component={BusinessPromotionFormScreen} />
+        <Stack.Screen name="PremiumPlanSelection" component={PremiumPlanSelectionScreen} />
+        <Stack.Screen name="BusinessDetail" component={BusinessDetailScreen} />
+        <Stack.Screen name="CategoryDetail" component={CategoryDetailScreen} />
         <Stack.Screen name="SubcategoryDetail" component={SubcategoryDetailScreen} />
-        <Stack.Screen name="Messaging"         component={MessagingScreen} />
-        <Stack.Screen name="VoucherDetail"     component={VoucherDetailScreen} />
-        <Stack.Screen name="MyVouchers"        component={MyVouchersScreen} />
-        <Stack.Screen name="AdCreate"          component={AdCreateScreen} />
-        <Stack.Screen name="AdDashboard"       component={AdDashboardScreen} />
-        <Stack.Screen name="EventDetail"       component={EventDetailScreen} />
-        <Stack.Screen name="EventScanner"      component={EventScannerScreen} />
-        <Stack.Screen name="EventCreate"       component={EventCreateScreen} />
-        <Stack.Screen name="VoucherCreate"     component={VoucherCreateScreen} />
-        <Stack.Screen name="PublicCard"        component={PublicCardScreen} />
-        <Stack.Screen name="MyPasses"          component={MyPassesScreen} />
-        <Stack.Screen name="Profile"           component={ProfileScreen} />
+        <Stack.Screen name="Messaging" component={MessagingScreen} />
+        <Stack.Screen name="VoucherDetail" component={VoucherDetailScreen} />
+        <Stack.Screen name="MyVouchers" component={MyVouchersScreen} />
+        <Stack.Screen name="AdCreate" component={AdCreateScreen} />
+        <Stack.Screen name="AdDashboard" component={AdDashboardScreen} />
+        <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+        <Stack.Screen name="EventScanner" component={EventScannerScreen} />
+        <Stack.Screen name="EventCreate" component={EventCreateScreen} />
+        <Stack.Screen name="VoucherCreate" component={VoucherCreateScreen} />
+        <Stack.Screen name="PublicCard" component={PublicCardScreen} />
+        <Stack.Screen name="MyPasses" component={MyPassesScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="ChooseListingType" component={ChooseListingScreen} />
-        <Stack.Screen name="Subscription"      component={SubscriptionScreen} />
-        <Stack.Screen name="Notifications"     component={NotificationsScreen} />
-        <Stack.Screen name="EditProfile"       component={EditProfileScreen} />
-        <Stack.Screen name="PaymentMethods"    component={PaymentMethodsScreen} />
-        <Stack.Screen name="PrivacySecurity"   component={PrivacySecurityScreen} />
-        <Stack.Screen name="ReferAndEarn"      component={ReferAndEarnScreen} />
-        <Stack.Screen name="MyFavourites"      component={MyFavouritesScreen} />
-        <Stack.Screen name="TrackBooking"      component={TrackBookingScreen} />
-        <Stack.Screen name="BookingDetail"     component={BookingDetailScreen} />
-        <Stack.Screen name="EventEdit"         component={EventEditScreen} />
+        <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
+        <Stack.Screen name="PrivacySecurity" component={PrivacySecurityScreen} />
+        <Stack.Screen name="ReferAndEarn" component={ReferAndEarnScreen} />
+        <Stack.Screen name="MyFavourites" component={MyFavouritesScreen} />
+        <Stack.Screen name="TrackBooking" component={TrackBookingScreen} />
+        <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
+        <Stack.Screen name="EventEdit" component={EventEditScreen} />
         <Stack.Screen name="EventRegistrations" component={EventRegistrationsScreen} />
-        <Stack.Screen name="PassDetail"        component={PassDetailScreen} />
-        <Stack.Screen name="Support"           component={SupportScreen} />
-        <Stack.Screen name="NearbyBusinesses"  component={NearbyBusinessesScreen} />
-        <Stack.Screen name="LoyaltyPoints"     component={LoyaltyPointsScreen} />
-        <Stack.Screen name="Auth"              component={Auth} />
+        <Stack.Screen name="PassDetail" component={PassDetailScreen} />
+        <Stack.Screen name="Support" component={SupportScreen} />
+        <Stack.Screen name="NearbyBusinesses" component={NearbyBusinessesScreen} />
+        <Stack.Screen name="LoyaltyPoints" component={LoyaltyPointsScreen} />
+        <Stack.Screen name="Auth" component={Auth} />
         <Stack.Screen name="ForgotPasswordPhone" component={ForgotPasswordPhone} />
         <Stack.Screen name="ForgotPasswordOTP" component={ForgotPasswordOTP} />
         <Stack.Screen name="ForgotPasswordReset" component={ForgotPasswordReset} />
-        <Stack.Screen name="NotFound"          component={NotFoundScreen} />
+        <Stack.Screen name="NotFound" component={NotFoundScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

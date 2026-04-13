@@ -240,10 +240,6 @@ const BannerAdSlot = ({ variant = "inline", adType }: BannerAdSlotProps) => {
           resizeMode="cover"
           onError={() => {}}
         />
-        {/* Overlay with "Tap to know more" */}
-        <View style={styles.overlay}>
-          <Text style={styles.overlayText}>Tap to know more</Text>
-        </View>
       </View>
     );
   };
@@ -418,21 +414,6 @@ const styles = StyleSheet.create({
   media: {
     width: "100%",
     height: "100%",
-  },
-  overlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    alignItems: "center",
-  },
-  overlayText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600",
   },
 
   /* No-image fallback for bottom */
