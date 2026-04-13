@@ -580,21 +580,22 @@ const CardCreate = () => {
     }
     toast.success("Detecting location...");
     const pos = await Location.getCurrentPositionAsync({});
-    const places = await Location.reverseGeocodeAsync({
-      latitude: pos.coords.latitude,
-      longitude: pos.coords.longitude,
-    });
-    const addr = places[0];
-    const city = addr?.city || (addr as any)?.district || addr?.subregion || addr?.region;
-    const loc = [
-      (addr as any)?.neighborhood || addr?.name,
-      city,
-      city !== addr?.region ? addr?.region : null,
-      addr?.country,
-    ]
-      .filter(Boolean)
-      .join(", ");
-    updateField("location", loc);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json&accept-language=en`,
+        { headers: { "User-Agent": "InstantllyCards/1.0" } }
+      );
+      const data = await res.json();
+      const a = data.address || {};
+      const area = a.suburb || a.neighbourhood || a.quarter || a.village || a.hamlet || null;
+      const city = a.city || a.town || a.county || a.state_district || a.state;
+      const loc = [area, city, city !== a.state ? a.state : null, a.country]
+        .filter(Boolean)
+        .join(", ");
+      updateField("location", loc);
+    } catch {
+      toast.error("Could not resolve address");
+    }
     updateField(
       "mapsLink",
       `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`
@@ -609,24 +610,29 @@ const CardCreate = () => {
     }
     toast.success("Detecting location...");
     const pos = await Location.getCurrentPositionAsync({});
-    const places = await Location.reverseGeocodeAsync({
-      latitude: pos.coords.latitude,
-      longitude: pos.coords.longitude,
-    });
-    const addr = places[0];
-    const city = addr?.city || (addr as any)?.district || addr?.subregion || addr?.region;
-    const loc = [
-      addr?.name,
-      addr?.street,
-      (addr as any)?.neighborhood,
-      city,
-      city !== addr?.region ? addr?.region : null,
-      addr?.postalCode,
-      addr?.country,
-    ]
-      .filter(Boolean)
-      .join(", ");
-    updateField("companyAddress", loc);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json&accept-language=en`,
+        { headers: { "User-Agent": "InstantllyCards/1.0" } }
+      );
+      const data = await res.json();
+      const a = data.address || {};
+      const area = a.suburb || a.neighbourhood || a.quarter || null;
+      const city = a.city || a.town || a.county || a.state_district || a.state;
+      const loc = [
+        a.house_number ? `${a.house_number} ${a.road || ""}`.trim() : a.road || null,
+        area,
+        city,
+        city !== a.state ? a.state : null,
+        a.postcode || null,
+        a.country,
+      ]
+        .filter(Boolean)
+        .join(", ");
+      updateField("companyAddress", loc);
+    } catch {
+      toast.error("Could not resolve address");
+    }
     updateField(
       "companyMapsLink",
       `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`

@@ -319,13 +319,13 @@ const CategoryDetail = () => {
                     <Text className="text-xl">{sub.icon || getSubcategoryIcon(sub.name)}</Text>
                   </View>
                   <Text
-                    className="text-[8px] text-center text-gray-800"
+                    className="text-[11px] text-center text-gray-800 font-medium"
                     numberOfLines={2}
                   >
                     {sub.name}
                   </Text>
                   {sub.child_count > 0 && (
-                    <Text className="text-[7px] text-gray-400 mt-0.5">{sub.child_count} sub</Text>
+                    <Text className="text-[9px] text-gray-400 mt-0.5">{sub.child_count} sub</Text>
                   )}
                 </Pressable>
               );

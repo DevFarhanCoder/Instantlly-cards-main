@@ -320,45 +320,95 @@ const BusinessDetail = () => {
             )}
             {card.location && <Text className="text-sm text-foreground">📍 {card.location}</Text>}
             {card.website && <Text className="text-sm text-foreground">🌐 {card.website}</Text>}
-            {card.business_hours && (() => {
-              let parsed: any = card.business_hours;
-              if (typeof parsed === "string") {
-                try { parsed = JSON.parse(parsed); } catch { /* keep as string */ }
-              }
-              if (typeof parsed === "string") {
-                return <Text className="text-sm text-foreground">🕒 {parsed}</Text>;
-              }
-              if (typeof parsed === "object" && parsed !== null) {
-                const dayOrder = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
-                const entries = Object.entries(parsed as Record<string, any>).sort(
-                  ([a], [b]) => dayOrder.indexOf(a.toLowerCase()) - dayOrder.indexOf(b.toLowerCase())
-                );
-                const formatHours = (val: any): string => {
-                  if (typeof val === "string") return val;
-                  if (typeof val === "object" && val !== null) {
-                    if (val.is_closed || val.closed) return "Closed";
-                    const open = val.open_time || val.open || "";
-                    const close = val.close_time || val.close || "";
-                    return open && close ? `${open} - ${close}` : "Hours not set";
-                  }
-                  return String(val);
-                };
-                return (
-                  <View className="gap-1.5">
-                    <Text className="text-sm font-medium text-foreground">🕒 Business Hours</Text>
-                    {entries.map(([day, hours]) => (
-                      <View key={day} className="flex-row justify-between pl-6 pr-2">
-                        <Text className="text-xs text-muted-foreground capitalize">{day}</Text>
-                        <Text className="text-xs text-foreground">{formatHours(hours)}</Text>
-                      </View>
-                    ))}
-                  </View>
-                );
-              }
-              return <Text className="text-sm text-foreground">🕒 {String(parsed)}</Text>;
-            })()}
           </View>
         </View>
+
+        {/* Business Hours Card */}
+        {card.business_hours && (() => {
+          const DAY_ORDER = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
+          const DAY_SHORT: Record<string, string> = {
+            monday:"Mon", tuesday:"Tue", wednesday:"Wed", thursday:"Thu",
+            friday:"Fri", saturday:"Sat", sunday:"Sun",
+          };
+          const todayKey = DAY_ORDER[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+
+          let parsed: any = card.business_hours;
+          if (typeof parsed === "string") {
+            try { parsed = JSON.parse(parsed); } catch { /* keep as string */ }
+          }
+
+          const formatHours = (val: any): { label: string; status: "open" | "closed" | "unset" } => {
+            if (typeof val === "string") {
+              if (val.toLowerCase() === "closed") return { label: "Closed", status: "closed" };
+              return { label: val, status: "open" };
+            }
+            if (typeof val === "object" && val !== null) {
+              if (val.is_closed || val.closed) return { label: "Closed", status: "closed" };
+              const open = val.open_time || val.open || "";
+              const close = val.close_time || val.close || "";
+              if (open && close) return { label: `${open} – ${close}`, status: "open" };
+            }
+            return { label: "—", status: "unset" };
+          };
+
+          if (typeof parsed === "string") {
+            return (
+              <View className="rounded-xl border border-border bg-card p-4 mt-4">
+                <Text className="text-sm font-semibold text-foreground mb-2">Business Hours</Text>
+                <Text className="text-sm text-foreground">{parsed}</Text>
+              </View>
+            );
+          }
+
+          if (typeof parsed === "object" && parsed !== null) {
+            const entries = Object.entries(parsed as Record<string, any>)
+              .sort(([a], [b]) => DAY_ORDER.indexOf(a.toLowerCase()) - DAY_ORDER.indexOf(b.toLowerCase()));
+
+            const allUnset = entries.every(([, v]) => formatHours(v).status === "unset");
+            if (allUnset) return null;
+
+            return (
+              <View className="rounded-xl border border-border bg-card overflow-hidden mt-4">
+                <View className="flex-row items-center gap-2 px-4 pt-4 pb-3 border-b border-border">
+                  <Text className="text-base">🕒</Text>
+                  <Text className="text-sm font-semibold text-foreground">Business Hours</Text>
+                </View>
+                <View className="px-4 py-2">
+                  {entries.map(([day, hours], i) => {
+                    const isToday = day.toLowerCase() === todayKey;
+                    const { label, status } = formatHours(hours);
+                    return (
+                      <View
+                        key={day}
+                        className={`flex-row items-center justify-between py-2.5 ${i < entries.length - 1 ? "border-b border-border/50" : ""}`}
+                        style={isToday ? { backgroundColor: "rgba(37,99,235,0.06)", borderRadius: 8, paddingHorizontal: 8, marginHorizontal: -8 } : {}}
+                      >
+                        <View className="flex-row items-center gap-2">
+                          <View
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: status === "open" ? "#22c55e" : status === "closed" ? "#ef4444" : "#d1d5db" }}
+                          />
+                          <Text
+                            className={`text-sm ${isToday ? "font-bold text-primary" : "font-medium text-foreground"}`}
+                          >
+                            {DAY_SHORT[day.toLowerCase()] ?? day}
+                            {isToday && <Text className="text-xs font-normal text-primary"> (Today)</Text>}
+                          </Text>
+                        </View>
+                        <Text
+                          className={`text-sm ${status === "open" ? "text-foreground" : status === "closed" ? "text-destructive" : "text-muted-foreground"}`}
+                        >
+                          {label}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          }
+          return null;
+        })()}
 
         {card.services && card.services.length > 0 && (
           <View className="gap-2 mt-4">
