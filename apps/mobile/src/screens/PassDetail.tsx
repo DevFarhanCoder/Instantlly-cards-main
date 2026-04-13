@@ -65,6 +65,16 @@ const PassDetail = () => {
               <Badge className="bg-success/10 text-success border-none">
                 Registered
               </Badge>
+              {pass.payment_status === 'paid' && (
+                <Badge className="bg-emerald-100 text-emerald-700 border-none font-bold">
+                  Paid{pass.amount_paid != null ? ` ₹${pass.amount_paid}` : ''}
+                </Badge>
+              )}
+              {pass.payment_status === 'not_required' && !isFree && (
+                <Badge className="bg-amber-100 text-amber-700 border-none">
+                  Unpaid
+                </Badge>
+              )}
               {!isFree && (
                 <Badge className="bg-accent/10 text-accent border-none font-bold">
                   ₹{event?.ticket_price}

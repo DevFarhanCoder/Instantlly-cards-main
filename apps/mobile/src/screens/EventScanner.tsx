@@ -170,22 +170,28 @@ const EventScanner = () => {
                   <View className="gap-1.5 rounded-lg bg-success/10 p-3">
                     <Text className="text-sm">
                       <Text className="font-medium">Name: </Text>
-                      {result.data.full_name}
+                      {result.data.user?.name || 'N/A'}
                     </Text>
-                    <Text className="text-sm">
-                      <Text className="font-medium">Email: </Text>
-                      {result.data.email}
-                    </Text>
-                    {result.data.phone && (
+                    {result.data.user?.phone && (
                       <Text className="text-sm">
                         <Text className="font-medium">Phone: </Text>
-                        {result.data.phone}
+                        {result.data.user.phone}
                       </Text>
                     )}
                     <Text className="text-sm">
                       <Text className="font-medium">Event: </Text>
-                      {result.data.events?.title}
+                      {result.data.event?.title}
                     </Text>
+                    <Text className="text-sm">
+                      <Text className="font-medium">Tickets: </Text>
+                      {result.data.ticket_count || 1}
+                    </Text>
+                    {result.data.payment_status && result.data.payment_status !== 'not_required' && (
+                      <Text className="text-sm">
+                        <Text className="font-medium">Payment: </Text>
+                        {result.data.payment_status === 'paid' ? `Paid${result.data.amount_paid != null ? ` ₹${result.data.amount_paid}` : ''}` : result.data.payment_status}
+                      </Text>
+                    )}
                   </View>
                 </CardContent>
               </Card>

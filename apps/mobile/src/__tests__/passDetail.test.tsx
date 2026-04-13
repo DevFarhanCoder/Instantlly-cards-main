@@ -144,4 +144,54 @@ describe('PassDetail', () => {
     const { getByText } = renderScreen();
     expect(getByText(/Registered on/)).toBeTruthy();
   });
+
+  it('shows Paid badge with amount for paid passes', () => {
+    mockRegistrations = [
+      {
+        id: 99,
+        event_id: 1,
+        user_id: 1,
+        ticket_count: 1,
+        qr_code: 'EVT-1-abc123def456',
+        payment_status: 'paid',
+        amount_paid: 500,
+        registered_at: '2026-04-01T10:00:00Z',
+        event: {
+          id: 1,
+          title: 'Paid Meetup',
+          date: '2026-04-15T00:00:00Z',
+          time: '10:00',
+          location: 'Bangalore',
+          ticket_price: 500,
+        },
+      },
+    ];
+    const { getAllByText } = renderScreen();
+    const paidElements = getAllByText(/Paid/);
+    expect(paidElements.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows Unpaid badge when payment_status is not_required but event is paid', () => {
+    mockRegistrations = [
+      {
+        id: 99,
+        event_id: 1,
+        user_id: 1,
+        ticket_count: 1,
+        qr_code: 'EVT-1-abc123def456',
+        payment_status: 'not_required',
+        registered_at: '2026-04-01T10:00:00Z',
+        event: {
+          id: 1,
+          title: 'Pending Pay Event',
+          date: '2026-04-15T00:00:00Z',
+          time: '10:00',
+          location: 'Bangalore',
+          ticket_price: 299,
+        },
+      },
+    ];
+    const { getByText } = renderScreen();
+    expect(getByText('Unpaid')).toBeTruthy();
+  });
 });

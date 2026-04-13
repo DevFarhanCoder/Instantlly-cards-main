@@ -89,6 +89,17 @@ const EventRegistrations = () => {
                   </Badge>
                 </View>
 
+                {reg.payment_status && reg.payment_status !== 'not_required' && (
+                  <View className="flex-row items-center gap-2 mt-1">
+                    <Badge className={reg.payment_status === 'paid' ? "bg-success/10 text-success border-none text-[10px]" : "bg-amber-100 text-amber-700 border-none text-[10px]"}>
+                      {reg.payment_status === 'paid' ? 'Paid' : reg.payment_status}
+                    </Badge>
+                    {reg.amount_paid != null && (
+                      <Text className="text-[11px] text-muted-foreground">₹{reg.amount_paid}</Text>
+                    )}
+                  </View>
+                )}
+
                 <View className="flex-row items-center justify-between mt-1">
                   <Text className="text-[11px] text-muted-foreground">
                     Registered {format(new Date(reg.registered_at), "MMM d, yyyy 'at' p")}

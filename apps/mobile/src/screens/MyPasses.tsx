@@ -88,7 +88,12 @@ const MyPasses = () => {
                   <View className="p-4 gap-2">
                     <View className="flex-row items-start justify-between">
                       <Text className="font-bold text-foreground flex-1 mr-2">{pass.event?.title}</Text>
-                      <Badge variant="secondary">Registered</Badge>
+                      <View className="flex-row items-center gap-1">
+                        {pass.payment_status === 'paid' && (
+                          <Badge className="bg-success/10 text-success border-success/30">Paid</Badge>
+                        )}
+                        <Badge variant="secondary">Registered</Badge>
+                      </View>
                     </View>
                     <View className="flex-row flex-wrap gap-3">
                       {pass.event?.date && (

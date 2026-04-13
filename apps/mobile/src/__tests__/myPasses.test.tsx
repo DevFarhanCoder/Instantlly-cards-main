@@ -200,4 +200,49 @@ describe('MyPasses', () => {
     expect(getByText('Event A')).toBeTruthy();
     expect(getByText('Event B')).toBeTruthy();
   });
+
+  it('shows Paid badge for passes with payment_status paid', () => {
+    mockPasses = [
+      {
+        id: 1,
+        event_id: 10,
+        qr_code: 'EVT-10-abc',
+        ticket_count: 1,
+        payment_status: 'paid',
+        amount_paid: 299,
+        registered_at: '2026-04-01T10:00:00Z',
+        event: {
+          title: 'Paid Event',
+          date: '2026-04-15T00:00:00Z',
+          time: '10:00',
+          location: 'Mumbai',
+        },
+      },
+    ];
+    const { getByText } = renderScreen();
+    expect(getByText('Paid')).toBeTruthy();
+    expect(getByText('Registered')).toBeTruthy();
+  });
+
+  it('does not show Paid badge for free event passes', () => {
+    mockPasses = [
+      {
+        id: 1,
+        event_id: 10,
+        qr_code: 'EVT-10-abc',
+        ticket_count: 1,
+        payment_status: 'not_required',
+        registered_at: '2026-04-01T10:00:00Z',
+        event: {
+          title: 'Free Event',
+          date: '2026-04-15T00:00:00Z',
+          time: '10:00',
+          location: 'Delhi',
+        },
+      },
+    ];
+    const { queryByText, getByText } = renderScreen();
+    expect(getByText('Registered')).toBeTruthy();
+    expect(queryByText('Paid')).toBeNull();
+  });
 });

@@ -3,8 +3,10 @@ import {
   useGetEventQuery,
   useListMyEventsQuery,
   useCreateEventMutation,
+  useCreateEventPaymentIntentMutation,
   useRegisterForEventMutation,
   useGetMyRegistrationsQuery,
+  useVerifyRegistrationMutation,
 } from '../store/api/eventsApi';
 import { useAuth } from './useAuth';
 
@@ -60,9 +62,18 @@ export function useRegisterForEvent() {
       email?: string;
       phone?: string;
       ticket_count?: number;
+      payment?: {
+        razorpay_order_id: string;
+        razorpay_payment_id: string;
+        razorpay_signature: string;
+      };
     }) => {
       const eventId = typeof input.event_id === 'string' ? parseInt(input.event_id, 10) : input.event_id;
-      const result = await trigger({ eventId, ticket_count: input.ticket_count }).unwrap();
+      const result = await trigger({
+        eventId,
+        ticket_count: input.ticket_count,
+        payment: input.payment,
+      }).unwrap();
       return result;
     },
     isPending: state.isLoading,
@@ -72,13 +83,25 @@ export function useRegisterForEvent() {
   };
 }
 
-export function useVerifyRegistration() {
-  // TODO: Add backend verify endpoint. For now, return a stub.
+export function useCreateEventPaymentIntent() {
+  const [trigger, state] = useCreateEventPaymentIntentMutation();
   return {
-    mutateAsync: async (_qr_code: string) => {
-      throw new Error('Verify endpoint not yet implemented on Express backend');
+    mutateAsync: (input: { event_id: string | number; ticket_count?: number }) => {
+      const eventId = typeof input.event_id === 'string' ? parseInt(input.event_id, 10) : input.event_id;
+      return trigger({ eventId, ticket_count: input.ticket_count }).unwrap();
     },
-    isPending: false,
+    isPending: state.isLoading,
+    isSuccess: state.isSuccess,
+    data: state.data,
+    error: state.error,
+  };
+}
+
+export function useVerifyRegistration() {
+  const [trigger, state] = useVerifyRegistrationMutation();
+  return {
+    mutateAsync: (qr_code: string) => trigger(qr_code).unwrap(),
+    isPending: state.isLoading,
   };
 }
 

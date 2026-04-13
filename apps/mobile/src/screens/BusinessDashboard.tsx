@@ -461,12 +461,17 @@ const BusinessDashboard = () => {
                       </Pressable>
                     </View>
                     <Pressable onPress={() => navigation.navigate("EventRegistrations", { id: e.id })}>
-                      <View className="flex-row items-center gap-2">
+                      <View className="flex-row items-center gap-2 flex-wrap">
                         <Text className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                           <Users size={12} color="#2563eb" /> {e._count?.registrations ?? regs.length} registrations
                         </Text>
                         {e.max_attendees && (
                           <Text className="text-[10px] text-muted-foreground">/ {e.max_attendees} max</Text>
+                        )}
+                        {e.ticket_price && e.ticket_price > 0 ? (
+                          <Text className="text-[10px] font-bold text-accent">₹{e.ticket_price}/ticket</Text>
+                        ) : (
+                          <Text className="text-[10px] font-bold text-success">FREE</Text>
                         )}
                       </View>
                     </Pressable>
