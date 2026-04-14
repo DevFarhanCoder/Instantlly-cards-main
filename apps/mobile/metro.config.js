@@ -13,7 +13,11 @@ config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
   "react-native-reanimated": path.resolve(
     __dirname,
-    "src/mocks/react-native-reanimated.js"
+    "src/mocks/react-native-reanimated.js",
+  ),
+  "react-native-razorpay": path.resolve(
+    __dirname,
+    "src/mocks/react-native-razorpay.js",
   ),
 };
 

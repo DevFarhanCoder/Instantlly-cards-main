@@ -29,17 +29,28 @@ import { cn } from "../lib/utils";
 const Events = () => {
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: events = [], isLoading, isFetching, refetch: refetchEvents } = useEvents();
+  const {
+    data: events = [],
+    isLoading,
+    isFetching,
+    refetch: refetchEvents,
+  } = useEvents();
   const { user } = useAuth();
   const { cards } = useBusinessCards();
-  const isBusiness = cards.length > 0;
+  const isBusiness =
+    (cards.length > 0 || user?.roles?.includes("business")) &&
+    !user?.roles?.every((r) => r === "customer");
   const { registrations } = useMyRegistrations();
   const passCount = registrations.length;
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    try { await refetchEvents(); } finally { setRefreshing(false); }
+    try {
+      await refetchEvents();
+    } finally {
+      setRefreshing(false);
+    }
   }, [refetchEvents]);
 
   const filteredEvents = useMemo(() => {
@@ -67,10 +78,15 @@ const Events = () => {
         </View>
 
         <View className="flex-row gap-2">
-          <Pressable onPress={() => navigation.navigate("MyPasses")} className="flex-1">
+          <Pressable
+            onPress={() => navigation.navigate("MyPasses")}
+            className="flex-1"
+          >
             <View className="relative bg-white rounded-lg p-2.5 flex-row items-center justify-center gap-1.5">
               <Ticket size={16} color="#2563eb" />
-              <Text className="text-sm font-semibold text-primary">My Passes</Text>
+              <Text className="text-sm font-semibold text-primary">
+                My Passes
+              </Text>
               {passCount > 0 && (
                 <View className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-destructive items-center justify-center px-1">
                   <Text className="text-[10px] font-bold text-destructive-foreground">
@@ -87,7 +103,9 @@ const Events = () => {
           >
             <View className="bg-white rounded-lg p-2.5 flex-row items-center justify-center gap-1.5">
               <Text className="text-base">📷</Text>
-              <Text className="text-sm font-semibold text-primary">Scan QR</Text>
+              <Text className="text-sm font-semibold text-primary">
+                Scan QR
+              </Text>
             </View>
           </Pressable>
 
@@ -98,16 +116,27 @@ const Events = () => {
             >
               <View className="bg-white rounded-lg p-2.5 flex-row items-center justify-center gap-1.5">
                 <Plus size={16} color="#2563eb" />
-                <Text className="text-sm font-semibold text-primary">Create</Text>
+                <Text className="text-sm font-semibold text-primary">
+                  Create
+                </Text>
               </View>
             </Pressable>
           )}
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4 gap-5" refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
-        }>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 16 }}
+        className="px-4 py-4 gap-5"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={["#2463eb"]}
+            tintColor="#2463eb"
+          />
+        }
+      >
         <View className="relative">
           <View className="absolute left-3 top-3.5">
             <Search size={16} color="#9aa2b1" />
@@ -143,8 +172,12 @@ const Events = () => {
                 ["50+", "Cities"],
               ].map(([val, lbl]) => (
                 <View key={lbl} className="flex-1 items-center">
-                  <Text className="text-xl font-bold text-primary-foreground">{val}</Text>
-                  <Text className="text-[11px] text-primary-foreground/80">{lbl}</Text>
+                  <Text className="text-xl font-bold text-primary-foreground">
+                    {val}
+                  </Text>
+                  <Text className="text-[11px] text-primary-foreground/80">
+                    {lbl}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -156,10 +189,13 @@ const Events = () => {
             All Upcoming Events 📅
           </Text>
 
-          {(isLoading || isFetching) ? (
+          {isLoading || isFetching ? (
             <View className="gap-3">
               {[1, 2, 3].map((i) => (
-                <View key={i} className="flex-row gap-3 bg-card rounded-xl overflow-hidden">
+                <View
+                  key={i}
+                  className="flex-row gap-3 bg-card rounded-xl overflow-hidden"
+                >
                   <Skeleton className="w-24 h-28" />
                   <View className="py-3 pr-3 gap-2 flex-1">
                     <Skeleton className="h-4 w-3/4" />
@@ -172,7 +208,9 @@ const Events = () => {
           ) : upcomingEvents.length === 0 ? (
             <View className="items-center justify-center py-16">
               <Text className="text-5xl mb-3">📭</Text>
-              <Text className="text-sm text-muted-foreground">No events found</Text>
+              <Text className="text-sm text-muted-foreground">
+                No events found
+              </Text>
             </View>
           ) : (
             <View className="gap-3">
@@ -208,13 +246,17 @@ const Events = () => {
                     <View className="flex-row items-center gap-1.5 mt-1">
                       <Calendar size={12} color="#6a7181" />
                       <Text className="text-[11px] text-muted-foreground">
-                        {new Date(event.date).toLocaleDateString()} • {event.time}
+                        {new Date(event.date).toLocaleDateString()} •{" "}
+                        {event.time}
                       </Text>
                     </View>
                     {event.location && (
                       <View className="flex-row items-center gap-1.5 mt-0.5">
                         <MapPin size={12} color="#6a7181" />
-                        <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>
+                        <Text
+                          className="text-[11px] text-muted-foreground"
+                          numberOfLines={1}
+                        >
                           {event.location}
                         </Text>
                       </View>
@@ -222,7 +264,10 @@ const Events = () => {
                     <View className="flex-row items-center gap-1 mt-0.5">
                       <Users size={12} color="#6a7181" />
                       <Text className="text-[11px] text-muted-foreground">
-                        {event._count?.registrations || event.attendee_count || 0} registered
+                        {event._count?.registrations ||
+                          event.attendee_count ||
+                          0}{" "}
+                        registered
                       </Text>
                     </View>
                   </View>
