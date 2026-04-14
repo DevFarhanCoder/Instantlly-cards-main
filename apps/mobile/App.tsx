@@ -16,7 +16,6 @@ import { SUPABASE_CONFIG_OK } from "./src/integrations/supabase/client";
 import React, { useEffect } from "react";
 import * as Location from "expo-location";
 import * as Contacts from "expo-contacts";
-import React from "react";
 import { useForceUpdate } from "./src/hooks/useForceUpdate";
 import ForceUpdateScreen from "./src/components/ForceUpdateScreen";
 
@@ -37,7 +36,6 @@ export default function App() {
     })();
   }, []);
 
-  if (!fontsLoaded) {
   const {
     checking,
     mustUpdate,
