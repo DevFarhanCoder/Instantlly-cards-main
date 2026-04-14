@@ -1,5 +1,11 @@
 import { useCallback, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { PageLoader } from "../components/ui/page-loader";
 import {
@@ -14,8 +20,6 @@ import QRCode from "react-native-qrcode-svg";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
 import { useAuth } from "../hooks/useAuth";
 import {
   useCreateEventPaymentIntent,
@@ -24,7 +28,10 @@ import {
   useRegisterForEvent,
 } from "../hooks/useEvents";
 import { toast } from "../lib/toast";
-import { openRazorpayCheckout, isNativeRazorpayAvailable } from "../lib/payments/razorpayCheckout";
+import {
+  openRazorpayCheckout,
+  isNativeRazorpayAvailable,
+} from "../lib/payments/razorpayCheckout";
 import type { RazorpayCheckoutOptions } from "../lib/payments/razorpayCheckout";
 import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
 
@@ -40,23 +47,26 @@ const EventDetail = () => {
 
   // Check if user already registered for this event
   const existingPass = registrations.find(
-    (r: any) => String(r.event_id) === String(id)
+    (r: any) => String(r.event_id) === String(id),
   );
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    try { await Promise.all([refetchEvent(), refetchRegistrations()]); } finally { setRefreshing(false); }
+    try {
+      await Promise.all([refetchEvent(), refetchRegistrations()]);
+    } finally {
+      setRefreshing(false);
+    }
   }, [refetchEvent, refetchRegistrations]);
 
-  const [showForm, setShowForm] = useState(false);
   const [showPriceConfirm, setShowPriceConfirm] = useState(false);
   const [registration, setRegistration] = useState<any>(null);
-  const [form, setForm] = useState({ full_name: "", email: "", phone: "" });
 
   // WebView Razorpay fallback state (for Expo Go)
   const [razorpayWebViewVisible, setRazorpayWebViewVisible] = useState(false);
-  const [razorpayWebViewOptions, setRazorpayWebViewOptions] = useState<RazorpayCheckoutOptions | null>(null);
+  const [razorpayWebViewOptions, setRazorpayWebViewOptions] =
+    useState<RazorpayCheckoutOptions | null>(null);
 
   const completeRegistration = async (paymentPayload?: {
     razorpay_order_id: string;
@@ -65,34 +75,43 @@ const EventDetail = () => {
   }) => {
     const result = await registerMutation.mutateAsync({
       event_id: id!,
-      full_name: form.full_name,
-      email: form.email,
-      phone: form.phone || undefined,
       ticket_count: 1,
       payment: paymentPayload,
     });
-    console.log('[EventDetail.completeRegistration] SUCCESS — regId:', result.id, 'qr:', result.qr_code, 'paymentStatus:', result.payment_status);
+    console.log(
+      "[EventDetail.completeRegistration] SUCCESS — regId:",
+      result.id,
+      "qr:",
+      result.qr_code,
+      "paymentStatus:",
+      result.payment_status,
+    );
     setRegistration(result);
     toast.success("Registration successful! Your QR pass is ready");
   };
 
   const handleRegister = async () => {
-    console.log('[EventDetail.handleRegister] starting — user:', user?.id, 'eventId:', id, 'form:', form.full_name, form.email);
+    console.log(
+      "[EventDetail.handleRegister] starting — user:",
+      user?.id,
+      "eventId:",
+      id,
+    );
     if (!user) {
-      console.log('[EventDetail.handleRegister] no user — redirecting to Auth');
+      console.log("[EventDetail.handleRegister] no user — redirecting to Auth");
       toast.error("Please sign in to register");
       navigation.navigate("Auth");
-      return;
-    }
-    if (!form.full_name || !form.email) {
-      console.log('[EventDetail.handleRegister] validation failed — name:', form.full_name, 'email:', form.email);
-      toast.error("Please fill in your name and email");
       return;
     }
 
     const ticketCount = 1;
     const isPaid = !!event?.ticket_price && event.ticket_price > 0;
-    console.log('[EventDetail.handleRegister] isPaid:', isPaid, 'ticketPrice:', event?.ticket_price);
+    console.log(
+      "[EventDetail.handleRegister] isPaid:",
+      isPaid,
+      "ticketPrice:",
+      event?.ticket_price,
+    );
 
     try {
       let paymentPayload:
@@ -104,12 +123,18 @@ const EventDetail = () => {
         | undefined;
 
       if (isPaid) {
-        console.log('[EventDetail.handleRegister] creating payment intent...');
+        console.log("[EventDetail.handleRegister] creating payment intent...");
         const intent = await paymentIntentMutation.mutateAsync({
           event_id: id!,
           ticket_count: ticketCount,
         });
-        console.log('[EventDetail.handleRegister] got intent — orderId:', intent.order_id, 'amount:', intent.amount, intent.currency);
+        console.log(
+          "[EventDetail.handleRegister] got intent — orderId:",
+          intent.order_id,
+          "amount:",
+          intent.amount,
+          intent.currency,
+        );
 
         const checkoutOptions: RazorpayCheckoutOptions = {
           key: intent.key_id,
@@ -119,23 +144,33 @@ const EventDetail = () => {
           name: event?.title || "Event Ticket",
           description: `Ticket for ${intent.event_title}`,
           prefill: {
-            name: form.full_name,
-            email: form.email,
-            contact: form.phone || undefined,
+            name: user?.name || undefined,
+            contact: user?.phone || undefined,
           },
           theme: { color: "#2563eb" },
         };
 
         if (isNativeRazorpayAvailable()) {
-          console.log('[EventDetail.handleRegister] trying native Razorpay SDK...');
+          console.log(
+            "[EventDetail.handleRegister] trying native Razorpay SDK...",
+          );
           try {
             const checkoutResult = await openRazorpayCheckout(checkoutOptions);
-            console.log('[EventDetail.handleRegister] Razorpay result — order:', checkoutResult.razorpay_order_id, 'payment:', checkoutResult.razorpay_payment_id);
+            console.log(
+              "[EventDetail.handleRegister] Razorpay result — order:",
+              checkoutResult.razorpay_order_id,
+              "payment:",
+              checkoutResult.razorpay_payment_id,
+            );
             paymentPayload = checkoutResult;
           } catch (nativeErr: any) {
             // Native SDK resolved but bridge is null (Expo Go) — fall back to WebView
-            if (/null|undefined|not a function/i.test(nativeErr?.message || '')) {
-              console.log('[EventDetail.handleRegister] native SDK bridge failed, falling back to WebView');
+            if (
+              /null|undefined|not a function/i.test(nativeErr?.message || "")
+            ) {
+              console.log(
+                "[EventDetail.handleRegister] native SDK bridge failed, falling back to WebView",
+              );
               setRazorpayWebViewOptions(checkoutOptions);
               setRazorpayWebViewVisible(true);
               return;
@@ -144,7 +179,9 @@ const EventDetail = () => {
           }
         } else {
           // Expo Go fallback — show WebView checkout
-          console.log('[EventDetail.handleRegister] native SDK unavailable, using WebView fallback');
+          console.log(
+            "[EventDetail.handleRegister] native SDK unavailable, using WebView fallback",
+          );
           setRazorpayWebViewOptions(checkoutOptions);
           setRazorpayWebViewVisible(true);
           return; // WebView callbacks will handle completeRegistration
@@ -153,9 +190,17 @@ const EventDetail = () => {
 
       await completeRegistration(paymentPayload);
     } catch (err: any) {
-      console.log('[EventDetail.handleRegister] ERROR:', err?.status, err?.data?.error || err?.message, JSON.stringify(err));
-      if (err?.code === 0 || /cancelled|canceled/i.test(err?.description || err?.message || "")) {
-        console.log('[EventDetail.handleRegister] payment cancelled by user');
+      console.log(
+        "[EventDetail.handleRegister] ERROR:",
+        err?.status,
+        err?.data?.error || err?.message,
+        JSON.stringify(err),
+      );
+      if (
+        err?.code === 0 ||
+        /cancelled|canceled/i.test(err?.description || err?.message || "")
+      ) {
+        console.log("[EventDetail.handleRegister] payment cancelled by user");
         toast.error("Payment cancelled");
         return;
       }
@@ -166,8 +211,12 @@ const EventDetail = () => {
         return;
       }
 
-      if (/Razorpay checkout module is not available/i.test(err?.message || "")) {
-        toast.error("Payment is unavailable on this build. Please use a native build with Razorpay enabled.");
+      if (
+        /Razorpay checkout module is not available/i.test(err?.message || "")
+      ) {
+        toast.error(
+          "Payment is unavailable on this build. Please use a native build with Razorpay enabled.",
+        );
         return;
       }
 
@@ -185,13 +234,13 @@ const EventDetail = () => {
     if (event && event.ticket_price && event.ticket_price > 0) {
       setShowPriceConfirm(true);
     } else {
-      setShowForm(true);
+      handleRegister();
     }
   };
 
   const handleConfirmPaid = () => {
     setShowPriceConfirm(false);
-    setShowForm(true);
+    handleRegister();
   };
 
   if (isLoading) {
@@ -220,10 +269,15 @@ const EventDetail = () => {
             className="flex-row items-center gap-2"
           >
             <ArrowLeft size={20} color="#ffffff" />
-            <Text className="font-medium text-primary-foreground">Back to Events</Text>
+            <Text className="font-medium text-primary-foreground">
+              Back to Events
+            </Text>
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-8">
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 16 }}
+          className="px-4 py-8"
+        >
           <Card className="overflow-hidden">
             <View className="bg-success/10 p-6 items-center">
               <Text className="text-5xl">🎉</Text>
@@ -241,17 +295,23 @@ const EventDetail = () => {
                 </View>
               </View>
               <View className="items-center">
-                <Text className="text-xs text-muted-foreground">Your QR Code</Text>
+                <Text className="text-xs text-muted-foreground">
+                  Your QR Code
+                </Text>
                 <Text className="text-sm font-mono font-medium text-foreground mt-1">
                   {registration.qr_code}
                 </Text>
               </View>
-              {registration.payment_status === 'paid' && (
+              {registration.payment_status === "paid" && (
                 <View className="flex-row items-center justify-center gap-2 bg-success/10 rounded-lg px-3 py-2">
                   <CheckCircle size={14} color="#16a34a" />
-                  <Text className="text-sm font-semibold text-success">Payment Confirmed</Text>
+                  <Text className="text-sm font-semibold text-success">
+                    Payment Confirmed
+                  </Text>
                   {registration.amount_paid != null && (
-                    <Text className="text-sm text-success">— ₹{registration.amount_paid}</Text>
+                    <Text className="text-sm text-success">
+                      — ₹{registration.amount_paid}
+                    </Text>
                   )}
                 </View>
               )}
@@ -265,7 +325,9 @@ const EventDetail = () => {
                 {event.location && (
                   <View className="flex-row items-center gap-2">
                     <MapPin size={14} color="#6a7181" />
-                    <Text className="text-sm text-muted-foreground">{event.location}</Text>
+                    <Text className="text-sm text-muted-foreground">
+                      {event.location}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -297,7 +359,18 @@ const EventDetail = () => {
         <Text className="text-7xl">🎉</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 -mt-6" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 16 }}
+        className="px-4 -mt-6"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={["#2463eb"]}
+            tintColor="#2463eb"
+          />
+        }
+      >
         <Card>
           <CardContent className="p-5 gap-4">
             <View>
@@ -312,11 +385,15 @@ const EventDetail = () => {
                   </Badge>
                 )}
               </View>
-              <Text className="text-xl font-bold text-foreground">{event.title}</Text>
+              <Text className="text-xl font-bold text-foreground">
+                {event.title}
+              </Text>
             </View>
 
             {event.description && (
-              <Text className="text-sm text-muted-foreground">{event.description}</Text>
+              <Text className="text-sm text-muted-foreground">
+                {event.description}
+              </Text>
             )}
 
             <View className="gap-2.5 rounded-xl bg-muted p-4">
@@ -333,20 +410,25 @@ const EventDetail = () => {
               {event.location && (
                 <View className="flex-row items-center gap-3">
                   <MapPin size={16} color="#2563eb" />
-                  <Text className="text-sm text-foreground">{event.location}</Text>
+                  <Text className="text-sm text-foreground">
+                    {event.location}
+                  </Text>
                 </View>
               )}
               {event.max_attendees && (
                 <View className="flex-row items-center gap-3">
                   <Users size={16} color="#2563eb" />
                   <Text className="text-sm text-foreground">
-                    {event.max_attendees} seats ({event.attendee_count || 0} registered)
+                    {event.max_attendees} seats ({event.attendee_count || 0}{" "}
+                    registered)
                   </Text>
                 </View>
               )}
               {event.business && (
                 <View className="flex-row items-center gap-3">
-                  <Text className="text-sm text-muted-foreground">Organized by</Text>
+                  <Text className="text-sm text-muted-foreground">
+                    Organized by
+                  </Text>
                   <Text className="text-sm font-medium text-foreground">
                     {event.business.company_name || event.business.full_name}
                   </Text>
@@ -360,7 +442,9 @@ const EventDetail = () => {
                 <View className="flex-row items-center gap-2 bg-success/10 rounded-xl p-4">
                   <CheckCircle size={20} color="#16a34a" />
                   <View className="flex-1">
-                    <Text className="text-sm font-bold text-success">Already Registered</Text>
+                    <Text className="text-sm font-bold text-success">
+                      Already Registered
+                    </Text>
                     <Text className="text-xs text-muted-foreground">
                       You have a pass for this event
                     </Text>
@@ -385,16 +469,47 @@ const EventDetail = () => {
             ) : showPriceConfirm ? (
               /* Price confirmation for paid events */
               <View className="gap-3 rounded-xl border border-border bg-card p-4">
-                <Text className="font-semibold text-foreground text-center">Confirm Registration</Text>
-                <View className="items-center py-3">
-                  <Text className="text-3xl font-bold text-primary">₹{event.ticket_price}</Text>
-                  <Text className="text-xs text-muted-foreground mt-1">Ticket Price</Text>
-                </View>
-                <Text className="text-xs text-muted-foreground text-center">
-                  You'll complete a secure online payment via Razorpay after filling in your details.
+                <Text className="font-semibold text-foreground text-center">
+                  Confirm Registration
                 </Text>
-                <Button className="w-full" size="lg" onPress={handleConfirmPaid}>
-                  Proceed to Register
+                <View className="items-center py-3">
+                  <Text className="text-3xl font-bold text-primary">
+                    ₹{event.ticket_price}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground mt-1">
+                    Ticket Price
+                  </Text>
+                </View>
+                {user && (
+                  <View className="bg-muted rounded-lg px-3 py-2 gap-1">
+                    <Text className="text-xs text-muted-foreground text-center">
+                      Registering as
+                    </Text>
+                    <Text className="text-sm font-semibold text-foreground text-center">
+                      {user.name}
+                    </Text>
+                    {user.phone && (
+                      <Text className="text-xs text-muted-foreground text-center">
+                        {user.phone}
+                      </Text>
+                    )}
+                  </View>
+                )}
+                <Text className="text-xs text-muted-foreground text-center">
+                  You'll be redirected to a secure Razorpay payment.
+                </Text>
+                <Button
+                  className="w-full"
+                  size="lg"
+                  onPress={handleConfirmPaid}
+                  disabled={
+                    registerMutation.isPending ||
+                    paymentIntentMutation.isPending
+                  }
+                >
+                  {registerMutation.isPending || paymentIntentMutation.isPending
+                    ? "Processing Payment..."
+                    : `Confirm & Pay — ₹${event.ticket_price}`}
                 </Button>
                 <Button
                   variant="outline"
@@ -404,62 +519,21 @@ const EventDetail = () => {
                   Cancel
                 </Button>
               </View>
-            ) : !showForm ? (
-              <Button className="w-full" size="lg" onPress={handleRegisterPress}>
-                {isFree ? "Register Now →" : `Register — ₹${event.ticket_price}`}
-              </Button>
             ) : (
-              <View className="gap-3">
-                <Text className="font-semibold text-foreground">Registration Details</Text>
-                {!isFree && (
-                  <View className="flex-row items-center gap-2 bg-primary/5 rounded-lg px-3 py-2">
-                    <Text className="text-xs text-muted-foreground">Ticket:</Text>
-                    <Text className="text-sm font-bold text-primary">₹{event.ticket_price}</Text>
-                    <Text className="text-xs text-muted-foreground">(secure online checkout)</Text>
-                  </View>
-                )}
-                <View className="gap-2">
-                  <Label>Full Name *</Label>
-                  <Input
-                    placeholder="Enter your full name"
-                    value={form.full_name}
-                    onChangeText={(v) => setForm({ ...form, full_name: v })}
-                  />
-                </View>
-                <View className="gap-2">
-                  <Label>Email *</Label>
-                  <Input
-                    placeholder="your@email.com"
-                    value={form.email}
-                    onChangeText={(v) => setForm({ ...form, email: v })}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                </View>
-                <View className="gap-2">
-                  <Label>Phone (Optional)</Label>
-                  <Input
-                    placeholder="+91 98765 43210"
-                    value={form.phone}
-                    onChangeText={(v) => setForm({ ...form, phone: v })}
-                    keyboardType="phone-pad"
-                  />
-                </View>
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onPress={handleRegister}
-                  disabled={registerMutation.isPending || paymentIntentMutation.isPending}
-                >
-                  {registerMutation.isPending || paymentIntentMutation.isPending
-                    ? isFree
-                      ? "Registering..."
-                      : "Processing Payment..."
-                    : isFree
-                    ? "Confirm Registration"
-                    : `Confirm & Register — ₹${event.ticket_price}`}
-                </Button>
-              </View>
+              <Button
+                className="w-full"
+                size="lg"
+                onPress={handleRegisterPress}
+                disabled={
+                  registerMutation.isPending || paymentIntentMutation.isPending
+                }
+              >
+                {registerMutation.isPending || paymentIntentMutation.isPending
+                  ? "Registering..."
+                  : isFree
+                    ? "Register Now →"
+                    : `Register — ₹${event.ticket_price}`}
+              </Button>
             )}
           </CardContent>
         </Card>
@@ -471,24 +545,36 @@ const EventDetail = () => {
           visible={razorpayWebViewVisible}
           options={razorpayWebViewOptions}
           onSuccess={async (data) => {
-            console.log('[EventDetail.RazorpayWebView] onSuccess — order:', data.razorpay_order_id, 'payment:', data.razorpay_payment_id);
+            console.log(
+              "[EventDetail.RazorpayWebView] onSuccess — order:",
+              data.razorpay_order_id,
+              "payment:",
+              data.razorpay_payment_id,
+            );
             setRazorpayWebViewVisible(false);
             setRazorpayWebViewOptions(null);
             try {
               await completeRegistration(data);
             } catch (err: any) {
-              console.log('[EventDetail.RazorpayWebView] registration error:', err?.data?.error || err?.message);
-              toast.error(err?.data?.error || err?.message || "Registration failed after payment");
+              console.log(
+                "[EventDetail.RazorpayWebView] registration error:",
+                err?.data?.error || err?.message,
+              );
+              toast.error(
+                err?.data?.error ||
+                  err?.message ||
+                  "Registration failed after payment",
+              );
             }
           }}
           onCancel={() => {
-            console.log('[EventDetail.RazorpayWebView] cancelled');
+            console.log("[EventDetail.RazorpayWebView] cancelled");
             setRazorpayWebViewVisible(false);
             setRazorpayWebViewOptions(null);
             toast.error("Payment cancelled");
           }}
           onError={(msg) => {
-            console.log('[EventDetail.RazorpayWebView] error:', msg);
+            console.log("[EventDetail.RazorpayWebView] error:", msg);
             setRazorpayWebViewVisible(false);
             setRazorpayWebViewOptions(null);
             toast.error(msg || "Payment failed");
