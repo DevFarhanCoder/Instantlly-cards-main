@@ -7,6 +7,9 @@ import { Badge } from "../components/ui/badge";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAdCampaigns } from "../hooks/useAds";
 import { useAuth } from "../hooks/useAuth";
+import { useMyTier } from "../hooks/useMyTier";
+import { hasFeature } from "../utils/tierFeatures";
+import { UpgradePrompt } from "../components/business/UpgradePrompt";
 
 const statusColors: Record<string, string> = {
   active: "bg-green-500/10 text-green-600",
@@ -41,6 +44,9 @@ const demoAds = [
 const Ads = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
+  const { tier } = useMyTier();
+  const canViewAds = hasFeature(tier, 'basic_ads');
+  const canCreateAds = hasFeature(tier, 'ads');
   const { data: campaigns = [], isLoading, refetch: refetchCampaigns } = useAdCampaigns();
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -74,6 +80,9 @@ const Ads = () => {
         </Text>
       </View>
 
+      {user && !canViewAds ? (
+        <UpgradePrompt feature="basic_ads" />
+      ) : (
       <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="flex-1 px-4 py-4" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />}>
         {!user && (
           <View className="rounded-2xl border border-primary/20 bg-primary/5 p-4 items-center">
@@ -156,8 +165,8 @@ const Ads = () => {
             Create targeted ads that appear across the platform
           </Text>
           <View className="flex-row gap-2 mt-4 w-full">
-            <Button className="flex-1 gap-2 rounded-xl" onPress={() => navigation.navigate("AdCreate")}>
-              <Plus size={16} color="#ffffff" /> Create Ad
+            <Button className="flex-1 gap-2 rounded-xl" disabled={!canCreateAds} onPress={() => navigation.navigate("AdCreate")}>
+              <Plus size={16} color="#ffffff" /> {canCreateAds ? 'Create Ad' : '🔒 Boost+ Required'}
             </Button>
             <Button variant="outline" className="flex-1 gap-2 rounded-xl" onPress={() => navigation.navigate("AdDashboard")}>
               <TrendingUp size={16} color="#111827" /> View Stats
@@ -239,6 +248,7 @@ const Ads = () => {
           </View>
         )}
       </ScrollView>
+      )}
     </View>
   );
 };

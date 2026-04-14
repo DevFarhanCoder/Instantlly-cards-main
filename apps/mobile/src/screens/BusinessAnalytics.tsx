@@ -19,6 +19,9 @@ import {
 } from "lucide-react-native";
 import { useAuth } from "../hooks/useAuth";
 import { useBusinessCards } from "../hooks/useBusinessCards";
+import { useMyTier } from "../hooks/useMyTier";
+import { hasFeature } from "../utils/tierFeatures";
+import { UpgradePrompt } from "../components/business/UpgradePrompt";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../integrations/supabase/client";
 import { Button } from "../components/ui/button";
@@ -28,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 const BusinessAnalytics = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
+  const { tier } = useMyTier();
   const { cards } = useBusinessCards();
   const cardIds = cards.map((c) => c.id);
 
@@ -161,6 +165,20 @@ const BusinessAnalytics = () => {
         >
           {user ? "Create Card" : "Sign In"}
         </Button>
+      </View>
+    );
+  }
+
+  if (!hasFeature(tier, 'analytics')) {
+    return (
+      <View className="flex-1 bg-background">
+        <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
+          <Pressable onPress={() => navigation.goBack()}>
+            <ArrowLeft size={20} color="#111827" />
+          </Pressable>
+          <Text className="text-lg font-bold text-foreground">Business Insights</Text>
+        </View>
+        <UpgradePrompt feature="analytics" />
       </View>
     );
   }

@@ -38,8 +38,10 @@ import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../hooks/useAuth";
 import { useBusinessCards, type BusinessCardRow } from "../hooks/useBusinessCards";
 import { useDirectoryCards } from "../hooks/useDirectoryCards";
+import { useGetMyPromotionsQuery } from "../store/api/promotionsApi";
 import BusinessOnboarding from "../components/business/BusinessOnboarding";
 import { toast } from "../lib/toast";
+import { getTierLabel, getTierColor, type Tier } from "../utils/tierFeatures";
 
 const MyCards = () => {
   const navigation = useNavigation<any>();
@@ -48,12 +50,19 @@ const MyCards = () => {
   const { user } = useAuth();
   const { cards, isLoading, deleteCard, refetch: refetchCards } = useBusinessCards() as any;
   const { data: directoryCards = [], isLoading: isFetchingNetwork, refetch: refetchDirectory } = useDirectoryCards();
+  const { data: myPromotions = [], refetch: refetchPromotions } = useGetMyPromotionsQuery(undefined, { skip: !user });
+
+  // Build a map from business_card_id → promotion info
+  const promoByCardId = (myPromotions as any[]).reduce((acc: Record<number, any>, p: any) => {
+    if (p.business_card_id) acc[p.business_card_id] = p;
+    return acc;
+  }, {} as Record<number, any>);
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    try { await Promise.all([refetchCards?.(), refetchDirectory()]); } finally { setRefreshing(false); }
-  }, [refetchCards, refetchDirectory]);
+    try { await Promise.all([refetchCards?.(), refetchDirectory(), refetchPromotions()]); } finally { setRefreshing(false); }
+  }, [refetchCards, refetchDirectory, refetchPromotions]);
   const networkCards = directoryCards;
   const demoCards = directoryCards;
   const [shareCard, setShareCard] = useState<BusinessCardRow | null>(null);
@@ -376,12 +385,52 @@ const MyCards = () => {
                         </Text>
                       )}
                       {card.category && (
-                        <Text className="mt-0.5 rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                          {card.category}
-                        </Text>
+                        <View className="mt-0.5 flex-row flex-wrap gap-1">
+                          {(Array.isArray(card.category) ? card.category : [card.category]).map((cat: string) => (
+                            <Text key={cat} className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                              {cat}
+                            </Text>
+                          ))}
+                        </View>
                       )}
                     </View>
                   </View>
+
+                  {/* Promotion status badges */}
+                  {(() => {
+                    const promo = promoByCardId[card.id];
+                    if (!promo) return null;
+                    const tier = (promo.tier || 'free') as Tier;
+                    const isPremium = tier !== 'free' && promo.status === 'active';
+                    const statusColor = promo.status === 'active'
+                      ? 'bg-green-100 text-green-700'
+                      : promo.status === 'pending_payment'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-gray-100 text-gray-600';
+                    return (
+                      <View className="items-end gap-1">
+                        <View className="flex-row flex-wrap items-center gap-1.5">
+                          <Text className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${isPremium ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {isPremium ? `⭐ ${promo.plan_name || 'Premium'}` : '🆓 Free'}
+                          </Text>
+                          {tier !== 'free' && (
+                            <Text style={{ backgroundColor: getTierColor(tier) + '20', color: getTierColor(tier) }} className="rounded-full px-2 py-0.5 text-[10px] font-bold">
+                              {getTierLabel(tier)}
+                            </Text>
+                          )}
+                          <Text className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor}`}>
+                            {promo.status === 'active' ? '✅ Active' : promo.status === 'pending_payment' ? '⏳ Pending Payment' : promo.status}
+                          </Text>
+                        </View>
+                        {promo.expiry_date && (
+                          <Text className="text-[10px] text-gray-500">
+                            Expires {new Date(promo.expiry_date).toLocaleDateString()}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })()}
+
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Pressable className="p-1">
@@ -445,6 +494,23 @@ const MyCards = () => {
                     ))}
                   </View>
                 )}
+
+                {/* Pending payment actions */}
+                {(() => {
+                  const promo = promoByCardId[card.id];
+                  if (!promo || promo.status !== 'pending_payment') return null;
+                  return (
+                    <View className="mt-3 flex-row gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 rounded-lg bg-amber-500"
+                        onPress={() => navigation.navigate("PremiumPlanSelection", { promotionId: promo.id, businessCardId: card.id })}
+                      >
+                        <Text className="text-xs font-medium text-white">💳 Complete Payment</Text>
+                      </Button>
+                    </View>
+                  );
+                })()}
 
                 <View className="mt-3 flex-row gap-2">
                   <Button size="sm" className="flex-1 rounded-lg" onPress={() => setShareCard(card)}>

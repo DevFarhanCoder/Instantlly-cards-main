@@ -27,6 +27,9 @@ import {
 import { colors } from "../../theme/colors";
 import { useUserRole } from "../../hooks/useUserRole";
 import { useAdminPendingCounts } from "../../hooks/useAdminData";
+import { useAppDispatch } from "../../store";
+import { setActiveRole } from "../../store/authSlice";
+import * as SecureStore from "expo-secure-store";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -53,6 +56,7 @@ const adminNav = [
 
 const customerMoreItems: { route: string; label: string; emoji: string; params?: any }[] = [
   { route: "NearbyBusinesses", label: "Nearby", emoji: "📍" },
+  { route: "ChooseListingType", label: "Promote Business", emoji: "🚀" },
   { route: "Profile", label: "Profile", emoji: "👤" },
   { route: "Messaging", label: "Inbox", emoji: "💬" },
   { route: "MyPasses", label: "My Passes", emoji: "🎟️" },
@@ -149,10 +153,20 @@ const BottomNav = () => {
   const currentRoute = useNavigationState(
     (state) => state.routes[state.index]
   ) as any;
-  const { isBusiness, isAdmin } = useUserRole();
+  const { isBusiness, isAdmin, roles, activeRole, hasBusinessRole } = useUserRole();
+  const dispatch = useAppDispatch();
   const [moreOpen, setMoreOpen] = useState(false);
   const { data: pendingCounts } = useAdminPendingCounts();
   const insets = useSafeAreaInsets();
+
+  const canSwitchRole = roles.length > 1 && !isAdmin;
+
+  const handleRoleSwitch = async (role: string) => {
+    dispatch(setActiveRole(role));
+    await SecureStore.setItemAsync('activeRole', role);
+    setMoreOpen(false);
+    navigation.navigate(role === 'business' ? 'BusinessDashboard' : 'Home');
+  };
 
   const totalPending = useMemo(() => {
     if (!isAdmin || !pendingCounts) return 0;
@@ -326,6 +340,26 @@ const BottomNav = () => {
             {isBusiness ? "Business Tools" : "More Options"}
           </Text>
           <ScrollView contentContainerStyle={styles.sheetContent}>
+            {canSwitchRole && (
+              <View style={styles.roleSwitchRow}>
+                <Pressable
+                  onPress={() => handleRoleSwitch('customer')}
+                  style={[styles.roleSwitchBtn, !isBusiness && styles.roleSwitchBtnActive]}
+                >
+                  <Text style={[styles.roleSwitchText, !isBusiness && styles.roleSwitchTextActive]}>
+                    👤 Customer
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleRoleSwitch('business')}
+                  style={[styles.roleSwitchBtn, isBusiness && styles.roleSwitchBtnActive]}
+                >
+                  <Text style={[styles.roleSwitchText, isBusiness && styles.roleSwitchTextActive]}>
+                    💼 Business
+                  </Text>
+                </Pressable>
+              </View>
+            )}
             {isBusiness ? (
               businessMoreSections.map((section) => (
                 <View key={section.title} style={styles.section}>
@@ -513,6 +547,30 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.foreground,
     textAlign: "center",
+  },
+  roleSwitchRow: {
+    flexDirection: "row",
+    borderRadius: 12,
+    backgroundColor: colors.muted,
+    padding: 4,
+    marginBottom: 16,
+  },
+  roleSwitchBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  roleSwitchBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  roleSwitchText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.mutedForeground,
+  },
+  roleSwitchTextActive: {
+    color: "#ffffff",
   },
 });
 

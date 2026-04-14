@@ -1,4 +1,7 @@
+import { useCallback, useRef } from "react";
 import { useAuth } from "./useAuth";
+import { useMyTier } from "./useMyTier";
+import { hasFeature } from "../utils/tierFeatures";
 import { toast } from "../lib/toast";
 import {
   useGetMyCampaignsQuery,
@@ -13,11 +16,18 @@ export type { AdCampaign };
 
 export function useAdCampaigns() {
   const { user } = useAuth();
-  const result = useGetMyCampaignsQuery(undefined, { skip: !user });
+  const { tier } = useMyTier();
+  const canView = hasFeature(tier, 'basic_ads');
+  const skip = !user || !canView;
+  const result = useGetMyCampaignsQuery(undefined, { skip });
+  // Stabilise refetch so callers don't re-render when the query is skipped
+  const refetchRef = useRef(result.refetch);
+  refetchRef.current = result.refetch;
+  const stableRefetch = useCallback(() => refetchRef.current(), []);
   return {
     data: result.data ?? [],
     isLoading: result.isLoading,
-    refetch: result.refetch,
+    refetch: stableRefetch,
   };
 }
 

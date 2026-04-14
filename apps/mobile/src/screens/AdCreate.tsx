@@ -22,6 +22,9 @@ import { useCreateAdCampaign } from "../hooks/useAds";
 import { useBusinessCards } from "../hooks/useBusinessCards";
 import { useAuth } from "../hooks/useAuth";
 import { useUploadAdCreativeMutation } from "../store/api/adsApi";
+import { useMyTier } from "../hooks/useMyTier";
+import { hasFeature } from "../utils/tierFeatures";
+import { UpgradePrompt } from "../components/business/UpgradePrompt";
 import { toast } from "../lib/toast";
 import { colors } from "../theme/colors";
 
@@ -38,6 +41,7 @@ const AdCreate = () => {
   const route = useRoute<any>();
   const preselectedCardId = route.params?.cardId || "";
   const { user } = useAuth();
+  const { tier } = useMyTier();
   const { cards } = useBusinessCards();
   const createCampaign = useCreateAdCampaign();
   const [uploadAdCreative] = useUploadAdCreativeMutation();
@@ -145,6 +149,20 @@ const AdCreate = () => {
     () => adTypes.find((t) => t.id === form.type),
     [form.type]
   );
+
+  if (!hasFeature(tier, 'ads')) {
+    return (
+      <View className="flex-1 bg-background">
+        <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
+          <Pressable onPress={() => navigation.goBack()}>
+            <ArrowLeft size={20} color="#111827" />
+          </Pressable>
+          <Text className="text-lg font-bold text-foreground">Create Ad Campaign</Text>
+        </View>
+        <UpgradePrompt feature="ads" />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-background">

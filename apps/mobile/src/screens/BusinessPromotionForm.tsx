@@ -17,11 +17,15 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { useAuth } from "../hooks/useAuth";
 import { useBusinessCards } from "../hooks/useBusinessCards";
+import { useCreatePromotionMutation } from "../store/api/promotionsApi";
 import { toast } from "../lib/toast";
 import { cn } from "../lib/utils";
 import { colors } from "../theme/colors";
 import { categories as fallbackCategories } from "../data/categories";
 import { useGetCategoryTreeQuery } from "../store/api/categoriesApi";
+import { useAppDispatch } from "../store";
+import { setCredentials, setActiveRole } from "../store/authSlice";
+import * as SecureStore from 'expo-secure-store';
 import type { CategoryTreeNode } from "../store/api/categoriesApi";
 
 const STEPS = [
@@ -58,7 +62,9 @@ const BusinessPromotionForm = () => {
   const route = useRoute<any>();
   const plan = route?.params?.plan || "free";
   const { user } = useAuth();
+  const dispatch = useAppDispatch();
   const { createCard } = useBusinessCards();
+  const [createPromotion] = useCreatePromotionMutation();
   const { data: categoryTree = [] } = useGetCategoryTreeQuery();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -350,8 +356,39 @@ const BusinessPromotionForm = () => {
     if (plan === "premium") {
       navigation.navigate("PremiumPlanSelection", { formData: cardData });
     } else {
-      // Free plan - create card directly
-      await createCard.mutateAsync(cardData as any);
+      // Free plan - create card and promotion
+      const card = await createCard.mutateAsync(cardData as any);
+      const cardId = typeof card.id === 'string' ? parseInt(card.id, 10) : card.id;
+
+      // Create a free BusinessPromotion record
+      const promoResult: any = await createPromotion({
+        business_name: cardData.company_name || cardData.full_name,
+        owner_name: cardData.full_name,
+        description: cardData.description,
+        email: cardData.email,
+        phone: cardData.phone,
+        whatsapp: cardData.whatsapp,
+        website: cardData.website,
+        pincode: cardData.pincode,
+        city: form.city || null,
+        state: form.state || null,
+        business_card_id: cardId,
+        listing_type: "free",
+        listing_intent: "free",
+        plan_type: "free",
+      }).unwrap();
+
+      // Update tokens + roles if returned by backend (business role granted on create)
+      if (promoResult.accessToken && promoResult.refreshToken && promoResult.roles && user) {
+        const updatedUser = { ...user, roles: promoResult.roles };
+        dispatch(setCredentials({ user: updatedUser, accessToken: promoResult.accessToken, refreshToken: promoResult.refreshToken }));
+        await SecureStore.setItemAsync('accessToken', promoResult.accessToken);
+        await SecureStore.setItemAsync('refreshToken', promoResult.refreshToken);
+        dispatch(setActiveRole('business'));
+        await SecureStore.setItemAsync('activeRole', 'business');
+        console.log('[BusinessPromoForm] Role + tokens updated after free promotion');
+      }
+
       toast.success("Business listing created successfully!");
       navigation.navigate("MyCards");
     }
