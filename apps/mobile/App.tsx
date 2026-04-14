@@ -14,6 +14,8 @@ import { colors } from "./src/theme/colors";
 import AppProviders from "./src/AppProviders";
 import { SUPABASE_CONFIG_OK } from "./src/integrations/supabase/client";
 import React from "react";
+import { useForceUpdate } from "./src/hooks/useForceUpdate";
+import ForceUpdateScreen from "./src/components/ForceUpdateScreen";
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -24,11 +26,37 @@ export default function App() {
     PlusJakartaSans_800ExtraBold,
   });
 
-  if (!fontsLoaded) {
+  const {
+    checking,
+    mustUpdate,
+    shouldUpdate,
+    updateUrl,
+    message,
+    dismiss,
+  } = useForceUpdate();
+
+  if (!fontsLoaded || checking) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.primary} />
       </View>
+    );
+  }
+
+  // Hard block — user MUST update
+  if (mustUpdate) {
+    return <ForceUpdateScreen updateUrl={updateUrl} message={message} />;
+  }
+
+  // Soft nudge — user can dismiss
+  if (shouldUpdate) {
+    return (
+      <ForceUpdateScreen
+        updateUrl={updateUrl}
+        message={message || "A newer version of Instantly Cards is available. We recommend updating for the best experience."}
+        canSkip
+        onSkip={dismiss}
+      />
     );
   }
 
