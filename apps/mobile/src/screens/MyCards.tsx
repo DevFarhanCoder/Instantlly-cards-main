@@ -9,6 +9,7 @@ import {
   View,
   Linking,
 } from "react-native";
+import ContactPickerModal from "../components/ContactPickerModal";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import {
   Calendar,
@@ -56,6 +57,7 @@ const MyCards = () => {
   const networkCards = directoryCards;
   const demoCards = directoryCards;
   const [shareCard, setShareCard] = useState<BusinessCardRow | null>(null);
+  const [contactPickerCard, setContactPickerCard] = useState<BusinessCardRow | null>(null);
 
   const handleCopyLink = async () => {
     if (!shareCard) return;
@@ -590,6 +592,16 @@ const MyCards = () => {
           </View>
           <View className="gap-2">
             <Button
+              variant="outline"
+              className="w-full rounded-xl"
+              onPress={() => {
+                setContactPickerCard(shareCard);
+                setShareCard(null);
+              }}
+            >
+              📲 Share Within App
+            </Button>
+            <Button
               className="w-full rounded-xl"
               onPress={handleCopyLink}
             >
@@ -605,6 +617,13 @@ const MyCards = () => {
           </View>
         </DialogContent>
       </Dialog>
+
+      <ContactPickerModal
+        visible={!!contactPickerCard}
+        onClose={() => setContactPickerCard(null)}
+        cardId={contactPickerCard ? Number(contactPickerCard.id) : 0}
+        cardName={contactPickerCard?.full_name ?? ""}
+      />
     </View>
   );
 };

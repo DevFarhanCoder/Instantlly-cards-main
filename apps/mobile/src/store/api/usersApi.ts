@@ -1,5 +1,12 @@
 import { baseApi } from './baseApi';
 
+export interface AppUser {
+  id: number;
+  name: string | null;
+  phone: string;
+  profile_picture: string | null;
+}
+
 export const usersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getProfile: builder.query<any, void>({
@@ -24,6 +31,9 @@ export const usersApi = baseApi.injectEndpoints({
       query: (id) => `/users/${id}`,
       providesTags: (_r, _e, id) => [{ type: 'User', id }],
     }),
+    matchContacts: builder.mutation<AppUser[], { phones: string[] }>({
+      query: (body) => ({ url: '/users/match-contacts', method: 'POST', body }),
+    }),
   }),
 });
 
@@ -33,4 +43,5 @@ export const {
   useChangePasswordMutation,
   useDeleteAccountMutation,
   useGetUserByIdQuery,
+  useMatchContactsMutation,
 } = usersApi;
