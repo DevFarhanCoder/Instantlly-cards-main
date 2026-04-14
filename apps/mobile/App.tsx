@@ -13,6 +13,9 @@ import AppNavigator from "./src/navigation/AppNavigator";
 import { colors } from "./src/theme/colors";
 import AppProviders from "./src/AppProviders";
 import { SUPABASE_CONFIG_OK } from "./src/integrations/supabase/client";
+import React, { useEffect } from "react";
+import * as Location from "expo-location";
+import * as Contacts from "expo-contacts";
 import React from "react";
 import { useForceUpdate } from "./src/hooks/useForceUpdate";
 import ForceUpdateScreen from "./src/components/ForceUpdateScreen";
@@ -26,6 +29,15 @@ export default function App() {
     PlusJakartaSans_800ExtraBold,
   });
 
+  // Request location permission first, then contacts permission sequentially on app startup
+  useEffect(() => {
+    (async () => {
+      await Location.requestForegroundPermissionsAsync();
+      await Contacts.requestPermissionsAsync();
+    })();
+  }, []);
+
+  if (!fontsLoaded) {
   const {
     checking,
     mustUpdate,

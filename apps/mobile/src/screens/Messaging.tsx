@@ -57,12 +57,13 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
   const { user } = useAuth();
   const [sentCards, setSentCards] = useState<SentCardRecord[]>([]);
 
-  // Real received cards from API
+  // Real sent + received cards from API (SharedCard)
   const { data: sharedCards = [], isLoading: sharedLoading } = useGetSharedCardsQuery(undefined, {
-    skip: tab !== "Received",
+    skip: tab !== "Received" && tab !== "Sent",
   });
   const myUserId = String(user?.id ?? "");
   const receivedCards = sharedCards.filter((s: any) => s.recipient_id === myUserId);
+  const sentIndividualCards = sharedCards.filter((s: any) => s.sender_id === myUserId);
 
   useEffect(() => {
     if (tab === "Sent") getBulkSentCards().then(setSentCards);
@@ -123,9 +124,55 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
     );
   }
 
-  // Sent tab — real data from AsyncStorage
+  // Sent tab — bulk-sent (AsyncStorage) + individual in-app shares (API)
   return (
     <ScrollView className="px-4 pt-4 pb-4">
+      {/* Individual in-app shares */}
+      {(sharedLoading || sentIndividualCards.length > 0) && (
+        <>
+          <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            📲 Sent Within App
+          </Text>
+          {sharedLoading ? (
+            <View className="items-center py-6">
+              <Text className="text-sm text-muted-foreground">Loading...</Text>
+            </View>
+          ) : (
+            <View className="gap-3 mb-4">
+              {sentIndividualCards.map((card: any) => (
+                <View
+                  key={card.id}
+                  className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3"
+                >
+                  <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+                    {card.card_photo ? (
+                      <Image source={{ uri: card.card_photo }} style={{ width: 44, height: 44 }} />
+                    ) : (
+                      <Text className="text-xl">🏢</Text>
+                    )}
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                      {card.card_title}
+                    </Text>
+                    <Text className="mt-0.5 text-[10px] text-muted-foreground">
+                      To {card.recipient_name}
+                    </Text>
+                    <Text className="mt-0.5 text-[10px] text-muted-foreground">
+                      {formatRelativeTime(card.sent_at || card.created_at)}
+                    </Text>
+                  </View>
+                  <Text className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
+                    Sent
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </>
+      )}
+
+      {/* Bulk-sent cards */}
       <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         📤 Cards You've Bulk Sent
       </Text>
@@ -184,7 +231,7 @@ const demoConversations = [
 
 const tabs = FEATURES.BULK_SEND
   ? ["Chats", "Groups", "Sent", "Received"]
-  : ["Chats", "Groups", "Received"];
+  : ["Chats", "Groups", "Sent", "Received"];
 
 const faqKnowledge: Record<string, { q: string; a: string }[]> = {
   default: [
