@@ -36,9 +36,10 @@ import {
 } from "../components/ui/dropdown-menu";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../hooks/useAuth";
+import { useUserRole } from "../hooks/useUserRole";
 import { useBusinessCards, type BusinessCardRow } from "../hooks/useBusinessCards";
 import { useDirectoryCards } from "../hooks/useDirectoryCards";
-import { useGetMyPromotionsQuery } from "../store/api/promotionsApi";
+import { useGetMyPromotionsQuery, useUpdatePromotionMutation } from "../store/api/promotionsApi";
 import BusinessOnboarding from "../components/business/BusinessOnboarding";
 import { toast } from "../lib/toast";
 import { getTierLabel, getTierColor, type Tier } from "../utils/tierFeatures";
@@ -48,9 +49,11 @@ const MyCards = () => {
   const route = useRoute<any>();
   const plan = route.params?.plan;
   const { user } = useAuth();
+  const { isBusiness } = useUserRole();
   const { cards, isLoading, deleteCard, refetch: refetchCards } = useBusinessCards() as any;
   const { data: directoryCards = [], isLoading: isFetchingNetwork, refetch: refetchDirectory } = useDirectoryCards();
   const { data: myPromotions = [], refetch: refetchPromotions } = useGetMyPromotionsQuery(undefined, { skip: !user });
+  const [updatePromotion] = useUpdatePromotionMutation();
 
   // Build a map from business_card_id → promotion info
   const promoByCardId = (myPromotions as any[]).reduce((acc: Record<number, any>, p: any) => {
@@ -385,13 +388,9 @@ const MyCards = () => {
                         </Text>
                       )}
                       {card.category && (
-                        <View className="mt-0.5 flex-row flex-wrap gap-1">
-                          {(Array.isArray(card.category) ? card.category : [card.category]).map((cat: string) => (
-                            <Text key={cat} className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                              {cat}
-                            </Text>
-                          ))}
-                        </View>
+                        <Text className="mt-0.5 text-[10px] font-medium text-primary" numberOfLines={2}>
+                          {(Array.isArray(card.category) ? card.category : [card.category]).join(' • ')}
+                        </Text>
                       )}
                     </View>
                   </View>
@@ -448,15 +447,21 @@ const MyCards = () => {
                         <Share2 size={14} color="#111827" /> Share
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onPress={() => navigation.navigate("AdCreate", { cardId: card.id })}>
-                        <Megaphone size={14} color="#111827" /> Run Ad
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => navigation.navigate("EventCreate", { cardId: card.id })}>
-                        <Calendar size={14} color="#111827" /> List Event
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => navigation.navigate("VoucherCreate", { cardId: card.id })}>
-                        <Tag size={14} color="#111827" /> Create Voucher
-                      </DropdownMenuItem>
+                      {isBusiness && (
+                        <DropdownMenuItem onPress={() => navigation.navigate("AdCreate", { cardId: card.id })}>
+                          <Megaphone size={14} color="#111827" /> Run Ad
+                        </DropdownMenuItem>
+                      )}
+                      {isBusiness && (
+                        <DropdownMenuItem onPress={() => navigation.navigate("EventCreate", { cardId: card.id })}>
+                          <Calendar size={14} color="#111827" /> List Event
+                        </DropdownMenuItem>
+                      )}
+                      {isBusiness && (
+                        <DropdownMenuItem onPress={() => navigation.navigate("VoucherCreate", { cardId: card.id })}>
+                          <Tag size={14} color="#111827" /> Create Voucher
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive"
@@ -516,25 +521,129 @@ const MyCards = () => {
                   <Button size="sm" className="flex-1 rounded-lg" onPress={() => setShareCard(card)}>
                     <Share2 size={14} color="#ffffff" /> Share
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 rounded-lg"
-                    onPress={() => navigation.navigate("AdCreate", { cardId: card.id })}
-                  >
-                    📣 Promote
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 rounded-lg"
-                    onPress={() => navigation.navigate("EventCreate", { cardId: card.id })}
-                  >
-                    🎫 Event
-                  </Button>
+                  {isBusiness && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 rounded-lg"
+                      onPress={() => navigation.navigate("AdCreate", { cardId: card.id })}
+                    >
+                      📣 Promote
+                    </Button>
+                  )}
+                  {isBusiness && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 rounded-lg"
+                      onPress={() => navigation.navigate("EventCreate", { cardId: card.id })}
+                    >
+                      🎫 Event
+                    </Button>
+                  )}
                 </View>
               </View>
             ))}
+          </View>
+        )}
+
+        {/* My Promotions Section */}
+        {(myPromotions as any[]).length > 0 && (
+          <View className="px-4 py-2">
+            <View className="my-3 flex-row items-center gap-3">
+              <View className="h-px flex-1 bg-border" />
+              <Text className="text-sm font-bold text-foreground">My Promotions</Text>
+              <View className="h-px flex-1 bg-border" />
+            </View>
+            <View className="gap-3">
+              {(myPromotions as any[]).map((promo: any) => {
+                const tier = (promo.tier || 'free') as Tier;
+                const isPremium = tier !== 'free' && promo.status === 'active';
+                const statusColor = promo.status === 'active'
+                  ? 'bg-green-100 text-green-700'
+                  : promo.status === 'pending_payment'
+                  ? 'bg-amber-100 text-amber-700'
+                  : promo.status === 'expired'
+                  ? 'bg-red-100 text-red-600'
+                  : 'bg-gray-100 text-gray-600';
+                const statusLabel = promo.status === 'active' ? '✅ Active'
+                  : promo.status === 'pending_payment' ? '⏳ Pending Payment'
+                  : promo.status === 'expired' ? '❌ Expired'
+                  : promo.status;
+                const categories = promo.business_card?.category
+                  ? (Array.isArray(promo.business_card.category) ? promo.business_card.category : [promo.business_card.category]).join(' • ')
+                  : null;
+
+                return (
+                  <View key={promo.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                    <View className="flex-row items-start justify-between">
+                      <View className="flex-1">
+                        <Text className="text-base font-bold text-foreground">{promo.business_name || 'Business'}</Text>
+                        {categories && (
+                          <Text className="text-xs text-primary mt-0.5" numberOfLines={2}>{categories}</Text>
+                        )}
+                      </View>
+                      <View className="flex-row items-center gap-2">
+                        <Text className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor}`}>
+                          {statusLabel}
+                        </Text>
+                        {isPremium && (
+                          <Text style={{ backgroundColor: getTierColor(tier) + '20', color: getTierColor(tier) }} className="rounded-full px-2 py-0.5 text-[10px] font-bold">
+                            {getTierLabel(tier)}
+                          </Text>
+                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Pressable className="p-1">
+                              <MoreVertical size={16} color="#6a7181" />
+                            </Pressable>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onPress={() => navigation.navigate("BusinessDetail", { id: `promo-${promo.id}` })}>
+                              <Eye size={14} color="#111827" /> View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onPress={() => navigation.navigate("BusinessPromotionForm", { promotionId: promo.id, editMode: true })}>
+                              <Edit size={14} color="#111827" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onPress={async () => {
+                                try {
+                                  await updatePromotion({ id: promo.id, data: { status: 'cancelled' } }).unwrap();
+                                  toast.success("Promotion cancelled");
+                                  refetchPromotions();
+                                } catch (e: any) {
+                                  toast.error(e?.data?.error || "Failed to cancel");
+                                }
+                              }}
+                            >
+                              <Trash2 size={14} color="#ef4343" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </View>
+                    </View>
+                    {promo.expiry_date && (
+                      <Text className="text-[10px] text-gray-500 mt-1">
+                        Expires {new Date(promo.expiry_date).toLocaleDateString()}
+                      </Text>
+                    )}
+                    {promo.status === 'pending_payment' && (
+                      <View className="mt-3">
+                        <Button
+                          size="sm"
+                          className="rounded-lg bg-amber-500"
+                          onPress={() => navigation.navigate("PremiumPlanSelection", { promotionId: promo.id, businessCardId: promo.business_card_id })}
+                        >
+                          <Text className="text-xs font-medium text-white">💳 Complete Payment</Text>
+                        </Button>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
           </View>
         )}
 

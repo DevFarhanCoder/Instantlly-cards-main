@@ -66,9 +66,13 @@ export const adsApi = baseApi.injectEndpoints({
       providesTags: ['Ad'],
     }),
 
-    // Get my campaigns
-    getMyCampaigns: builder.query<AdCampaign[], void>({
-      query: () => '/ads/campaigns/my',
+    // Get my campaigns (optionally scoped to a specific promotion)
+    getMyCampaigns: builder.query<AdCampaign[], { promotionId?: number } | void>({
+      query: (params) => {
+        const url = '/ads/campaigns/my';
+        if (params?.promotionId) return { url, params: { promotionId: params.promotionId } };
+        return url;
+      },
       providesTags: ['Ad'],
     }),
 
