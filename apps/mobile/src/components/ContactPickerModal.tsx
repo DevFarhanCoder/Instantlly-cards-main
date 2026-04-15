@@ -207,7 +207,7 @@ export default function ContactPickerModal({ visible, onClose, cardId, cardName 
               </Text>
               {appCount > 0 && (
                 <Text className="text-xs font-semibold text-primary">
-                  Â· {appCount} on Instantlly
+                  · {appCount} on Instantlly
                 </Text>
               )}
             </View>
@@ -262,7 +262,7 @@ export default function ContactPickerModal({ visible, onClose, cardId, cardName 
                         {sending === appUser.id ? (
                           <ActivityIndicator size="small" color="#ffffff" />
                         ) : alreadySent ? (
-                          <Text className="text-xs font-semibold text-muted-foreground">âœ“ Sent</Text>
+                          <Text className="text-xs font-semibold text-muted-foreground">✓ Sent</Text>
                         ) : (
                           <Text className="text-xs font-semibold text-primary-foreground">Send</Text>
                         )}

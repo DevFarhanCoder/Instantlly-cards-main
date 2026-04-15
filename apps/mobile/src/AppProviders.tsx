@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Provider as ReduxProvider } from "react-redux";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -6,6 +6,8 @@ import { store } from "./store";
 import { AuthProvider } from "./hooks/useAuth";
 import { FavoritesProvider } from "./contexts/FavoritesContext";
 import { PushNotificationProvider } from "./contexts/PushNotificationContext";
+import { CreditsProvider, useCredits } from "./contexts/CreditsContext";
+import { checkAndRefreshCredits } from "./lib/creditsRefresh";
 import { PromotionProvider } from "./contexts/PromotionContext";
 
 // Keep React Query client for existing hooks that haven't migrated to RTK Query yet
@@ -15,6 +17,13 @@ const ENABLE_SAFE_AREA = true;
 const ENABLE_AUTH = true;
 const ENABLE_FAVORITES = true;
 const ENABLE_PUSH = true;
+
+// Inner component so it can use useCredits inside CreditsProvider
+function CreditsBootstrap({ children }: { children: ReactNode }) {
+  const { refreshCredits } = useCredits();
+  useEffect(() => { checkAndRefreshCredits(refreshCredits); }, []);
+  return <>{children}</>;
+}
 
 const AppProviders = ({ children }: { children: ReactNode }) => {
   let tree = children;
@@ -38,7 +47,15 @@ const AppProviders = ({ children }: { children: ReactNode }) => {
   }
 
   // ReduxProvider wraps everything (outermost)
-  return <ReduxProvider store={store}>{tree}</ReduxProvider>;
+  return (
+    <ReduxProvider store={store}>
+      <CreditsProvider>
+        <CreditsBootstrap>
+          {tree}
+        </CreditsBootstrap>
+      </CreditsProvider>
+    </ReduxProvider>
+  );
 };
 
 export default AppProviders;

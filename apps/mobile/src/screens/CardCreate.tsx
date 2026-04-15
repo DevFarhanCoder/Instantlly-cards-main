@@ -51,11 +51,7 @@ import { colors } from "../theme/colors";
 
 const STEPS = [
   { key: "personal", label: "Personal", icon: User, num: 1 },
-  { key: "business", label: "Business", icon: Building2, num: 2 },
-  { key: "about", label: "About", icon: FileText, num: 3 },
-  { key: "offer", label: "Offer", icon: Tag, num: 4 },
-  { key: "social", label: "Social", icon: Share2, num: 5 },
-  { key: "additional", label: "SEO", icon: Search, num: 6 },
+  { key: "social", label: "Social", icon: Share2, num: 2 },
 ];
 
 const inputClass = "rounded-xl bg-muted/50 border-0 text-base h-14 px-4";
@@ -484,36 +480,18 @@ const CardCreate = () => {
   const skipPreview = route?.params?.skipPreview as boolean | undefined;
   const { user } = useAuth();
   const { cards, createCard, updateCard } = useBusinessCards();
-  const [uploadImage] = useUploadImageMutation();
-  const { data: categoryTree = [] } = useGetCategoryTreeQuery();
   const { data: myCards = [], isLoading: isLoadingMyCards } = useGetMyCardsQuery(undefined, { skip: !user });
-  const categoryOptions = useMemo(() => {
-    // Flatten the tree for display in the category trigger text
-    const flatten = (nodes: CategoryTreeNode[]): Array<{ id: string; name: string; emoji: string }> =>
-      nodes.reduce<Array<{ id: string; name: string; emoji: string }>>((acc, n) => [
-        ...acc,
-        { id: String(n.id), name: n.name, emoji: n.icon || "\u{1F4C1}" },
-        ...flatten(n.children),
-      ], []);
-    if (categoryTree.length > 0) return flatten(categoryTree);
-    return fallbackCategories;
-  }, [categoryTree]);
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     personal: true,
   });
   const [showPreview, setShowPreview] = useState(false);
-  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [serviceInput, setServiceInput] = useState("");
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [uploading, setUploading] = useState(false);
-  const [logoAsset, setLogoAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [phoneCountry, setPhoneCountry] = useState("+91");
   const [whatsappCountry, setWhatsappCountry] = useState("+91");
-  const [companyPhoneCountry, setCompanyPhoneCountry] = useState("+91");
   const [showPhoneCountryPicker, setShowPhoneCountryPicker] = useState(false);
   const [showWhatsappCountryPicker, setShowWhatsappCountryPicker] = useState(false);
-  const [showCompanyPhoneCountryPicker, setShowCompanyPhoneCountryPicker] = useState(false);
+  const uploading = false;
   const isEdit = !!cardId;
   const [showForm, setShowForm] = useState(false);
 
@@ -527,28 +505,13 @@ const CardCreate = () => {
     telegram: "",
     email: "",
     location: "",
-    mapsLink: "",
-    companyName: "",
-    jobTitle: "",
-    companyPhones: [""] as string[],
-    companyEmail: "",
-    website: "",
-    companyAddress: "",
-    companyMapsLink: "",
-    logoPreview: "",
-    description: "",
-    businessHours: "",
-    category: "",
-    establishedYear: "",
+    state: "",
+    pincode: "",
     instagram: "",
     facebook: "",
     linkedin: "",
     youtube: "",
     twitter: "",
-    keywords: "",
-    offer: "",
-    services: [] as string[],
-    serviceMode: "visit" as string,
   });
 
   useEffect(() => {
@@ -581,34 +544,16 @@ const CardCreate = () => {
       telegram: (card as any).telegram || "",
       email: card.email || "",
       location: card.location || "",
-      mapsLink: card.maps_link || "",
-      companyName: card.company_name || "",
-      jobTitle: card.job_title || "",
-      companyPhones: card.company_phone 
-        ? card.company_phone.split(",").map(p => p.trim()) 
-        : [""],
-      companyEmail: card.company_email || "",
-      website: card.website || "",
-      companyAddress: card.company_address || "",
-      companyMapsLink: card.company_maps_link || "",
-      logoPreview: card.logo_url || "",
-      description: card.description || "",
-      businessHours: card.business_hours || "",
-      category: card.category || "",
-      establishedYear: card.established_year || "",
+      state: (card as any).state || "",
+      pincode: (card as any).pincode || "",
       instagram: card.instagram || "",
       facebook: card.facebook || "",
       linkedin: card.linkedin || "",
       youtube: card.youtube || "",
       twitter: card.twitter || "",
-      keywords: card.keywords || "",
-      offer: card.offer || "",
-      services: card.services || [],
-      serviceMode: "visit",
     });
     // Restore country codes
     if ((card as any).personal_country_code) setPhoneCountry((card as any).personal_country_code);
-    if ((card as any).company_country_code) setCompanyPhoneCountry((card as any).company_country_code);
   }, [isEdit, cardId, cards]);
 
   const updateField = useCallback((field: string, value: any) => {
@@ -633,99 +578,6 @@ const CardCreate = () => {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
-  const progressFields = [
-    form.fullName,
-    form.phone,
-    form.email,
-    form.location,
-    form.companyName,
-    form.jobTitle,
-    form.website,
-    form.description,
-    form.category,
-    form.offer,
-    form.logoPreview,
-    form.instagram || form.facebook || form.linkedin ? "social" : "",
-  ];
-  const filledCount = progressFields.filter(Boolean).length;
-  const progress = Math.round((filledCount / progressFields.length) * 100);
-
-  const sectionComplete: Record<string, boolean> = useMemo(
-    () => ({
-      personal: !!(form.fullName && form.phone),
-      business: !!(form.companyName || form.jobTitle),
-      about: !!(form.description || form.category),
-      offer: !!form.offer,
-      social: !!(
-        form.instagram ||
-        form.facebook ||
-        form.linkedin ||
-        form.youtube ||
-        form.twitter
-      ),
-      additional: !!form.keywords,
-    }),
-    [form]
-  );
-
-  const isValid = !!(form.fullName.trim() && form.phone.trim());
-
-  const addService = () => {
-    if (serviceInput.trim() && form.services.length < 8) {
-      setForm((prev) => ({
-        ...prev,
-        services: [...prev.services, serviceInput.trim()],
-      }));
-      setServiceInput("");
-    }
-  };
-
-  const removeService = (i: number) =>
-    setForm((prev) => ({
-      ...prev,
-      services: prev.services.filter((_, idx) => idx !== i),
-    }));
-
-  const handleLogoUpload = async () => {
-    if (!user) return;
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      toast.error("Permission required to access photos");
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-      allowsEditing: true,
-      aspect: [1, 1],
-    });
-    if (result.canceled || result.assets.length === 0) return;
-    const asset = result.assets[0];
-    setLogoAsset(asset);
-    updateField("logoPreview", asset.uri);
-  };
-
-  const uploadLogo = async (): Promise<string | null> => {
-    if (!logoAsset || !user) return null;
-    setUploading(true);
-    try {
-      const fileName = logoAsset.fileName || `${Date.now()}.jpg`;
-      const formData = new FormData();
-      formData.append("file", {
-        uri: logoAsset.uri,
-        name: fileName,
-        type: logoAsset.mimeType || "image/jpeg",
-      } as any);
-      const result = await uploadImage(formData).unwrap();
-      return result.url;
-    } catch {
-      toast.error("Logo upload failed");
-      return null;
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const handleAutoLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== "granted") {
@@ -747,51 +599,40 @@ const CardCreate = () => {
         .filter(Boolean)
         .join(", ");
       updateField("location", loc);
+      if (a.state) updateField("state", a.state);
+      if (a.postcode) updateField("pincode", a.postcode);
     } catch {
       toast.error("Could not resolve address");
     }
-    updateField(
-      "mapsLink",
-      `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`
-    );
   };
 
-  const handleAutoCompanyLocation = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      toast.error("Location permission denied");
-      return;
-    }
-    toast.success("Detecting location...");
-    const pos = await Location.getCurrentPositionAsync({});
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json&accept-language=en`,
-        { headers: { "User-Agent": "InstantllyCards/1.0" } }
-      );
-      const data = await res.json();
-      const a = data.address || {};
-      const area = a.suburb || a.neighbourhood || a.quarter || null;
-      const city = a.city || a.town || a.county || a.state_district || a.state;
-      const loc = [
-        a.house_number ? `${a.house_number} ${a.road || ""}`.trim() : a.road || null,
-        area,
-        city,
-        city !== a.state ? a.state : null,
-        a.postcode || null,
-        a.country,
-      ]
-        .filter(Boolean)
-        .join(", ");
-      updateField("companyAddress", loc);
-    } catch {
-      toast.error("Could not resolve address");
-    }
-    updateField(
-      "companyMapsLink",
-      `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`
-    );
-  };
+  const progressFields = [
+    form.fullName,
+    form.phone,
+    form.email,
+    form.location,
+    form.state,
+    form.pincode,
+    form.instagram || form.facebook || form.linkedin ? "social" : "",
+  ];
+  const filledCount = progressFields.filter(Boolean).length;
+  const progress = Math.round((filledCount / progressFields.length) * 100);
+
+  const sectionComplete: Record<string, boolean> = useMemo(
+    () => ({
+      personal: !!(form.fullName && form.phone),
+      social: !!(
+        form.instagram ||
+        form.facebook ||
+        form.linkedin ||
+        form.youtube ||
+        form.twitter
+      ),
+    }),
+    [form]
+  );
+
+  const isValid = !!(form.fullName.trim() && form.phone.trim() && form.state.trim() && form.pincode.trim());
 
   const handleSubmit = async () => {
     if (!user) {
@@ -799,18 +640,10 @@ const CardCreate = () => {
       navigation.navigate("Auth");
       return;
     }
-    setTouched({ fullName: true, phone: true });
+    setTouched({ fullName: true, phone: true, state: true, pincode: true });
     if (!isValid) {
-      toast.error("Please fill in Full Name and Mobile Number");
+      toast.error("Please fill in Full Name, Mobile Number, State and Pincode");
       return;
-    }
-
-    let logoUrl: string | null =
-      form.logoPreview && !form.logoPreview.startsWith("file:")
-        ? form.logoPreview
-        : null;
-    if (logoAsset) {
-      logoUrl = await uploadLogo();
     }
 
     // Convert DD/MM/YYYY to ISO date for DateTime fields
@@ -833,29 +666,14 @@ const CardCreate = () => {
       telegram: form.telegram || null,
       email: form.email || null,
       location: form.location || null,
-      maps_link: form.mapsLink || null,
-      company_name: form.companyName || null,
-      job_title: form.jobTitle || null,
-      company_phone: form.companyPhones.filter(p => p.trim()).join(", ") || null,
-      company_email: form.companyEmail || null,
-      website: form.website || null,
-      company_address: form.companyAddress || null,
-      company_maps_link: form.companyMapsLink || null,
-      logo_url: logoUrl,
-      description: form.description || null,
-      business_hours: form.businessHours || null,
-      category: form.category || null,
-      established_year: form.establishedYear || null,
+      state: form.state || null,
+      pincode: form.pincode || null,
       instagram: form.instagram || null,
       facebook: form.facebook || null,
       linkedin: form.linkedin || null,
       youtube: form.youtube || null,
       twitter: form.twitter || null,
-      keywords: form.keywords || null,
-      offer: form.offer || null,
-      services: form.services,
       personal_country_code: phoneCountry,
-      company_country_code: companyPhoneCountry,
     };
 
     if (isEdit) {
@@ -1286,13 +1104,12 @@ const CardCreate = () => {
                 size="sm"
                 className="shrink-0 rounded-xl"
                 onPress={handleAutoLocation}
-                // className="flex-row items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5"
               >
                 {"\u{1F4CD}"} Auto
               </Button>
             </View>
             <TextInput
-              placeholder="Enter complete business address (Street, Area, City, State, Country)"
+              placeholder="Enter complete address (Street, Area, City)"
               value={form.location}
               onChangeText={(v) => updateField("location", v)}
               multiline
@@ -1303,340 +1120,42 @@ const CardCreate = () => {
             />
           </View>
           <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Google Maps Link</Label>
+            <Label className={labelClass}>State <Text className="text-destructive">*</Text></Label>
             <Input
-              placeholder="https://maps.google.com/..."
-              value={form.mapsLink}
-              onChangeText={(v) => updateField("mapsLink", v)}
-              className={inputClass}
+              placeholder="Enter state"
+              value={form.state}
+              onChangeText={(v) => updateField("state", v)}
+              onBlur={() => markTouched("state")}
+              className={touched.state && !form.state ? errorInputClass : inputClass}
             />
-          </View>
-        </AccordionSection>
-
-        {/* Section 2: Business */}
-        <AccordionSection
-          title="Business Information"
-          subtitle="Company and professional details"
-          isOpen={!!openSections.business}
-          onToggle={() => toggleSection("business")}
-          stepNum={2}
-          isComplete={sectionComplete.business}
-        >
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Company Name</Label>
-            <Input
-              placeholder="Your company or organization"
-              value={form.companyName}
-              onChangeText={(v) => updateField("companyName", v)}
-              className={inputClass}
-            />
-          </View>
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Job Title / Designation</Label>
-            <Input
-              placeholder="e.g. Marketing Manager, CEO"
-              value={form.jobTitle}
-              onChangeText={(v) => updateField("jobTitle", v)}
-              className={inputClass}
-            />
-          </View>
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Company Phone</Label>
-            {form.companyPhones.map((cp, idx) => (
-              <View key={idx} className="flex-row gap-2 items-center">
-                <Pressable
-                  onPress={() => setShowCompanyPhoneCountryPicker(true)}
-                  className="h-14 flex-row items-center justify-center gap-1 rounded-xl bg-muted/50 px-3 min-w-[90px]"
-                >
-                  <Text className="text-base text-muted-foreground">
-                    {COUNTRY_CODES.find((c) => c.code === companyPhoneCountry)?.flag}{" "}
-                    {companyPhoneCountry}
-                  </Text>
-                  <ChevronDown size={14} color="#6b7280" />
-                </Pressable>
-                <Input
-                  placeholder="Company number"
-                  value={cp}
-                  onChangeText={(v) => {
-                    const updated = [...form.companyPhones];
-                    updated[idx] = v;
-                    updateField("companyPhones", updated);
-                  }}
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                  className={cn("flex-1", inputClass)}
-                />
-                {form.companyPhones.length > 1 && (
-                  <Pressable
-                    onPress={() => {
-                      const updated = form.companyPhones.filter((_, i) => i !== idx);
-                      updateField("companyPhones", updated);
-                    }}
-                  >
-                    <X size={18} color="#ef4444" />
-                  </Pressable>
-                )}
-              </View>
-            ))}
-            {form.companyPhones.length < 3 && (
-              <Pressable
-                onPress={() => setForm({ ...form, companyPhones: [...form.companyPhones, ""] })}
-                className="flex-row items-center justify-center gap-2 rounded-xl bg-primary/10 py-3 mt-1"
-              >
-                <Plus size={16} color="#2563eb" />
-                <Text className="text-sm font-medium text-primary">Add another number</Text>
-              </Pressable>
+            {touched.state && !form.state && (
+              <Text className="text-xs text-destructive">State is required</Text>
             )}
           </View>
           <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Company Email</Label>
+            <Label className={labelClass}>Pincode <Text className="text-destructive">*</Text></Label>
             <Input
-              placeholder="contact@company.com"
-              value={form.companyEmail}
-              onChangeText={(v) => updateField("companyEmail", v)}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              className={inputClass}
+              placeholder="Enter pincode"
+              value={form.pincode}
+              onChangeText={(v) => updateField("pincode", v)}
+              onBlur={() => markTouched("pincode")}
+              keyboardType="numeric"
+              maxLength={6}
+              className={touched.pincode && !form.pincode ? errorInputClass : inputClass}
             />
-          </View>
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Company Website</Label>
-            <Input
-              placeholder="https://company.com"
-              value={form.website}
-              onChangeText={(v) => updateField("website", v)}
-              className={inputClass}
-            />
-          </View>
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Company Address</Label>
-            <View className="flex-row gap-2">
-              <Input
-                placeholder="Office address"
-                value={form.companyAddress}
-                onChangeText={(v) => updateField("companyAddress", v)}
-                className={cn("flex-1", inputClass)}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0 rounded-xl"
-                onPress={handleAutoCompanyLocation}
-              >
-                {"\u{1F4CD}"} Auto
-              </Button>
-            </View>
-          </View>
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Company Maps Link</Label>
-            <Input
-              placeholder="https://maps.google.com/..."
-              value={form.companyMapsLink}
-              onChangeText={(v) => updateField("companyMapsLink", v)}
-              className={inputClass}
-            />
-          </View>
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Business Photo / Logo</Label>
-            <Button
-              variant="outline"
-              className="w-full gap-2 rounded-xl border-primary/30"
-              onPress={handleLogoUpload}
-            >
-              <Camera size={18} color="#2563eb" />
-              {form.logoPreview ? "Change Photo" : "Add Photo"}
-            </Button>
-            {form.logoPreview ? (
-              <View className="mt-2 items-center">
-                <Image
-                  source={{ uri: form.logoPreview }}
-                  style={{ height: 120, width: 120, borderRadius: 16 }}
-                />
-              </View>
-            ) : null}
-          </View>
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Service Mode *</Label>
-            <Text className="text-xs text-muted-foreground">
-              Where do you serve your customers?
-            </Text>
-            <View className="flex-row gap-2 mt-1">
-              {[
-                { value: "home", label: "\u{1F3E0} Home Service", desc: "We visit the customer" },
-                { value: "visit", label: "\u{1F3E2} At Business", desc: "Customer visits us" },
-                { value: "both", label: "\u{1F504} Both", desc: "Home & business" },
-              ].map((opt) => (
-                <Pressable
-                  key={opt.value}
-                  onPress={() =>
-                    setForm((prev) => ({
-                      ...prev,
-                      serviceMode: opt.value,
-                    }))
-                  }
-                  className={cn(
-                    "flex-1 rounded-xl border-2 px-2 py-3",
-                    form.serviceMode === opt.value
-                      ? "border-primary bg-primary/5"
-                      : "border-border bg-muted/30"
-                  )}
-                >
-                  <Text className="text-base font-semibold text-foreground text-center">
-                    {opt.label}
-                  </Text>
-                  <Text className="text-[10px] text-muted-foreground text-center mt-0.5">
-                    {opt.desc}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        </AccordionSection>
-
-        {/* Section 3: About */}
-        <AccordionSection
-          title="About Business"
-          subtitle="Describe your services and hours"
-          isOpen={!!openSections.about}
-          onToggle={() => toggleSection("about")}
-          stepNum={3}
-          isComplete={sectionComplete.about}
-        >
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>About Business</Label>
-            <Textarea
-              placeholder="Brief description of your business or services"
-              value={form.description}
-              onChangeText={(v) => updateField("description", v)}
-              className={textareaClass}
-            />
-          </View>
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Business Hours</Label>
-            <Select
-              value={form.businessHours}
-              onValueChange={(v) => updateField("businessHours", v)}
-            >
-              <SelectTrigger className={inputClass}>
-                <SelectValue placeholder="Set business hours" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="9am-6pm">9:00 AM - 6:00 PM</SelectItem>
-                <SelectItem value="9am-9pm">9:00 AM - 9:00 PM</SelectItem>
-                <SelectItem value="10am-8pm">10:00 AM - 8:00 PM</SelectItem>
-                <SelectItem value="24x7">24 x 7</SelectItem>
-              </SelectContent>
-            </Select>
-          </View>
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Category</Label>
-            <Pressable
-              onPress={() => setShowCategoryPicker(true)}
-              className={inputClass}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                minHeight: 56,
-              }}
-            >
-              <Text
-                numberOfLines={2}
-                style={{
-                  fontSize: 13,
-                  lineHeight: 18,
-                  flex: 1,
-                  marginRight: 8,
-                  color: form.category ? colors.foreground : "#9ca3af",
-                }}
-              >
-                {(() => {
-                  if (!form.category) return "Select category";
-                  
-                  // Check if it's a multi-subcategory selection
-                  if (form.category.includes(" > ")) {
-                    const [parent, subs] = form.category.split(" > ");
-                    const parentEmoji = categoryOptions.find((c) => c.name === parent)?.emoji || "\u{1F4C1}";
-                    return `${parentEmoji} ${parent} > ${subs}`;
-                  }
-                  
-                  // Single category selection
-                  const emoji = categoryOptions.find((c) => c.name === form.category)?.emoji || "\u{1F4C1}";
-                  return `${emoji} ${form.category}`;
-                })()}
-              </Text>
-              <ChevronDown size={16} color="#6b7280" />
-            </Pressable>
-          </View>
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Services (max 8)</Label>
-            <View className="flex-row gap-2">
-              <Input
-                placeholder="Add a service"
-                value={serviceInput}
-                onChangeText={setServiceInput}
-                onSubmitEditing={addService}
-                className={cn("flex-1", inputClass)}
-              />
-              <Button size="sm" className="rounded-xl" onPress={addService}>
-                <Plus size={16} color="#ffffff" /> Add
-              </Button>
-            </View>
-            {form.services.length > 0 && (
-              <View className="flex-row flex-wrap gap-1.5 mt-2">
-                {form.services.map((svc, i) => (
-                  <View
-                    key={`${svc}-${i}`}
-                    className="flex-row items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1.5"
-                  >
-                    <Text className="text-sm font-medium text-primary">{svc}</Text>
-                    <Pressable onPress={() => removeService(i)}>
-                      <X size={14} color="#2563eb" />
-                    </Pressable>
-                  </View>
-                ))}
-              </View>
+            {touched.pincode && !form.pincode && (
+              <Text className="text-xs text-destructive">Pincode is required</Text>
             )}
           </View>
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Established Year</Label>
-            <Input
-              placeholder="e.g. 2020"
-              value={form.establishedYear}
-              onChangeText={(v) => updateField("establishedYear", v)}
-              keyboardType="number-pad"
-              className={inputClass}
-            />
-          </View>
         </AccordionSection>
 
-        {/* Section 4: Offer */}
-        <AccordionSection
-          title="Special Offer"
-          subtitle="Attract customers with an offer"
-          isOpen={!!openSections.offer}
-          onToggle={() => toggleSection("offer")}
-          stepNum={4}
-          isComplete={sectionComplete.offer}
-        >
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Offer</Label>
-            <Input
-              placeholder="e.g. 20% off on first service"
-              value={form.offer}
-              onChangeText={(v) => updateField("offer", v)}
-              className={inputClass}
-            />
-          </View>
-        </AccordionSection>
-
-        {/* Section 5: Social */}
+        {/* Section 2: Social */}
         <AccordionSection
           title="Social Media"
           subtitle="Connect on social platforms"
           isOpen={!!openSections.social}
           onToggle={() => toggleSection("social")}
-          stepNum={5}
+          stepNum={2}
           isComplete={sectionComplete.social}
         >
           <View style={{ gap: 6 }}>
@@ -1685,26 +1204,6 @@ const CardCreate = () => {
             />
           </View>
         </AccordionSection>
-
-        {/* Section 6: SEO */}
-        <AccordionSection
-          title="Additional Information"
-          subtitle="Keywords and search optimization"
-          isOpen={!!openSections.additional}
-          onToggle={() => toggleSection("additional")}
-          stepNum={6}
-          isComplete={sectionComplete.additional}
-        >
-          <View style={{ gap: 6 }}>
-            <Label className={labelClass}>Keywords</Label>
-            <Textarea
-              placeholder="Add keywords separated by commas to help people find your card"
-              value={form.keywords}
-              onChangeText={(v) => updateField("keywords", v)}
-              className={textareaClass}
-            />
-          </View>
-        </AccordionSection>
       </ScrollView>
 
       {/* ── Sticky Submit Button ── */}
@@ -1731,20 +1230,7 @@ const CardCreate = () => {
         selectedCode={whatsappCountry}
         onSelect={setWhatsappCountry}
       />
-      <CountryPickerModal
-        visible={showCompanyPhoneCountryPicker}
-        onClose={() => setShowCompanyPhoneCountryPicker(false)}
-        selectedCode={companyPhoneCountry}
-        onSelect={setCompanyPhoneCountry}
-      />
-      <CategoryPickerModal
-        visible={showCategoryPicker}
-        onClose={() => setShowCategoryPicker(false)}
-        selected={form.category}
-        onSelect={(name) => updateField("category", name)}
-        tree={categoryTree}
-        fallback={fallbackCategories}
-      />
+
     </KeyboardAvoidingView>
   );
 };

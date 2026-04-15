@@ -679,6 +679,8 @@ const BusinessDetail = () => {
       <ShareCardModal
         open={showShareCard}
         onOpenChange={setShowShareCard}
+        cardId={Number(card.id)}
+        cardName={card.full_name}
         data={{
           fullName: card.full_name,
           companyName: card.company_name,

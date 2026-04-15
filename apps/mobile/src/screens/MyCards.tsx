@@ -1,10 +1,12 @@
 import { useCallback, useState } from "react";
 import * as Clipboard from "expo-clipboard";
+import * as SecureStore from "expo-secure-store";
 import {
   Image,
   Pressable,
   RefreshControl,
   ScrollView,
+  Switch,
   Text,
   View,
   Linking,
@@ -38,6 +40,9 @@ import { useAuth } from "../hooks/useAuth";
 import { useUserRole } from "../hooks/useUserRole";
 import { useBusinessCards, type BusinessCardRow } from "../hooks/useBusinessCards";
 import { useDirectoryCards } from "../hooks/useDirectoryCards";
+import { useUserRole } from "../hooks/useUserRole";
+import { useAppDispatch } from "../store";
+import { setActiveRole } from "../store/authSlice";
 import { useGetMyPromotionsQuery, useUpdatePromotionMutation } from "../store/api/promotionsApi";
 import BusinessOnboarding from "../components/business/BusinessOnboarding";
 import { toast } from "../lib/toast";
@@ -55,6 +60,7 @@ const MyCards = () => {
   const plan = route.params?.plan;
   const { user } = useAuth();
   const { isBusiness } = useUserRole();
+  const dispatch = useAppDispatch();
   const { cards, isLoading, deleteCard, refetch: refetchCards } = useBusinessCards() as any;
   const { data: directoryCards = [], isLoading: isFetchingNetwork, refetch: refetchDirectory } = useDirectoryCards();
   const { data: myPromotions = [], refetch: refetchPromotions } = useGetMyPromotionsQuery(undefined, { skip: !user });
@@ -342,12 +348,35 @@ const MyCards = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center justify-between">
         <Text className="text-xl font-bold text-foreground">My Business Cards</Text>
-        <Pressable
-          onPress={() => navigation.navigate("CardCreate", plan ? { plan, skipPreview: true } : { skipPreview: true })}
-          className="h-10 w-10 items-center justify-center rounded-full bg-primary"
-        >
-          <Plus size={18} color="#ffffff" />
-        </Pressable>
+        <View className="flex-row items-center gap-3">
+          <View className="flex-row items-center gap-1.5">
+            <Text className="text-xs font-medium text-muted-foreground">
+              {isBusiness ? "Business" : "Customer"}
+            </Text>
+            <Switch
+              value={isBusiness}
+              onValueChange={async (val) => {
+                const newRole = val ? "business" : "customer";
+                dispatch(setActiveRole(newRole));
+                await SecureStore.setItemAsync("activeRole", newRole);
+                if (val) {
+                  navigation.navigate("ChooseListingType");
+                } else {
+                  toast.success("Switched to customer mode");
+                }
+              }}
+              trackColor={{ false: "#d1d5db", true: "#2563eb" }}
+              thumbColor="#ffffff"
+              style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
+            />
+          </View>
+          <Pressable
+            onPress={() => navigation.navigate("CardCreate", plan ? { plan, skipPreview: true } : { skipPreview: true })}
+            className="h-10 w-10 items-center justify-center rounded-full bg-primary"
+          >
+            <Plus size={18} color="#ffffff" />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: cards.length > 0 ? 80 : 16 }} refreshControl={

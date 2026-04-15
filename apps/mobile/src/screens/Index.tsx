@@ -45,6 +45,7 @@ import { useUserLocation, getDistanceKm, formatDistance } from "../hooks/useUser
 import { useTrendingBusinesses } from "../hooks/useTrendingBusinesses";
 import { useDealOfTheDay } from "../hooks/useDealOfTheDay";
 import { useVouchers } from "../hooks/useVouchers";
+import { useCredits } from "../contexts/CreditsContext";
 import { supabase, SUPABASE_CONFIG_OK } from "../integrations/supabase/client";
 import { colors } from "../theme/colors";
 
@@ -64,6 +65,7 @@ const Index = () => {
   const userLocation = useUserLocation();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, activeRole, isLoading: roleLoading } = useUserRole();
+  const { credits } = useCredits();
   const { data: myCards = [], isLoading: isLoadingMyCards, refetch: refetchMyCards } = useGetMyCardsQuery(undefined, { skip: !user });
   const { data: categoryData = [], isLoading: isLoadingCategories, isFetching: isFetchingCategories, refetch: refetchCategories } = useListMobileCategoriesQuery(undefined, { refetchOnMountOrArgChange: true });
 
@@ -163,6 +165,20 @@ const Index = () => {
             </Pressable>
           ))}
         </View>
+
+        {/* Credits badge — always visible when logged in */}
+        {user && (
+          <Pressable
+            onPress={() => navigation.navigate("Credits")}
+            className="mt-3 rounded-xl border border-border bg-card px-4 py-2.5 flex-row items-center justify-between"
+          >
+            <View className="flex-row items-center gap-2">
+              <Text className="text-base">💳</Text>
+              <Text className="text-sm font-semibold text-foreground">Credits: {credits}</Text>
+            </View>
+            <Text className="text-xs text-primary font-medium">View →</Text>
+          </Pressable>
+        )}
 
         <View className="mt-3">
           <View className="relative">
@@ -266,15 +282,13 @@ const Index = () => {
         </View>
       )}
 
+
       <View className="px-4 pt-4">
         <View className="mb-3 flex-row items-center justify-between">
           <View className="flex-row items-center gap-2">
             <Text className="text-lg font-bold text-foreground">Categories</Text>
             <ArrowRight size={16} color={colors.mutedForeground} />
           </View>
-          <Button size="sm" className="rounded-lg bg-accent px-4" onPress={() => navigation.navigate("ChooseListingType")}>
-            Promote Business
-          </Button>
         </View>
 
         <View className="flex-row flex-wrap justify-between gap-3">
