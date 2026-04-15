@@ -22,7 +22,7 @@ import { useCreateAdCampaign } from "../hooks/useAds";
 import { useBusinessCards } from "../hooks/useBusinessCards";
 import { useAuth } from "../hooks/useAuth";
 import { useUploadAdCreativeMutation } from "../store/api/adsApi";
-import { useMyTier } from "../hooks/useMyTier";
+import { usePromotionContext } from "../contexts/PromotionContext";
 import { hasFeature } from "../utils/tierFeatures";
 import { UpgradePrompt } from "../components/business/UpgradePrompt";
 import { toast } from "../lib/toast";
@@ -41,7 +41,7 @@ const AdCreate = () => {
   const route = useRoute<any>();
   const preselectedCardId = route.params?.cardId || "";
   const { user } = useAuth();
-  const { tier } = useMyTier();
+  const { tier } = usePromotionContext();
   const { cards } = useBusinessCards();
   const createCampaign = useCreateAdCampaign();
   const [uploadAdCreative] = useUploadAdCreativeMutation();
