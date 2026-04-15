@@ -186,23 +186,34 @@ const Auth = ({ navigation }: Props) => {
         }
       } else {
         console.log('[Auth Screen] Calling signIn...');
-        const { error, user: freshUser } = await signIn(fullPhone, password);
+        const { error, user: freshUser } = await signIn(fullPhone, password, fullPhone.includes('@'), roleTab);
         console.log(`[Auth Screen] signIn result: error=${error}, user=${freshUser?.id}, roles=[${freshUser?.roles?.join(', ')}]`);
         if (error) {
           console.warn('[Auth Screen] signIn error:', error);
           toast.error(error);
-        } else if (freshUser && freshUser.roles.length > 1) {
-          // Fresh roles from login response — no stale-closure risk
-          console.log(`[Auth Screen] Multi-role detected: [${freshUser.roles.join(', ')}], showing role selection`);
-          setLoginRoles(freshUser.roles);
-          setShowRoleSelection(true);
-        } else {
-          console.log('[Auth Screen] Single role login → navigating');
-          // Navigate to redirect screen if specified, otherwise Home
-          if (redirectScreen) {
-            navigation.navigate(redirectScreen, redirectParams);
+        } else if (freshUser) {
+          // If user logged in via a specific tab, auto-select that role
+          if (roleTab && freshUser.roles.includes(roleTab)) {
+            console.log(`[Auth Screen] Auto-selecting role from tab: ${roleTab}`);
+            dispatch(setActiveRole(roleTab));
+            SecureStore.setItemAsync('activeRole', roleTab);
+            if (redirectScreen) {
+              navigation.navigate(redirectScreen, redirectParams);
+            } else {
+              navigation.navigate(roleTab === 'business' ? "MyCards" : "Home");
+            }
+          } else if (freshUser.roles.length > 1) {
+            // Multi-role but no tab match — show selection
+            console.log(`[Auth Screen] Multi-role detected: [${freshUser.roles.join(', ')}], showing role selection`);
+            setLoginRoles(freshUser.roles);
+            setShowRoleSelection(true);
           } else {
-            navigation.navigate("Home");
+            console.log('[Auth Screen] Single role login → navigating');
+            if (redirectScreen) {
+              navigation.navigate(redirectScreen, redirectParams);
+            } else {
+              navigation.navigate("Home");
+            }
           }
         }
       }
@@ -281,7 +292,7 @@ const Auth = ({ navigation }: Props) => {
                 <Text className="text-base text-gray-700 font-medium">
                   {isSignUp
                     ? `Sign up as ${roleTab}`
-                    : `Sign in to your ${roleTab} account`}
+                    : `Sign in as ${roleTab}`}
                 </Text>
               </View>
 
