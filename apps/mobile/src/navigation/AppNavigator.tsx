@@ -1,5 +1,21 @@
+import { useEffect, useRef } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
+import * as ExpoNotifications from "expo-notifications";
+import { useDeferredGroupJoin } from "../hooks/useDeferredGroupJoin";
+import { checkInstallReferrer } from "../utils/deferredGroupJoin";
+
+// Show notifications even when app is in the foreground
+ExpoNotifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+// Ref used to navigate from outside the React tree (notification tap handler)
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 import Index from "../screens/Index";
 import MyCards from "../screens/MyCards";
 import Messaging from "../screens/Messaging";
@@ -49,6 +65,8 @@ import EventRegistrations from "../screens/EventRegistrations";
 import PassDetail from "../screens/PassDetail";
 import VoucherCreate from "../screens/VoucherCreate";
 import AdminAdDetail from "../screens/AdminAdDetail";
+import GroupChat from "../screens/GroupChat";
+import GroupJoin from "../screens/GroupJoin";
 import AppLayout from "../components/layout/AppLayout";
 import type { RootStackParamList } from "./routes";
 
@@ -132,12 +150,46 @@ const SupportScreen        = withLayout(Support);
 const NearbyBusinessesScreen = withLayout(NearbyBusinesses);
 const LoyaltyPointsScreen  = withLayout(LoyaltyPoints);
 const AdminAdDetailScreen  = (props: any) => <AdminAdDetail {...props} />;
+const GroupChatScreen      = (props: any) => <AppLayout headerOnly><GroupChat {...props} /></AppLayout>;
 const NotFoundScreen       = plainPlaceholder("Not Found");
+
+// ─── Deep link config ────────────────────────────────────────────────────────
+const linking = {
+  prefixes: ['instantllycards://'],
+  config: {
+    screens: {
+      // instantllycards://join?code=XXXX
+      GroupJoin: { path: 'join' },
+    },
+  },
+};
 
 // ─── Navigator ────────────────────────────────────────────────────────────────
 const AppNavigator = () => {
+  // On first launch after Play Store install, read the referrer and save any
+  // pending group join code to AsyncStorage.
+  useEffect(() => { checkInstallReferrer(); }, []);
+
+  // After the user logs in / signs up, process any deferred join code.
+  useDeferredGroupJoin();
+
+  // Handle notification taps: navigate to GroupChat when user taps a group invite notification.
+  const notifListenerRef = useRef<ExpoNotifications.Subscription | null>(null);
+  useEffect(() => {
+    notifListenerRef.current = ExpoNotifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as any;
+      if (data?.screen === 'GroupChat' && data?.groupId && navigationRef.isReady()) {
+        navigationRef.navigate('GroupChat', {
+          groupId: data.groupId,
+          groupName: data.groupName ?? 'Group Chat',
+        });
+      }
+    });
+    return () => { notifListenerRef.current?.remove(); };
+  }, []);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef} linking={linking}>
       <Stack.Navigator
         initialRouteName="Home"
         screenOptions={{
@@ -201,6 +253,7 @@ const AppNavigator = () => {
         <Stack.Screen name="CategoryDetail" component={CategoryDetailScreen} />
         <Stack.Screen name="SubcategoryDetail" component={SubcategoryDetailScreen} />
         <Stack.Screen name="Messaging" component={MessagingScreen} />
+        <Stack.Screen name="GroupChat" component={GroupChatScreen} />
         <Stack.Screen name="VoucherDetail" component={VoucherDetailScreen} />
         <Stack.Screen name="MyVouchers" component={MyVouchersScreen} />
         <Stack.Screen name="AdCreate" component={AdCreateScreen} />
@@ -232,6 +285,7 @@ const AppNavigator = () => {
         <Stack.Screen name="ForgotPasswordPhone" component={ForgotPasswordPhone} />
         <Stack.Screen name="ForgotPasswordOTP" component={ForgotPasswordOTP} />
         <Stack.Screen name="ForgotPasswordReset" component={ForgotPasswordReset} />
+        <Stack.Screen name="GroupJoin" component={GroupJoin} />
         <Stack.Screen name="NotFound" component={NotFoundScreen} />
       </Stack.Navigator>
     </NavigationContainer>

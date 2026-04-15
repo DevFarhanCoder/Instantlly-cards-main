@@ -2,7 +2,8 @@
   "expo": {
     "name": "Instantly Cards",
     "slug": "mobile",
-    "version": "1.0.80",
+    "version": "1.0.79",
+    "scheme": "instantllycards",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -23,7 +24,15 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.instantllycards.www.twa",
-      "versionCode": 80
+      "versionCode": 79,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "instantllycards" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
