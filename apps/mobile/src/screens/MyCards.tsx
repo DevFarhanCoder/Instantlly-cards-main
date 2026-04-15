@@ -21,7 +21,6 @@ import {
   Share2,
   Tag,
   Trash2,
-  Users,
   Lock,
 } from "lucide-react-native";
 import QRCode from "react-native-qrcode-svg";
@@ -42,6 +41,12 @@ import { useGetMyPromotionsQuery } from "../store/api/promotionsApi";
 import BusinessOnboarding from "../components/business/BusinessOnboarding";
 import { toast } from "../lib/toast";
 import { getTierLabel, getTierColor, type Tier } from "../utils/tierFeatures";
+import { useJoinGroupMutation, useCreateGroupMutation } from "../store/api/chatApi";
+import GroupSharingFAB from "../components/group-sharing/GroupSharingFAB";
+import GroupSharingModal, { type GSModalMode } from "../components/group-sharing/GroupSharingModal";
+import GroupConnectionScreen from "../components/group-sharing/GroupConnectionScreen";
+import GroupSharingSessionScreen from "../components/group-sharing/GroupSharingSessionScreen";
+import type { GroupSession } from "../services/groupSharingService";
 
 const MyCards = () => {
   const navigation = useNavigation<any>();
@@ -67,6 +72,30 @@ const MyCards = () => {
   const demoCards = directoryCards;
   const [shareCard, setShareCard] = useState<BusinessCardRow | null>(null);
   const [contactPickerCard, setContactPickerCard] = useState<BusinessCardRow | null>(null);
+
+  // ── Group Sharing state ────────────────────────────────────────────────────
+  const [gsModalMode, setGsModalMode] = useState<GSModalMode>('create');
+  const [showGSModal, setShowGSModal] = useState(false);
+  const [gsSession, setGsSession] = useState<GroupSession | null>(null);
+  const [showConnection, setShowConnection] = useState(false);
+  const [showSession, setShowSession] = useState(false);
+
+  // Keep legacy mutations to avoid breaking the old API layer (not used in new flow)
+  const [joinGroupMutation] = useJoinGroupMutation();
+  const [createGroupMutation] = useCreateGroupMutation();
+
+  // ── Group sharing handlers ─────────────────────────────────────────────────
+  const handleOpenConnection = (session: GroupSession) => {
+    setGsSession(session);
+    setShowGSModal(false);
+    setShowConnection(true);
+  };
+
+  const handleStartSharing = (session: GroupSession) => {
+    setGsSession(session);
+    setShowConnection(false);
+    setShowSession(true);
+  };
 
   const handleCopyLink = async () => {
     if (!shareCard) return;
@@ -631,16 +660,35 @@ const MyCards = () => {
       </ScrollView>
 
       {cards.length > 0 && (
-        <View className="absolute bottom-6 right-4 flex-row items-center gap-3" style={{ zIndex: 10 }}>
-          <View className="rounded-xl bg-foreground/90 px-4 py-2.5 shadow-lg">
-            <Text className="text-xs font-medium text-primary-foreground">
-              Share your cards with groups!
-            </Text>
-          </View>
-          <Pressable className="h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg">
-            <Users size={22} color="#ffffff" />
-          </Pressable>
-        </View>
+        <GroupSharingFAB
+          onCreate={() => { setGsModalMode('create'); setShowGSModal(true); }}
+          onJoin={() => { setGsModalMode('join'); setShowGSModal(true); }}
+        />
+      )}
+
+      {/* ── Group Sharing modals ──────────────────────────────────────── */}
+      <GroupSharingModal
+        visible={showGSModal}
+        mode={gsModalMode}
+        onClose={() => setShowGSModal(false)}
+        onOpenConnection={handleOpenConnection}
+      />
+
+      {gsSession && (
+        <GroupConnectionScreen
+          visible={showConnection}
+          session={gsSession}
+          onClose={() => setShowConnection(false)}
+          onStartSharing={handleStartSharing}
+        />
+      )}
+
+      {gsSession && (
+        <GroupSharingSessionScreen
+          visible={showSession}
+          session={gsSession}
+          onClose={() => { setShowSession(false); setGsSession(null); }}
+        />
       )}
 
       <Dialog open={!!shareCard} onOpenChange={() => setShareCard(null)}>

@@ -49,6 +49,7 @@ import EventRegistrations from "../screens/EventRegistrations";
 import PassDetail from "../screens/PassDetail";
 import VoucherCreate from "../screens/VoucherCreate";
 import AdminAdDetail from "../screens/AdminAdDetail";
+import GroupChat from "../screens/GroupChat";
 import AppLayout from "../components/layout/AppLayout";
 import type { RootStackParamList } from "./routes";
 
@@ -132,6 +133,7 @@ const SupportScreen        = withLayout(Support);
 const NearbyBusinessesScreen = withLayout(NearbyBusinesses);
 const LoyaltyPointsScreen  = withLayout(LoyaltyPoints);
 const AdminAdDetailScreen  = (props: any) => <AdminAdDetail {...props} />;
+const GroupChatScreen      = withLayout(GroupChat);
 const NotFoundScreen       = plainPlaceholder("Not Found");
 
 // ─── Navigator ────────────────────────────────────────────────────────────────
@@ -201,6 +203,7 @@ const AppNavigator = () => {
         <Stack.Screen name="CategoryDetail" component={CategoryDetailScreen} />
         <Stack.Screen name="SubcategoryDetail" component={SubcategoryDetailScreen} />
         <Stack.Screen name="Messaging" component={MessagingScreen} />
+        <Stack.Screen name="GroupChat" component={GroupChatScreen} />
         <Stack.Screen name="VoucherDetail" component={VoucherDetailScreen} />
         <Stack.Screen name="MyVouchers" component={MyVouchersScreen} />
         <Stack.Screen name="AdCreate" component={AdCreateScreen} />

@@ -114,6 +114,9 @@ export const baseApi = createApi({
     'SharedCard',
     'Booking',
     'Event',
+    'Chat',
+    'ChatMessages',
+    'GroupMessages',
   ],
   endpoints: () => ({}),
 });
