@@ -31,6 +31,10 @@ import Notifications from "../screens/Notifications";
 import Support from "../screens/Support";
 import Subscription from "../screens/Subscription";
 import LoyaltyPoints from "../screens/LoyaltyPoints";
+import CreditsScreen from "../screens/Credits";
+import TransferCreditsScreen from "../screens/TransferCredits";
+import CreditsHistoryScreen from "../screens/referral/CreditsHistory";
+import SendCreditsScreen from "../screens/SendCredits";
 import Events from "../screens/Events";
 import EventDetail from "../screens/EventDetail";
 import EventCreate from "../screens/EventCreate";
@@ -131,6 +135,10 @@ const PassDetailScreen = withLayout(PassDetail);
 const SupportScreen        = withLayout(Support);
 const NearbyBusinessesScreen = withLayout(NearbyBusinesses);
 const LoyaltyPointsScreen  = withLayout(LoyaltyPoints);
+const CreditsScreenWrapped = withLayout(CreditsScreen);
+const TransferCreditsWrapped = withLayout(TransferCreditsScreen);
+const CreditsHistoryWrapped = withLayout(CreditsHistoryScreen);
+const SendCreditsWrapped = withLayout(SendCreditsScreen);
 const AdminAdDetailScreen  = (props: any) => <AdminAdDetail {...props} />;
 const NotFoundScreen       = plainPlaceholder("Not Found");
 
@@ -228,6 +236,10 @@ const AppNavigator = () => {
         <Stack.Screen name="Support" component={SupportScreen} />
         <Stack.Screen name="NearbyBusinesses" component={NearbyBusinessesScreen} />
         <Stack.Screen name="LoyaltyPoints" component={LoyaltyPointsScreen} />
+        <Stack.Screen name="Credits" component={CreditsScreenWrapped} />
+        <Stack.Screen name="TransferCredits" component={TransferCreditsWrapped} />
+        <Stack.Screen name="CreditsHistory" component={CreditsHistoryWrapped} />
+        <Stack.Screen name="SendCredits" component={SendCreditsWrapped} />
         <Stack.Screen name="Auth" component={Auth} />
         <Stack.Screen name="ForgotPasswordPhone" component={ForgotPasswordPhone} />
         <Stack.Screen name="ForgotPasswordOTP" component={ForgotPasswordOTP} />

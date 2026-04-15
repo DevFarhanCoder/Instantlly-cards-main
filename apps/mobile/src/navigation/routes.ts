@@ -43,6 +43,10 @@ export type RootStackParamList = {
   Support: undefined;
   NearbyBusinesses: undefined;
   LoyaltyPoints: undefined;
+  Credits: undefined;
+  TransferCredits: undefined;
+  SendCredits: { recipient: { _id: number | string; name: string | null; phone: string; profilePic: string | null } } | undefined;
+  CreditsHistory: undefined;
   Auth: { redirect?: string; redirectParams?: any } | undefined;
   ForgotPasswordPhone: undefined;
   ForgotPasswordOTP: { phone: string } | undefined;

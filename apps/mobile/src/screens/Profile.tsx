@@ -43,6 +43,7 @@ import {
 import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "../hooks/useAuth";
 import { useUserRole } from "../hooks/useUserRole";
+import { useCredits } from "../contexts/CreditsContext";
 import { useGetProfileQuery } from "../store/api/usersApi";
 import { useGetMyCardsQuery } from "../store/api/businessCardsApi";
 import { useGetMyVouchersQuery } from "../store/api/vouchersApi";
@@ -278,6 +279,7 @@ const Profile = () => {
   const navigation = useNavigation<any>();
   const { user, signOut } = useAuth();
   const { isBusiness, isAdmin } = useUserRole();
+  const { credits } = useCredits();
   const [showTicketForm, setShowTicketForm] = useState(false);
   const { data: profileData, refetch: refetchProfile } = useGetProfileQuery(undefined, { skip: !user });
   const { data: myCards = [], refetch: refetchCards } = useGetMyCardsQuery(undefined, { skip: !user });
@@ -350,6 +352,7 @@ const Profile = () => {
     { icon: Bell, label: "Notifications", desc: "Push & email preferences", route: "Notifications" },
     { icon: Shield, label: "Privacy & Security", desc: "Password & account settings", route: "PrivacySecurity" },
     { icon: Gift, label: "Refer & Earn", desc: "Invite friends, earn rewards", route: "ReferAndEarn" },
+    { icon: CreditCard, label: "My Credits", desc: `Balance: ${credits} credits`, route: "Credits" },
     { icon: HelpCircle, label: "Help & Support", desc: "FAQs and contact us", action: () => setShowTicketForm(true) },
   ];
 
