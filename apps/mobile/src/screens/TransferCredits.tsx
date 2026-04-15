@@ -43,17 +43,13 @@ const TIPS = [
 
 const TransferCreditsScreen = () => {
   const navigation = useNavigation<any>();
-  const { credits, creditsExpiryDate, daysRemaining, expired, refreshCredits } = useCredits();
+  const { credits, refreshCredits } = useCredits();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [focused, setFocused] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const expiryLabel = creditsExpiryDate
-    ? new Date(creditsExpiryDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
-    : "31 December 2026";
 
   const searchUsers = useCallback(async (q: string) => {
     const digits = q.replace(/\D/g, "");
@@ -134,18 +130,6 @@ const TransferCreditsScreen = () => {
                 <Text style={s.secureText}>Secured Transfer</Text>
               </View>
               <View style={s.divider} />
-              {expired ? (
-                <Text style={s.expiredText}>⚠️  Credits Expired — cannot transfer</Text>
-              ) : (
-                <View style={s.expiryRow}>
-                  <Ionicons name="time-outline" size={scale(13)} color={C.warning} />
-                  <Text style={s.expiryText}>
-                    {"Expires: "}
-                    <Text style={s.expiryDate}>{expiryLabel}</Text>
-                    {daysRemaining != null && <Text style={s.expiryDays}>{`  •  ${daysRemaining} days left`}</Text>}
-                  </Text>
-                </View>
-              )}
             </LinearGradient>
 
             {/* Search */}

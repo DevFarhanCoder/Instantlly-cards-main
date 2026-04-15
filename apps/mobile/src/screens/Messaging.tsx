@@ -66,7 +66,7 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
   const sentIndividualCards = sharedCards.filter((s: any) => s.sender_id === myUserId);
 
   useEffect(() => {
-    if (tab === "Sent") getBulkSentCards().then(setSentCards);
+    if (tab === "Sent" && FEATURES.BULK_SEND) getBulkSentCards().then(setSentCards);
   }, [tab]);
 
   if (tab === "Received") {
@@ -93,7 +93,7 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
               <Pressable
                 key={card.id}
                 className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3"
-                onPress={() => navigation.navigate("Home")}
+                onPress={() => navigation.navigate("PublicCard", { id: String(card.card_id) })}
               >
                 <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
                   {card.card_photo ? (
@@ -172,50 +172,54 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
         </>
       )}
 
-      {/* Bulk-sent cards */}
-      <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        📤 Cards You've Bulk Sent
-      </Text>
-      {sentCards.length === 0 ? (
-        <View className="items-center py-12">
-          <Text className="text-4xl mb-3">📤</Text>
-          <Text className="text-sm font-semibold text-foreground">No cards sent yet</Text>
-          <Text className="text-xs text-muted-foreground text-center mt-1 max-w-[220px]">
-            Use the Bulk Send button to send your business cards to categories.
+      {/* Bulk-sent cards — gated by BULK_SEND feature flag */}
+      {FEATURES.BULK_SEND && (
+        <>
+          <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            📤 Cards You've Bulk Sent
           </Text>
-        </View>
-      ) : (
-        <View className="gap-3">
-          {sentCards.map((record) => (
-            <View
-              key={record.id}
-              className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3"
-            >
-              <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
-                {record.cardLogo ? (
-                  <Image source={{ uri: record.cardLogo }} style={{ width: 44, height: 44 }} />
-                ) : (
-                  <Text className="text-xl">🏢</Text>
-                )}
-              </View>
-              <View className="flex-1">
-                <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-                  {record.cardName}
-                </Text>
-                {record.cardCategory && (
-                  <Text className="text-[10px] text-muted-foreground">{record.cardCategory}</Text>
-                )}
-                <Text className="mt-0.5 text-[10px] text-muted-foreground">
-                  {record.sentToEmoji} {record.sentTo}
-                  {record.levelLabel ? ` · ${record.levelLabel} level` : ""} · {formatRelativeTime(record.sentAt)}
-                </Text>
-              </View>
-              <Text className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
-                Sent
+          {sentCards.length === 0 ? (
+            <View className="items-center py-12">
+              <Text className="text-4xl mb-3">📤</Text>
+              <Text className="text-sm font-semibold text-foreground">No cards sent yet</Text>
+              <Text className="text-xs text-muted-foreground text-center mt-1 max-w-[220px]">
+                Use the Bulk Send button to send your business cards to categories.
               </Text>
             </View>
-          ))}
-        </View>
+          ) : (
+            <View className="gap-3">
+              {sentCards.map((record) => (
+                <View
+                  key={record.id}
+                  className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3"
+                >
+                  <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+                    {record.cardLogo ? (
+                      <Image source={{ uri: record.cardLogo }} style={{ width: 44, height: 44 }} />
+                    ) : (
+                      <Text className="text-xl">🏢</Text>
+                    )}
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                      {record.cardName}
+                    </Text>
+                    {record.cardCategory && (
+                      <Text className="text-[10px] text-muted-foreground">{record.cardCategory}</Text>
+                    )}
+                    <Text className="mt-0.5 text-[10px] text-muted-foreground">
+                      {record.sentToEmoji} {record.sentTo}
+                      {record.levelLabel ? ` · ${record.levelLabel} level` : ""} · {formatRelativeTime(record.sentAt)}
+                    </Text>
+                  </View>
+                  <Text className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
+                    Sent
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </>
       )}
     </ScrollView>
   );

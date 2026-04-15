@@ -287,9 +287,6 @@ const Index = () => {
             <Text className="text-lg font-bold text-foreground">Categories</Text>
             <ArrowRight size={16} color={colors.mutedForeground} />
           </View>
-          <Button size="sm" className="rounded-lg bg-accent px-4" onPress={() => navigation.navigate("ChooseListingType")}>
-            Promote Business
-          </Button>
         </View>
 
         <View className="flex-row flex-wrap justify-between gap-3">

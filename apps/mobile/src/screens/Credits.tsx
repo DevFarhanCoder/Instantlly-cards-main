@@ -20,7 +20,7 @@ function fmt(n: number) { return n.toLocaleString("en-IN"); }
 
 const CreditsScreen = () => {
   const navigation = useNavigation<any>();
-  const { credits, creditsExpiryDate, daysRemaining, expired, loading, refreshCredits } = useCredits();
+  const { credits, loading, refreshCredits } = useCredits();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(() => {
@@ -28,10 +28,6 @@ const CreditsScreen = () => {
     refreshCredits();
     setTimeout(() => setRefreshing(false), 1000);
   }, [refreshCredits]);
-
-  const expiryLabel = creditsExpiryDate
-    ? new Date(creditsExpiryDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
-    : "31 December 2026";
 
   return (
     <View style={s.container}>
@@ -58,7 +54,7 @@ const CreditsScreen = () => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[C.secondary]} tintColor={C.secondary} />}
       >
         {/* Balance Card — tappable */}
-        <Pressable onPress={() => !expired && navigation.navigate("TransferCredits")} activeOpacity={expired ? 1 : 0.85}>
+        <Pressable onPress={() => navigation.navigate("TransferCredits")} style={({ pressed }) => pressed && { opacity: 0.8 }}>
           <LinearGradient colors={[C.primary, C.primaryLight]} style={s.balanceCard}>
             <View style={s.bTopRow}>
               <View style={s.walletBg}>
@@ -73,19 +69,7 @@ const CreditsScreen = () => {
               <Text style={s.secureText}>Secured Transfer</Text>
             </View>
             <View style={s.divider} />
-            {expired ? (
-              <Text style={s.expiredText}>âš   Credits Expired</Text>
-            ) : (
-              <View style={s.expiryRow}>
-                <Ionicons name="time-outline" size={scale(14)} color={C.warning} />
-                <Text style={s.expiryText}>
-                  {"Expires: "}
-                  <Text style={s.expiryDate}>{expiryLabel}</Text>
-                  {daysRemaining != null && <Text style={s.expiryDays}>{`  •  ${daysRemaining} days left`}</Text>}
-                </Text>
-              </View>
-            )}
-            {!expired && <Text style={s.tapHint}>Tap to transfer credits →</Text>}
+            <Text style={s.tapHint}>Tap to transfer credits →</Text>
           </LinearGradient>
         </Pressable>
 
@@ -97,16 +81,9 @@ const CreditsScreen = () => {
           </View>
           <View style={s.infoDivider} />
           <View style={s.infoRow}>
-            <Text style={s.infoLabel}>Valid Until</Text>
-            <Text style={s.infoValue}>{expiryLabel}</Text>
-          </View>
-          <View style={s.infoDivider} />
-          <View style={s.infoRow}>
             <Text style={s.infoLabel}>Status</Text>
-            <View style={[s.statusBadge, { backgroundColor: expired ? "#fee2e2" : "#dcfce7" }]}>
-              <Text style={[s.statusText, { color: expired ? C.error : C.accent }]}>
-                {expired ? "Expired" : "Active"}
-              </Text>
+            <View style={[s.statusBadge, { backgroundColor: "#dcfce7" }]}>
+              <Text style={[s.statusText, { color: C.accent }]}>Active</Text>
             </View>
           </View>
         </View>
