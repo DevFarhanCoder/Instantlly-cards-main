@@ -12,6 +12,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   SafeAreaView,
@@ -23,7 +24,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useBusinessCards, type BusinessCardRow } from '../../hooks/useBusinessCards';
-import { submitCards, endGroupSession, leaveGroupSession, type GroupSession } from '../../services/groupSharingService';
+import { endGroupSession, leaveGroupSession, type GroupSession } from '../../services/groupSharingService';
+import { useSendMessageRestMutation, useGetGroupMediaQuery, useStopGroupSharingMutation } from '../../store/api/chatApi';
 import { useGroupToast } from './GroupSharingToast';
 
 interface Props {
@@ -97,6 +99,7 @@ const CompletionView = ({
   participantCount,
   participantSharing,
   session,
+  receivedCards,
   onCreateNewGroup,
   onQuit,
 }: {
@@ -105,10 +108,11 @@ const CompletionView = ({
   participantCount: number;
   participantSharing: boolean;
   session: GroupSession;
+  receivedCards: { id: number; content: string; senderName: string }[];
   onCreateNewGroup: () => void;
   onQuit: () => void;
 }) => (
-  <View style={styles.completionWrap}>
+  <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.completionWrap}>
     <View style={styles.completionIcon}>
       <Ionicons name="checkmark-circle" size={72} color="#10B981" />
     </View>
@@ -119,6 +123,7 @@ const CompletionView = ({
         <Text style={styles.completionSub}>
           {selectedCount} cards from all participants ready to be shared
         </Text>
+        <Text style={styles.completionExtra}>{receivedCards.length} cards received so far</Text>
         <Text style={styles.completionExtra}>Choose how to share these cards:</Text>
       </>
     ) : (
@@ -127,7 +132,33 @@ const CompletionView = ({
         <Text style={styles.completionSub}>
           {selectedCount} cards marked. Waiting for admin.
         </Text>
+        <Text style={styles.completionExtra}>{receivedCards.length} cards received so far</Text>
       </>
+    )}
+
+    {receivedCards.length > 0 && (
+      <ScrollView style={styles.completionReceivedList} contentContainerStyle={styles.completionReceivedContent}>
+        {receivedCards.map((item) => {
+          let card: any = {};
+          try { card = JSON.parse(item.content); } catch {}
+          return (
+            <View key={item.id} style={styles.receivedCard}>
+              {card.logo_url ? (
+                <Image source={{ uri: card.logo_url }} style={styles.receivedLogo} />
+              ) : (
+                <View style={[styles.receivedLogo, { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }]}>
+                  <Ionicons name="card-outline" size={22} color="#6366F1" />
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.receivedName} numberOfLines={1}>{card.full_name ?? 'Card'}</Text>
+                {card.company_name ? <Text style={styles.receivedSub} numberOfLines={1}>{card.company_name}</Text> : null}
+                <Text style={styles.receivedMeta}>Shared by {item.senderName}</Text>
+              </View>
+            </View>
+          );
+        })}
+      </ScrollView>
     )}
 
     <View style={styles.completionActions}>
@@ -145,7 +176,7 @@ const CompletionView = ({
         </Text>
       </Pressable>
     </View>
-  </View>
+  </ScrollView>
 );
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -159,6 +190,7 @@ export default function GroupSharingSessionScreen({
   const { showToast, ToastRenderer } = useGroupToast();
   const { cards, isLoading } = useBusinessCards() as any;
 
+  const groupId = Number(session.sessionId);
   const isAdmin = String(user?.id) === session.adminId;
   const participantCount = session.participants.length;
 
@@ -166,6 +198,14 @@ export default function GroupSharingSessionScreen({
   const [defaultCardId, setDefaultCardId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [phase, setPhase] = useState<'select' | 'complete'>('select');
+  const [activeTab, setActiveTab] = useState<'share' | 'received'>('share');
+
+  // Received cards from the group
+  const { data: mediaData, refetch: refetchMedia } = useGetGroupMediaQuery(groupId, { skip: !groupId, pollingInterval: 3000 });
+  const receivedCards = (mediaData?.media ?? []).filter((m) => m.messageType === 'card' && m.senderId !== user?.id);
+
+  const [sendMessage] = useSendMessageRestMutation();
+  const [stopGroupSharing] = useStopGroupSharingMutation();
 
   const toggleCard = (id: string) => {
     setSelectedIds((prev) => {
@@ -196,32 +236,62 @@ export default function GroupSharingSessionScreen({
     }
     setSubmitting(true);
     try {
-      await submitCards(session.code, Array.from(selectedIds), defaultCardId);
-      if (isAdmin) {
-        showToast('success', 'Cards ready! Now choose: Create Group or Quit Sharing');
-      } else {
-        showToast('success', 'Cards ready! Waiting for admin to execute.');
+      const selectedCards = (cards as BusinessCardRow[]).filter((c) => selectedIds.has(c.id));
+      // Send each selected card as a card message to the group
+      const results = await Promise.allSettled(
+        selectedCards.map((card) =>
+          sendMessage({
+            groupId,
+            content: JSON.stringify({
+              id: card.id,
+              full_name: card.full_name,
+              company_name: card.company_name,
+              job_title: card.job_title,
+              phone: card.phone,
+              email: card.email,
+              logo_url: card.logo_url,
+            }),
+            messageType: 'card',
+          }).unwrap()
+        )
+      );
+      const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      if (succeeded > 0) {
+        showToast('success', `${succeeded} card${succeeded > 1 ? 's' : ''} shared with the group!`);
       }
+      if (failed > 0) {
+        console.warn('Some cards failed to share:', results.filter((r) => r.status === 'rejected'));
+      }
+      // Always move to completion so the user can quit
+      setActiveTab('received');
+      refetchMedia();
       setPhase('complete');
-    } catch {
-      showToast('error', 'Failed to submit cards. Please try again.');
+    } catch (err) {
+      console.error('handleShare unexpected error:', err);
+      showToast('error', 'Failed to share cards. Please try again.');
+      // Still move to completion so user can quit
+      setPhase('complete');
     } finally {
       setSubmitting(false);
     }
-  }, [selectedIds, defaultCardId, session.code, isAdmin, showToast]);
+  }, [selectedIds, cards, groupId, sendMessage, showToast, refetchMedia]);
 
   const handleQuit = useCallback(async () => {
     if (isAdmin) {
-      await endGroupSession(session.code);
+      try {
+        await stopGroupSharing(groupId).unwrap();
+      } catch {
+        // Fallback to local mock cleanup if API fails
+        await endGroupSession(session.code);
+      }
     } else {
       await leaveGroupSession(session.code, String(user?.id));
     }
     onClose();
-  }, [isAdmin, session.code, user, onClose]);
+  }, [isAdmin, groupId, session.code, stopGroupSharing, user, onClose]);
 
   const handleCreateNewGroup = useCallback(async () => {
-    // Finalize sharing into a real persistent group
-    // In real impl: call backend to save all exchanged cards
     showToast('success', `Group created! Code: ${session.code}`);
     setTimeout(onClose, 1200);
   }, [session.code, showToast, onClose]);
@@ -238,7 +308,31 @@ export default function GroupSharingSessionScreen({
           <View style={{ width: 40 }} />
         </View>
 
+        {/* ── Tab bar ──────────────────────────────────────────────────── */}
         {phase === 'select' && (
+          <View style={styles.tabRow}>
+            <Pressable
+              style={[styles.tabBtn, activeTab === 'share' && styles.tabBtnActive]}
+              onPress={() => setActiveTab('share')}
+            >
+              <Ionicons name="card-outline" size={16} color={activeTab === 'share' ? '#6366F1' : '#6B7280'} />
+              <Text style={[styles.tabBtnText, activeTab === 'share' && styles.tabBtnTextActive]}>
+                Share ({selectedIds.size} selected)
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tabBtn, activeTab === 'received' && styles.tabBtnActive]}
+              onPress={() => setActiveTab('received')}
+            >
+              <Ionicons name="people-outline" size={16} color={activeTab === 'received' ? '#6366F1' : '#6B7280'} />
+              <Text style={[styles.tabBtnText, activeTab === 'received' && styles.tabBtnTextActive]}>
+                Received ({receivedCards.length})
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {phase === 'select' && activeTab === 'share' && (
           <>
             {/* ── Top info ─────────────────────────────────────────────── */}
             <View style={styles.infoPanel}>
@@ -306,6 +400,52 @@ export default function GroupSharingSessionScreen({
           </>
         )}
 
+        {phase === 'select' && activeTab === 'received' && (
+          <>
+            <ScrollView style={styles.cardsList} contentContainerStyle={[styles.cardsContent, { paddingBottom: 32 }]}>
+              {receivedCards.length === 0 ? (
+                <View style={styles.centerState}>
+                  <Ionicons name="people-outline" size={56} color="#D1D5DB" />
+                  <Text style={styles.stateTitle}>No Cards Yet</Text>
+                  <Text style={styles.stateText}>Cards shared by others will appear here</Text>
+                </View>
+              ) : (
+                receivedCards.map((item) => {
+                  let card: any = {};
+                  try { card = JSON.parse(item.content); } catch {}
+                  return (
+                    <View key={item.id} style={styles.receivedCard}>
+                      {card.logo_url ? (
+                        <Image source={{ uri: card.logo_url }} style={styles.receivedLogo} />
+                      ) : (
+                        <View style={[styles.receivedLogo, { backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }]}>
+                          <Ionicons name="card-outline" size={22} color="#6366F1" />
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.receivedName} numberOfLines={1}>{card.full_name ?? 'Card'}</Text>
+                        {card.company_name ? <Text style={styles.receivedSub} numberOfLines={1}>{card.company_name}</Text> : null}
+                        {card.phone ? <Text style={styles.receivedSub} numberOfLines={1}>{card.phone}</Text> : null}
+                        <Text style={styles.receivedMeta}>Shared by {item.senderName}</Text>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
+
+            {/* Quit button always available on received tab */}
+            <View style={styles.actionBar}>
+              <Pressable style={styles.quitBtn} onPress={handleQuit}>
+                <Ionicons name="exit" size={18} color="#FFFFFF" />
+                <Text style={styles.quitBtnText}>
+                  {isAdmin ? 'Quit Group Sharing' : 'Quit Sharing'}
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        )}
+
         {phase === 'complete' && (
           <CompletionView
             isAdmin={isAdmin}
@@ -313,6 +453,7 @@ export default function GroupSharingSessionScreen({
             participantCount={participantCount}
             participantSharing={session.participantSharing}
             session={session}
+            receivedCards={receivedCards}
             onCreateNewGroup={handleCreateNewGroup}
             onQuit={handleQuit}
           />
@@ -390,6 +531,65 @@ const styles = StyleSheet.create({
   statChipGreen: {
     backgroundColor: '#D1FAE5',
     color: '#059669',
+  },
+  // Tab bar
+  tabRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabBtnActive: {
+    borderBottomColor: '#6366F1',
+  },
+  tabBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  tabBtnTextActive: {
+    color: '#6366F1',
+  },
+  // Received cards
+  receivedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  receivedLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+  },
+  receivedName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  receivedSub: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  receivedMeta: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 3,
   },
   // Cards list
   cardsList: {
@@ -518,10 +718,11 @@ const styles = StyleSheet.create({
   },
   // Completion
   completionWrap: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
+    paddingBottom: 48,
   },
   completionIcon: {
     marginBottom: 20,
@@ -532,6 +733,14 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 8,
     textAlign: 'center',
+  },
+  completionReceivedList: {
+    width: '100%',
+    maxHeight: 220,
+    marginBottom: 20,
+  },
+  completionReceivedContent: {
+    gap: 10,
   },
   completionSub: {
     fontSize: 15,

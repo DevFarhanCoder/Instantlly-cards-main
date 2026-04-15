@@ -22,14 +22,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
-import {
-  leaveGroupSession,
-  pollGroupSession,
-  startGroupSharing,
-  type GroupParticipant,
-  type GroupSession,
-} from '../../services/groupSharingService';
+import type { GroupParticipant, GroupSession } from '../../services/groupSharingService';
+import { useGetGroupDetailQuery, useStartGroupSharingMutation } from '../../store/api/chatApi';
 import { useGroupToast } from './GroupSharingToast';
+import * as socketService from '../../services/socketService';
 
 const logoImg = require('../../../assets/icon.png');
 
@@ -170,52 +166,81 @@ export default function GroupConnectionScreen({
   const [session, setSession] = useState<GroupSession>(initialSession);
   const [starting, setStarting] = useState(false);
   const timerLabel = useCountdown(session.expiresAt);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [startGroupSharingApi] = useStartGroupSharingMutation();
 
   const isAdmin = String(user?.id) === session.adminId;
+  const groupId = Number(session.sessionId);
 
-  // ── Poll ────────────────────────────────────────────────────────────────────
+  // ── Poll via real API ───────────────────────────────────────────────────────
+  const { data: groupDetail } = useGetGroupDetailQuery(groupId, {
+    skip: !visible || !groupId,
+    pollingInterval: 2000,
+  });
+
   useEffect(() => {
-    if (!visible) return;
-    pollRef.current = setInterval(async () => {
-      const updated = await pollGroupSession(session.code);
-      if (!updated) {
-        clearInterval(pollRef.current!);
-        showToast('info', 'Group session has ended.');
-        onClose();
-        return;
-      }
-      setSession(updated);
-      if (updated.status === 'sharing' || updated.status === 'connected') {
-        clearInterval(pollRef.current!);
-        onStartSharing(updated);
-      }
-    }, 2000);
+    if (!groupDetail) return;
+    const updatedParticipants: GroupParticipant[] = groupDetail.members.map((m) => ({
+      id: String(m.id),
+      name: m.name,
+      photoUrl: m.avatar,
+      isOnline: true,
+      isAdmin: m.role === 'admin',
+    }));
+    setSession((prev) => ({ ...prev, participants: updatedParticipants }));
+  }, [groupDetail]);
 
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+  // ── Keep a stable ref to the latest session + onStartSharing ──────────────
+  const onStartSharingRef = useRef(onStartSharing);
+  const sessionRef = useRef(session);
+  useEffect(() => { onStartSharingRef.current = onStartSharing; }, [onStartSharing]);
+  useEffect(() => { sessionRef.current = session; }, [session]);
+
+  // ── Listen for sharing_started event (participants only) ────────────────────
+  useEffect(() => {
+    if (!visible || isAdmin) return;
+
+    // Ensure socket is connected so we receive real-time events
+    socketService.socketService.connect().catch(() => {/* ignore — polling is the fallback */});
+
+    const handler = (data: { groupId: number; joinCode: string }) => {
+      if (data.groupId === groupId) {
+        onStartSharingRef.current(sessionRef.current);
+      }
     };
-  }, [visible, session.code]);
 
-  // ── Start sharing ───────────────────────────────────────────────────────────
+    socketService.socketService.on('group:sharing_started', handler);
+    return () => {
+      socketService.socketService.off('group:sharing_started', handler);
+    };
+  // Only re-run when visible/isAdmin/groupId change — NOT on every session/callback change
+  }, [visible, isAdmin, groupId]);
+
+  // ── Polling fallback: if backend marks isSharing=true, open session ─────────
+  const alreadyStartedRef = useRef(false);
+  useEffect(() => {
+    if (!groupDetail || isAdmin || alreadyStartedRef.current) return;
+    if (groupDetail.isSharing) {
+      alreadyStartedRef.current = true;
+      onStartSharingRef.current(sessionRef.current);
+    }
+  }, [groupDetail, isAdmin]);
+
+  // ── Start sharing (admin only) ──────────────────────────────────────────────
   const handleStartSharing = useCallback(async () => {
     setStarting(true);
     try {
-      const updated = await startGroupSharing(session.code);
-      onStartSharing(updated);
+      await startGroupSharingApi(groupId).unwrap();
     } catch {
-      showToast('error', 'Failed to start sharing. Please try again.');
-    } finally {
-      setStarting(false);
+      // Non-fatal — still open session on admin side
     }
-  }, [session.code, onStartSharing, showToast]);
+    onStartSharing(session);
+    setStarting(false);
+  }, [session, groupId, startGroupSharingApi, onStartSharing]);
 
   // ── Close / leave ───────────────────────────────────────────────────────────
-  const handleClose = useCallback(async () => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    await leaveGroupSession(session.code, String(user?.id));
+  const handleClose = useCallback(() => {
     onClose();
-  }, [session.code, user, onClose]);
+  }, [onClose]);
 
   // ── Compute orbit positions ─────────────────────────────────────────────────
   const ORBIT_RADIUS = 110;

@@ -66,6 +66,7 @@ export interface GroupDetail {
   description: string | null;
   icon: string | null;
   joinCode: string;
+  isSharing: boolean;
   admin: { id: number; name: string; phone: string; avatar?: string };
   members: {
     id: number;
@@ -142,14 +143,14 @@ export const chatApi = baseApi.injectEndpoints({
       invalidatesTags: ['Group'],
     }),
 
-    joinGroup: build.mutation<{ id: number; name: string; alreadyMember: boolean }, { joinCode: string }>({
+    joinGroup: build.mutation<{ id: number; name: string; adminId: number; alreadyMember: boolean }, { joinCode: string }>({
       query: (body) => ({ url: '/groups/join', method: 'POST', body }),
       invalidatesTags: ['Group'],
     }),
 
     updateGroup: build.mutation<any, { groupId: number; name?: string; description?: string; icon?: string }>({
       query: ({ groupId, ...body }) => ({ url: `/groups/${groupId}`, method: 'PUT', body }),
-      invalidatesTags: (_r, _e, { groupId }) => [{ type: 'Group', id: groupId }],
+      invalidatesTags: (_r, _e, { groupId }) => ['Group', { type: 'Group', id: groupId }],
     }),
 
     addGroupMembers: build.mutation<{ added: number }, { groupId: number; memberIds: number[] }>({
@@ -169,13 +170,48 @@ export const chatApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, { groupId }) => [{ type: 'Group', id: groupId }],
     }),
 
+    startGroupSharing: build.mutation<{ ok: boolean; groupId: number }, number>({
+      query: (groupId) => ({ url: `/groups/${groupId}/start-sharing`, method: 'POST' }),
+    }),
+
+    stopGroupSharing: build.mutation<{ ok: boolean; groupId: number }, number>({
+      query: (groupId) => ({ url: `/groups/${groupId}/stop-sharing`, method: 'POST' }),
+    }),
+
+    // ── Group media (images + cards) ────────────────────────────────
+    getGroupMedia: build.query<
+      { media: { id: number; messageType: string; content: string; metadata: any; senderId: number; senderName: string; createdAt: string }[] },
+      number
+    >({
+      query: (groupId) => `/groups/${groupId}/media`,
+      providesTags: (_r, _e, groupId) => [{ type: 'GroupMessages' as any, id: groupId }],
+    }),
+
+    // ── Upload chat image ────────────────────────────────────────────
+    uploadChatImage: build.mutation<{ url: string }, FormData>({
+      query: (body) => ({
+        url: '/uploads/chat-image',
+        method: 'POST',
+        body,
+        // formData:true tells fetchBaseQuery not to JSON-stringify the body.
+        // On React Native, fetch sets the multipart boundary automatically.
+        formData: true,
+        // Explicitly delete Content-Type so fetch can set it with the correct boundary
+        headers: { Accept: 'application/json' },
+      }),
+    }),
+
     // ── Messages (REST fallback) ────────────────────────────────────
     sendMessageRest: build.mutation<
       ChatMessage,
       { receiverId?: number; groupId?: number; content: string; messageType?: string }
     >({
       query: (body) => ({ url: '/messages/send', method: 'POST', body }),
-      invalidatesTags: ['Chat', 'Group'],
+      invalidatesTags: (_r, _e, arg) => [
+        'Chat',
+        'Group',
+        ...(arg.groupId ? [{ type: 'GroupMessages' as any, id: arg.groupId }] : []),
+      ],
     }),
 
     deleteMessage: build.mutation<{ ok: boolean }, number>({
@@ -197,6 +233,10 @@ export const {
   useUpdateGroupMutation,
   useAddGroupMembersMutation,
   useRemoveGroupMemberMutation,
+  useStartGroupSharingMutation,
+  useStopGroupSharingMutation,
+  useGetGroupMediaQuery,
+  useUploadChatImageMutation,
   useSendMessageRestMutation,
   useDeleteMessageMutation,
 } = chatApi;

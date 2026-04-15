@@ -48,5 +48,6 @@ export type RootStackParamList = {
   ForgotPasswordOTP: { phone: string } | undefined;
   ForgotPasswordReset: { phone: string; otp: string } | undefined;
   GroupChat: { groupId: number; groupName: string };
+  GroupJoin: { code: string };
   NotFound: undefined;
 };

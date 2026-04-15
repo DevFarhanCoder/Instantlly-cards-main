@@ -27,11 +27,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import {
-  createGroupSession,
-  joinGroupSession,
+  mapGroupInfoToSession,
   mapJoinError,
   type GroupSession,
 } from '../../services/groupSharingService';
+import { useCreateGroupMutation, useJoinGroupMutation } from '../../store/api/chatApi';
 import GroupSettingsModal from './GroupSettingsModal';
 
 export type GSModalMode = 'create' | 'join';
@@ -102,7 +102,17 @@ const CodeBox = ({
 
 // ─── Create mode body ─────────────────────────────────────────────────────────
 
-const CreateBody = ({ onNext }: { onNext: () => void }) => (
+const CreateBody = ({
+  onNext,
+  name,
+  onChangeName,
+  error,
+}: {
+  onNext: () => void;
+  name: string;
+  onChangeName: (v: string) => void;
+  error?: string;
+}) => (
   <>
     <View style={styles.heroBlock}>
       <View style={styles.heroCircle}>
@@ -115,6 +125,21 @@ const CreateBody = ({ onNext }: { onNext: () => void }) => (
         Create a group to share business cards with multiple people at once. You'll become
         the admin and can control when to start sharing.
       </Text>
+
+      <View style={styles.nameInputWrap}>
+        <Ionicons name="people-outline" size={18} color="#6366F1" style={{ marginRight: 8 }} />
+        <TextInput
+          style={styles.nameInput}
+          placeholder="Enter group name"
+          placeholderTextColor="#9CA3AF"
+          value={name}
+          onChangeText={onChangeName}
+          maxLength={60}
+          returnKeyType="done"
+        />
+      </View>
+
+      {!!error && <Text style={styles.createErrorText}>{error}</Text>}
 
       <View style={styles.featureList}>
         <FeatureRow icon="people" text="Connect with multiple people" />
@@ -265,11 +290,15 @@ export default function GroupSharingModal({
   onOpenConnection,
 }: Props) {
   const { user } = useAuth();
+  const [createGroupApi] = useCreateGroupMutation();
+  const [joinGroupApi] = useJoinGroupMutation();
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   // create flow state
   const [createStep, setCreateStep] = useState<'info' | 'settings' | 'code'>('info');
+  const [groupName, setGroupName] = useState('');
+  const [createError, setCreateError] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
   const [createdSession, setCreatedSession] = useState<GroupSession | null>(null);
   const [creating, setCreating] = useState(false);
@@ -295,6 +324,8 @@ export default function GroupSharingModal({
   useEffect(() => {
     if (visible && mode === 'create') {
       setCreateStep('info');
+      setGroupName('');
+      setCreateError('');
       setGeneratedCode('');
       setCreatedSession(null);
       setShowSettings(false);
@@ -302,34 +333,46 @@ export default function GroupSharingModal({
   }, [visible, mode]);
 
   const handleClose = () => {
+    setCreateError('');
     setJoinError('');
     onClose();
   };
+
+  const handleGroupNameChange = useCallback((value: string) => {
+    setGroupName(value);
+    if (createError) setCreateError('');
+  }, [createError]);
 
   // ── Create flow ─────────────────────────────────────────────────────────────
 
   const handleCreate = useCallback(
     async (participantSharing: boolean) => {
       if (!user) return;
+      if (!groupName.trim()) {
+        setCreateError('Group name is required.');
+        setShowSettings(false);
+        return;
+      }
       setCreating(true);
       try {
-        const { session, code } = await createGroupSession(
-          String(user.id),
-          user.name ?? 'You',
-          participantSharing,
-        );
-        setGeneratedCode(code);
+        const result = await createGroupApi({
+          // Use exactly what admin typed.
+          name: groupName,
+          description: participantSharing ? 'Participant sharing enabled' : undefined,
+        }).unwrap();
+        const session = mapGroupInfoToSession(result, String(user.id));
+        setGeneratedCode(result.joinCode);
         setCreatedSession(session);
         setShowSettings(false);
         setCreateStep('code');
         if (Platform.OS !== 'web') Vibration.vibrate(80);
       } catch {
-        // ignore in mock
+        // ignore
       } finally {
         setCreating(false);
       }
     },
-    [user],
+    [user, groupName, createGroupApi],
   );
 
   const handleAutoNext = useCallback(() => {
@@ -347,28 +390,25 @@ export default function GroupSharingModal({
         setJoinError('Please enter a complete 4-digit code');
         return;
       }
-      if (!/^\d{4}$/.test(code)) {
-        setJoinError('Code must contain only numbers');
-        return;
-      }
       setJoinError('');
       setJoining(true);
       try {
-        const { session } = await joinGroupSession(
-          code,
+        const result = await joinGroupApi({ joinCode: code }).unwrap();
+        const session = mapGroupInfoToSession(
+          { id: result.id, name: result.name, joinCode: code, adminId: result.adminId, adminName: result.name },
           String(user.id),
-          user.name ?? 'Guest',
         );
         if (Platform.OS !== 'web') Vibration.vibrate(60);
         setTimeout(() => onOpenConnection(session), 800);
       } catch (err: any) {
-        setJoinError(mapJoinError(err));
+        const msg = err?.data?.error || 'No active group found with this code.';
+        setJoinError(msg);
         if (Platform.OS !== 'web') Vibration.vibrate([0, 60, 40, 60]);
       } finally {
         setJoining(false);
       }
     },
-    [user, onOpenConnection],
+    [user, joinGroupApi, onOpenConnection],
   );
 
   const titleText = mode === 'create' ? 'Create Group Sharing' : 'Join Group Sharing';
@@ -394,7 +434,18 @@ export default function GroupSharingModal({
 
             {/* ── Body ───────────────────────────────────────────────── */}
             {mode === 'create' && createStep === 'info' && (
-              <CreateBody onNext={() => setShowSettings(true)} />
+              <CreateBody
+                onNext={() => {
+                  if (!groupName.trim()) {
+                    setCreateError('Group name is required.');
+                    return;
+                  }
+                  setShowSettings(true);
+                }}
+                name={groupName}
+                onChangeName={handleGroupNameChange}
+                error={createError}
+              />
             )}
             {mode === 'create' && createStep === 'code' && (
               <CodeDisplay code={generatedCode} onAutoNext={handleAutoNext} />
@@ -485,6 +536,29 @@ const styles = StyleSheet.create({
   },
   featureList: {
     gap: 12,
+  },
+  nameInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 20,
+    backgroundColor: '#F9FAFB',
+  },
+  nameInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#111827',
+  },
+  createErrorText: {
+    fontSize: 12,
+    color: '#DC2626',
+    marginTop: -12,
+    marginBottom: 14,
+    fontWeight: '600',
   },
   featureRow: {
     flexDirection: 'row',

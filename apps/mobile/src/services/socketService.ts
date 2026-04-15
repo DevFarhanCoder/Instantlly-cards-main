@@ -42,6 +42,7 @@ type SocketEvents = {
   typing_stop: (data: { userId: number; chatId?: number; groupId?: number }) => void;
   user_online: (data: { userId: number }) => void;
   user_offline: (data: { userId: number }) => void;
+  'group:sharing_started': (data: { groupId: number; joinCode: string }) => void;
 };
 
 const listeners = new Map<string, Set<(...args: any[]) => void>>();

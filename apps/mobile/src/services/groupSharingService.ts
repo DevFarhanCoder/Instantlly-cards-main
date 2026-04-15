@@ -151,6 +151,41 @@ export async function submitCards(
   // In real impl: POST /api/group-sharing/submit-cards
 }
 
+// ─── Map real API GroupInfo → GroupSession ────────────────────────────────────
+
+export function mapGroupInfoToSession(
+  group: {
+    id: number;
+    name: string;
+    joinCode: string;
+    adminId: number;
+    adminName?: string;
+    members?: { id: number; name: string; avatar?: string; role: string }[];
+    memberCount?: number;
+  },
+  currentUserId: string,
+): GroupSession {
+  const members = group.members ?? [];
+  return {
+    sessionId: String(group.id),
+    code: group.joinCode,
+    adminId: String(group.adminId),
+    adminName: group.adminName ?? '',
+    status: 'waiting',
+    participantSharing: true,
+    participants: members.length > 0
+      ? members.map((m) => ({
+          id: String(m.id),
+          name: m.name,
+          photoUrl: m.avatar,
+          isOnline: true,
+          isAdmin: m.role === 'admin',
+        }))
+      : [{ id: currentUserId, name: group.adminName ?? 'You', isOnline: true, isAdmin: true }],
+    expiresAt: Date.now() + 30 * 60 * 1000, // 30 min for real sessions
+  };
+}
+
 // ─── Map server errors to user-facing messages ────────────────────────────────
 
 export function mapJoinError(err: any): string {

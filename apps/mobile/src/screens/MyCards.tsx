@@ -85,17 +85,17 @@ const MyCards = () => {
   const [createGroupMutation] = useCreateGroupMutation();
 
   // ── Group sharing handlers ─────────────────────────────────────────────────
-  const handleOpenConnection = (session: GroupSession) => {
+  const handleOpenConnection = useCallback((session: GroupSession) => {
     setGsSession(session);
     setShowGSModal(false);
     setShowConnection(true);
-  };
+  }, []);
 
-  const handleStartSharing = (session: GroupSession) => {
+  const handleStartSharing = useCallback((session: GroupSession) => {
     setGsSession(session);
     setShowConnection(false);
     setShowSession(true);
-  };
+  }, []);
 
   const handleCopyLink = async () => {
     if (!shareCard) return;

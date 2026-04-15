@@ -14,6 +14,8 @@ const API_URL =
   Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL ||
   'http://localhost:8080';
 
+export { API_URL };
+
 if (API_URL === 'http://localhost:8080') {
   console.warn('[RTK baseApi] ⚠️ EXPO_PUBLIC_API_URL not set — falling back to localhost. Set it as an EAS Secret for production builds.');
 } else {
