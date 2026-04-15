@@ -15,6 +15,7 @@ import {
 } from "../components/ui/select";
 import { Switch } from "../components/ui/switch";
 import { useAuth } from "../hooks/useAuth";
+import { useUserRole } from "../hooks/useUserRole";
 import { useBusinessCards } from "../hooks/useBusinessCards";
 import { useCreateEvent } from "../hooks/useEvents";
 import { toast } from "../lib/toast";
@@ -45,8 +46,23 @@ const EventCreate = () => {
   const route = useRoute<any>();
   const preselectedCardId = route?.params?.cardId || "";
   const { user } = useAuth();
+  const { isBusiness } = useUserRole();
   const { cards } = useBusinessCards();
   const createEvent = useCreateEvent();
+
+  // Block non-business users from accessing this screen
+  if (!isBusiness) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center px-6">
+        <Text className="text-4xl mb-3">🔒</Text>
+        <Text className="text-lg font-bold text-foreground text-center">Business Account Required</Text>
+        <Text className="text-sm text-muted-foreground text-center mt-2">You need a business account to create events.</Text>
+        <Button className="mt-4 rounded-xl" onPress={() => navigation.goBack()}>
+          <Text className="text-sm font-medium text-primary-foreground">Go Back</Text>
+        </Button>
+      </View>
+    );
+  }
 
   const defaultCardId = useMemo(() => {
     if (preselectedCardId) return preselectedCardId;

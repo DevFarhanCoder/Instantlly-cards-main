@@ -109,15 +109,18 @@ const PremiumPlanSelection = () => {
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector(selectCurrentUser);
   
-  // Get the form data passed from BusinessPromotionForm
+  // Mode 1: New listing (formData from BusinessPromotionForm)
+  // Mode 2: Existing promotion (promotionId from MyCards "Complete Payment")
   const formData = route?.params?.formData;
+  const existingPromotionId = route?.params?.promotionId as number | undefined;
+  const existingCardId = route?.params?.businessCardId as number | undefined;
   
   const [selectedPlan, setSelectedPlan] = useState<string | null>("scale");
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
   const [loading, setLoading] = useState(false);
   const [webViewVisible, setWebViewVisible] = useState(false);
   const [razorpayOptions, setRazorpayOptions] = useState<any>(null);
-  const [pendingPromoId, setPendingPromoId] = useState<number | null>(null);
+  const [pendingPromoId, setPendingPromoId] = useState<number | null>(existingPromotionId ?? null);
 
   const [createPromotion] = useCreatePromotionMutation();
   const [createPaymentIntent] = useCreatePromotionPaymentIntentMutation();
@@ -142,7 +145,7 @@ const PremiumPlanSelection = () => {
       ...paymentData,
     }).unwrap();
 
-    console.log("[PremiumPlan] Payment verified:", result.success);
+    console.log("[PremiumPlan] Payment verified:", result.success, "promoId:", promoId, "result:", JSON.stringify({ tier: result.tier, roles: result.roles }));
 
     // Use fresh tokens returned by backend (they include the new business role)
     if (result.accessToken && result.refreshToken && result.roles && currentUser) {
@@ -173,7 +176,8 @@ const PremiumPlanSelection = () => {
       return;
     }
 
-    if (!formData) {
+    // Must have either formData (new listing) or existingPromotionId (complete payment)
+    if (!formData && !existingPromotionId) {
       toast.error("Form data missing");
       navigation.goBack();
       return;
@@ -182,36 +186,44 @@ const PremiumPlanSelection = () => {
     try {
       setLoading(true);
 
-      // Step 1: Create the business card
-      console.log("[PremiumPlan] Creating business card...");
-      const card = await createCard.mutateAsync(formData as any);
-      const cardId = typeof card.id === 'string' ? parseInt(card.id, 10) : card.id;
-      console.log("[PremiumPlan] Card created:", cardId);
+      let promoId: number;
 
-      // Step 2: Create a promotion linked to the card
-      console.log("[PremiumPlan] Creating promotion...");
-      const promoData = {
-        business_name: formData.company_name || formData.full_name,
-        owner_name: formData.full_name,
-        description: formData.description,
-        email: formData.email,
-        phone: formData.phone,
-        whatsapp: formData.whatsapp,
-        website: formData.website,
-        pincode: formData.pincode,
-        city: formData.city || null,
-        state: formData.state || null,
-        business_card_id: cardId,
-        listing_type: "premium",
-        listing_intent: "premium",
-        plan_type: "premium",
-        status: "pending_payment",
-      };
+      if (existingPromotionId) {
+        // Mode 2: Existing promotion — skip card/promotion creation, go straight to payment
+        promoId = existingPromotionId;
+        setPendingPromoId(promoId);
+        console.log("[PremiumPlan] Using existing promotion:", promoId);
+      } else {
+        // Mode 1: New listing — create card + promotion
+        console.log("[PremiumPlan] Creating business card...");
+        const card = await createCard.mutateAsync(formData as any);
+        const cardId = typeof card.id === 'string' ? parseInt(card.id, 10) : card.id;
+        console.log("[PremiumPlan] Card created:", cardId);
 
-      const promo = await createPromotion(promoData).unwrap();
-      const promoId = promo.id;
-      setPendingPromoId(promoId);
-      console.log("[PremiumPlan] Promotion created:", promoId);
+        console.log("[PremiumPlan] Creating promotion...");
+        const promoData = {
+          business_name: formData.company_name || formData.full_name,
+          owner_name: formData.full_name,
+          description: formData.description,
+          email: formData.email,
+          phone: formData.phone,
+          whatsapp: formData.whatsapp,
+          website: formData.website,
+          pincode: formData.pincode,
+          city: formData.city || null,
+          state: formData.state || null,
+          business_card_id: cardId,
+          listing_type: "premium",
+          listing_intent: "premium",
+          plan_type: "premium",
+          status: "pending_payment",
+        };
+
+        const promo = await createPromotion(promoData).unwrap();
+        promoId = promo.id;
+        setPendingPromoId(promoId);
+        console.log("[PremiumPlan] Promotion created:", promoId);
+      }
 
       // Step 3: Create payment intent
       // Resolve the correct DB pricing plan from selected plan + billing period
@@ -238,9 +250,9 @@ const PremiumPlanSelection = () => {
         name: "Instantly Cards",
         description: `${planPriceMap[selectedPlan]?.label || "Premium"} Plan`,
         prefill: {
-          name: formData.full_name || user.name || "",
-          email: formData.email || "",
-          contact: formData.phone || "",
+          name: formData?.full_name || user.name || "",
+          email: formData?.email || "",
+          contact: formData?.phone || user.phone || "",
         },
         theme: { color: colors.primary },
       };
