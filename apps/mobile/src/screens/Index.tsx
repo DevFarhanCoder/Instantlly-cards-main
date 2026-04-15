@@ -94,12 +94,14 @@ const Index = () => {
 
   const normalizedCategories = useMemo(() => {
     if (categoryData.length > 0) {
-      return categoryData.map((cat) => ({
-        id: String(cat.id),
-        name: cat.name,
-        emoji: cat.icon || "\u{1F4C1}",
-        count: cat.child_count ?? 0,
-      }));
+      return categoryData
+        .filter((cat) => cat.icon !== '??' && !cat.name.match(/^(Root|LegacyRoot)\s+\d+$/))
+        .map((cat) => ({
+          id: String(cat.id),
+          name: cat.name,
+          emoji: cat.icon || "\u{1F4C1}",
+          count: cat.child_count ?? 0,
+        }));
     }
     return fallbackCategories;
   }, [categoryData]);

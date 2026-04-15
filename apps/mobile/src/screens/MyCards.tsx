@@ -23,7 +23,6 @@ import {
   Share2,
   Tag,
   Trash2,
-  Users,
   Lock,
 } from "lucide-react-native";
 import QRCode from "react-native-qrcode-svg";
@@ -38,13 +37,22 @@ import {
 } from "../components/ui/dropdown-menu";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../hooks/useAuth";
+import { useUserRole } from "../hooks/useUserRole";
 import { useBusinessCards, type BusinessCardRow } from "../hooks/useBusinessCards";
 import { useDirectoryCards } from "../hooks/useDirectoryCards";
 import { useUserRole } from "../hooks/useUserRole";
 import { useAppDispatch } from "../store";
 import { setActiveRole } from "../store/authSlice";
+import { useGetMyPromotionsQuery, useUpdatePromotionMutation } from "../store/api/promotionsApi";
 import BusinessOnboarding from "../components/business/BusinessOnboarding";
 import { toast } from "../lib/toast";
+import { getTierLabel, getTierColor, type Tier } from "../utils/tierFeatures";
+import { useJoinGroupMutation, useCreateGroupMutation } from "../store/api/chatApi";
+import GroupSharingFAB from "../components/group-sharing/GroupSharingFAB";
+import GroupSharingModal, { type GSModalMode } from "../components/group-sharing/GroupSharingModal";
+import GroupConnectionScreen from "../components/group-sharing/GroupConnectionScreen";
+import GroupSharingSessionScreen from "../components/group-sharing/GroupSharingSessionScreen";
+import type { GroupSession } from "../services/groupSharingService";
 
 const MyCards = () => {
   const navigation = useNavigation<any>();
@@ -55,16 +63,48 @@ const MyCards = () => {
   const dispatch = useAppDispatch();
   const { cards, isLoading, deleteCard, refetch: refetchCards } = useBusinessCards() as any;
   const { data: directoryCards = [], isLoading: isFetchingNetwork, refetch: refetchDirectory } = useDirectoryCards();
+  const { data: myPromotions = [], refetch: refetchPromotions } = useGetMyPromotionsQuery(undefined, { skip: !user });
+  const [updatePromotion] = useUpdatePromotionMutation();
+
+  // Build a map from business_card_id → promotion info
+  const promoByCardId = (myPromotions as any[]).reduce((acc: Record<number, any>, p: any) => {
+    if (p.business_card_id) acc[p.business_card_id] = p;
+    return acc;
+  }, {} as Record<number, any>);
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    try { await Promise.all([refetchCards?.(), refetchDirectory()]); } finally { setRefreshing(false); }
-  }, [refetchCards, refetchDirectory]);
+    try { await Promise.all([refetchCards?.(), refetchDirectory(), refetchPromotions()]); } finally { setRefreshing(false); }
+  }, [refetchCards, refetchDirectory, refetchPromotions]);
   const networkCards = directoryCards;
   const demoCards = directoryCards;
   const [shareCard, setShareCard] = useState<BusinessCardRow | null>(null);
   const [contactPickerCard, setContactPickerCard] = useState<BusinessCardRow | null>(null);
+
+  // ── Group Sharing state ────────────────────────────────────────────────────
+  const [gsModalMode, setGsModalMode] = useState<GSModalMode>('create');
+  const [showGSModal, setShowGSModal] = useState(false);
+  const [gsSession, setGsSession] = useState<GroupSession | null>(null);
+  const [showConnection, setShowConnection] = useState(false);
+  const [showSession, setShowSession] = useState(false);
+
+  // Keep legacy mutations to avoid breaking the old API layer (not used in new flow)
+  const [joinGroupMutation] = useJoinGroupMutation();
+  const [createGroupMutation] = useCreateGroupMutation();
+
+  // ── Group sharing handlers ─────────────────────────────────────────────────
+  const handleOpenConnection = useCallback((session: GroupSession) => {
+    setGsSession(session);
+    setShowGSModal(false);
+    setShowConnection(true);
+  }, []);
+
+  const handleStartSharing = useCallback((session: GroupSession) => {
+    setGsSession(session);
+    setShowConnection(false);
+    setShowSession(true);
+  }, []);
 
   const handleCopyLink = async () => {
     if (!shareCard) return;
@@ -406,12 +446,48 @@ const MyCards = () => {
                         </Text>
                       )}
                       {card.category && (
-                        <Text className="mt-0.5 rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                          {card.category}
+                        <Text className="mt-0.5 text-[10px] font-medium text-primary" numberOfLines={2}>
+                          {(Array.isArray(card.category) ? card.category : [card.category]).join(' • ')}
                         </Text>
                       )}
                     </View>
                   </View>
+
+                  {/* Promotion status badges */}
+                  {(() => {
+                    const promo = promoByCardId[card.id];
+                    if (!promo) return null;
+                    const tier = (promo.tier || 'free') as Tier;
+                    const isPremium = tier !== 'free' && promo.status === 'active';
+                    const statusColor = promo.status === 'active'
+                      ? 'bg-green-100 text-green-700'
+                      : promo.status === 'pending_payment'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-gray-100 text-gray-600';
+                    return (
+                      <View className="items-end gap-1">
+                        <View className="flex-row flex-wrap items-center gap-1.5">
+                          <Text className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${isPremium ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {isPremium ? `⭐ ${promo.plan_name || 'Premium'}` : '🆓 Free'}
+                          </Text>
+                          {tier !== 'free' && (
+                            <Text style={{ backgroundColor: getTierColor(tier) + '20', color: getTierColor(tier) }} className="rounded-full px-2 py-0.5 text-[10px] font-bold">
+                              {getTierLabel(tier)}
+                            </Text>
+                          )}
+                          <Text className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor}`}>
+                            {promo.status === 'active' ? '✅ Active' : promo.status === 'pending_payment' ? '⏳ Pending Payment' : promo.status}
+                          </Text>
+                        </View>
+                        {promo.expiry_date && (
+                          <Text className="text-[10px] text-gray-500">
+                            Expires {new Date(promo.expiry_date).toLocaleDateString()}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })()}
+
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Pressable className="p-1">
@@ -429,15 +505,21 @@ const MyCards = () => {
                         <Share2 size={14} color="#111827" /> Share
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onPress={() => navigation.navigate("AdCreate", { cardId: card.id })}>
-                        <Megaphone size={14} color="#111827" /> Run Ad
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => navigation.navigate("EventCreate", { cardId: card.id })}>
-                        <Calendar size={14} color="#111827" /> List Event
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => navigation.navigate("VoucherCreate", { cardId: card.id })}>
-                        <Tag size={14} color="#111827" /> Create Voucher
-                      </DropdownMenuItem>
+                      {isBusiness && (
+                        <DropdownMenuItem onPress={() => navigation.navigate("AdCreate", { cardId: card.id })}>
+                          <Megaphone size={14} color="#111827" /> Run Ad
+                        </DropdownMenuItem>
+                      )}
+                      {isBusiness && (
+                        <DropdownMenuItem onPress={() => navigation.navigate("EventCreate", { cardId: card.id })}>
+                          <Calendar size={14} color="#111827" /> List Event
+                        </DropdownMenuItem>
+                      )}
+                      {isBusiness && (
+                        <DropdownMenuItem onPress={() => navigation.navigate("VoucherCreate", { cardId: card.id })}>
+                          <Tag size={14} color="#111827" /> Create Voucher
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive"
@@ -476,29 +558,150 @@ const MyCards = () => {
                   </View>
                 )}
 
+                {/* Pending payment actions */}
+                {(() => {
+                  const promo = promoByCardId[card.id];
+                  if (!promo || promo.status !== 'pending_payment') return null;
+                  return (
+                    <View className="mt-3 flex-row gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 rounded-lg bg-amber-500"
+                        onPress={() => navigation.navigate("PremiumPlanSelection", { promotionId: promo.id, businessCardId: card.id })}
+                      >
+                        <Text className="text-xs font-medium text-white">💳 Complete Payment</Text>
+                      </Button>
+                    </View>
+                  );
+                })()}
+
                 <View className="mt-3 flex-row gap-2">
                   <Button size="sm" className="flex-1 rounded-lg" onPress={() => setShareCard(card)}>
                     <Share2 size={14} color="#ffffff" /> Share
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 rounded-lg"
-                    onPress={() => navigation.navigate("AdCreate", { cardId: card.id })}
-                  >
-                    📣 Promote
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 rounded-lg"
-                    onPress={() => navigation.navigate("EventCreate", { cardId: card.id })}
-                  >
-                    🎫 Event
-                  </Button>
+                  {isBusiness && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 rounded-lg"
+                      onPress={() => navigation.navigate("AdCreate", { cardId: card.id })}
+                    >
+                      📣 Promote
+                    </Button>
+                  )}
+                  {isBusiness && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 rounded-lg"
+                      onPress={() => navigation.navigate("EventCreate", { cardId: card.id })}
+                    >
+                      🎫 Event
+                    </Button>
+                  )}
                 </View>
               </View>
             ))}
+          </View>
+        )}
+
+        {/* My Promotions Section */}
+        {(myPromotions as any[]).length > 0 && (
+          <View className="px-4 py-2">
+            <View className="my-3 flex-row items-center gap-3">
+              <View className="h-px flex-1 bg-border" />
+              <Text className="text-sm font-bold text-foreground">My Promotions</Text>
+              <View className="h-px flex-1 bg-border" />
+            </View>
+            <View className="gap-3">
+              {(myPromotions as any[]).map((promo: any) => {
+                const tier = (promo.tier || 'free') as Tier;
+                const isPremium = tier !== 'free' && promo.status === 'active';
+                const statusColor = promo.status === 'active'
+                  ? 'bg-green-100 text-green-700'
+                  : promo.status === 'pending_payment'
+                  ? 'bg-amber-100 text-amber-700'
+                  : promo.status === 'expired'
+                  ? 'bg-red-100 text-red-600'
+                  : 'bg-gray-100 text-gray-600';
+                const statusLabel = promo.status === 'active' ? '✅ Active'
+                  : promo.status === 'pending_payment' ? '⏳ Pending Payment'
+                  : promo.status === 'expired' ? '❌ Expired'
+                  : promo.status;
+                const categories = promo.business_card?.category
+                  ? (Array.isArray(promo.business_card.category) ? promo.business_card.category : [promo.business_card.category]).join(' • ')
+                  : null;
+
+                return (
+                  <View key={promo.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                    <View className="flex-row items-start justify-between">
+                      <View className="flex-1">
+                        <Text className="text-base font-bold text-foreground">{promo.business_name || 'Business'}</Text>
+                        {categories && (
+                          <Text className="text-xs text-primary mt-0.5" numberOfLines={2}>{categories}</Text>
+                        )}
+                      </View>
+                      <View className="flex-row items-center gap-2">
+                        <Text className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor}`}>
+                          {statusLabel}
+                        </Text>
+                        {isPremium && (
+                          <Text style={{ backgroundColor: getTierColor(tier) + '20', color: getTierColor(tier) }} className="rounded-full px-2 py-0.5 text-[10px] font-bold">
+                            {getTierLabel(tier)}
+                          </Text>
+                        )}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Pressable className="p-1">
+                              <MoreVertical size={16} color="#6a7181" />
+                            </Pressable>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onPress={() => navigation.navigate("BusinessDetail", { id: `promo-${promo.id}` })}>
+                              <Eye size={14} color="#111827" /> View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onPress={() => navigation.navigate("BusinessPromotionForm", { promotionId: promo.id, editMode: true })}>
+                              <Edit size={14} color="#111827" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onPress={async () => {
+                                try {
+                                  await updatePromotion({ id: promo.id, data: { status: 'cancelled' } }).unwrap();
+                                  toast.success("Promotion cancelled");
+                                  refetchPromotions();
+                                } catch (e: any) {
+                                  toast.error(e?.data?.error || "Failed to cancel");
+                                }
+                              }}
+                            >
+                              <Trash2 size={14} color="#ef4343" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </View>
+                    </View>
+                    {promo.expiry_date && (
+                      <Text className="text-[10px] text-gray-500 mt-1">
+                        Expires {new Date(promo.expiry_date).toLocaleDateString()}
+                      </Text>
+                    )}
+                    {promo.status === 'pending_payment' && (
+                      <View className="mt-3">
+                        <Button
+                          size="sm"
+                          className="rounded-lg bg-amber-500"
+                          onPress={() => navigation.navigate("PremiumPlanSelection", { promotionId: promo.id, businessCardId: promo.business_card_id })}
+                        >
+                          <Text className="text-xs font-medium text-white">💳 Complete Payment</Text>
+                        </Button>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
           </View>
         )}
 
@@ -595,16 +798,35 @@ const MyCards = () => {
       </ScrollView>
 
       {cards.length > 0 && (
-        <View className="absolute bottom-6 right-4 flex-row items-center gap-3" style={{ zIndex: 10 }}>
-          <View className="rounded-xl bg-foreground/90 px-4 py-2.5 shadow-lg">
-            <Text className="text-xs font-medium text-primary-foreground">
-              Share your cards with groups!
-            </Text>
-          </View>
-          <Pressable className="h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg">
-            <Users size={22} color="#ffffff" />
-          </Pressable>
-        </View>
+        <GroupSharingFAB
+          onCreate={() => { setGsModalMode('create'); setShowGSModal(true); }}
+          onJoin={() => { setGsModalMode('join'); setShowGSModal(true); }}
+        />
+      )}
+
+      {/* ── Group Sharing modals ──────────────────────────────────────── */}
+      <GroupSharingModal
+        visible={showGSModal}
+        mode={gsModalMode}
+        onClose={() => setShowGSModal(false)}
+        onOpenConnection={handleOpenConnection}
+      />
+
+      {gsSession && (
+        <GroupConnectionScreen
+          visible={showConnection}
+          session={gsSession}
+          onClose={() => setShowConnection(false)}
+          onStartSharing={handleStartSharing}
+        />
+      )}
+
+      {gsSession && (
+        <GroupSharingSessionScreen
+          visible={showSession}
+          session={gsSession}
+          onClose={() => { setShowSession(false); setGsSession(null); }}
+        />
       )}
 
       <Dialog open={!!shareCard} onOpenChange={() => setShareCard(null)}>

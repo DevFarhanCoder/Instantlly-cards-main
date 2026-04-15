@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, Check } from "lucide-react-native";
 import { cn } from "../lib/utils";
@@ -7,6 +7,17 @@ import { colors } from "../theme/colors";
 import { useAuth } from "../hooks/useAuth";
 import { useBusinessCards } from "../hooks/useBusinessCards";
 import { toast } from "../lib/toast";
+import { useAppDispatch, useAppSelector } from "../store";
+import { setCredentials, setActiveRole, selectCurrentUser } from '../store/authSlice';
+import {
+  useCreatePromotionMutation,
+  useCreatePromotionPaymentIntentMutation,
+  useVerifyPromotionPaymentMutation,
+  useListPricingPlansQuery,
+} from "../store/api/promotionsApi";
+import { isNativeRazorpayAvailable, openRazorpayCheckout } from "../lib/payments/razorpayCheckout";
+import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
+import * as SecureStore from 'expo-secure-store';
 
 const premiumPlans = [
   {
@@ -95,11 +106,63 @@ const PremiumPlanSelection = () => {
   const route = useRoute<any>();
   const { user } = useAuth();
   const { createCard } = useBusinessCards();
+  const dispatch = useAppDispatch();
+  const currentUser = useAppSelector(selectCurrentUser);
   
-  // Get the form data passed from BusinessPromotionForm
+  // Mode 1: New listing (formData from BusinessPromotionForm)
+  // Mode 2: Existing promotion (promotionId from MyCards "Complete Payment")
   const formData = route?.params?.formData;
+  const existingPromotionId = route?.params?.promotionId as number | undefined;
+  const existingCardId = route?.params?.businessCardId as number | undefined;
   
   const [selectedPlan, setSelectedPlan] = useState<string | null>("scale");
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
+  const [loading, setLoading] = useState(false);
+  const [webViewVisible, setWebViewVisible] = useState(false);
+  const [razorpayOptions, setRazorpayOptions] = useState<any>(null);
+  const [pendingPromoId, setPendingPromoId] = useState<number | null>(existingPromotionId ?? null);
+
+  const [createPromotion] = useCreatePromotionMutation();
+  const [createPaymentIntent] = useCreatePromotionPaymentIntentMutation();
+  const [verifyPayment] = useVerifyPromotionPaymentMutation();
+  const { data: pricingPlans = [] } = useListPricingPlansQuery();
+
+  // Map plan IDs to backend pricing plan IDs (matching PromotionPricingPlan.code)
+  const planPriceMap: Record<string, { amount: number; label: string }> = {
+    growth: { amount: 1500, label: "GROWTH" },
+    boost: { amount: 2500, label: "BOOST" },
+    scale: { amount: 4000, label: "SCALE" },
+    dominate: { amount: 5000, label: "DOMINATE" },
+  };
+
+  const completeAfterPayment = async (
+    promoId: number,
+    paymentData: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
+  ) => {
+    console.log("[PremiumPlan] Verifying payment for promo:", promoId);
+    const result = await verifyPayment({
+      promoId,
+      ...paymentData,
+    }).unwrap();
+
+    console.log("[PremiumPlan] Payment verified:", result.success, "promoId:", promoId, "result:", JSON.stringify({ tier: result.tier, roles: result.roles }));
+
+    // Use fresh tokens returned by backend (they include the new business role)
+    if (result.accessToken && result.refreshToken && result.roles && currentUser) {
+      const updatedUser = { ...currentUser, roles: result.roles };
+      dispatch(setCredentials({ user: updatedUser, accessToken: result.accessToken, refreshToken: result.refreshToken }));
+      await SecureStore.setItemAsync('accessToken', result.accessToken);
+      await SecureStore.setItemAsync('refreshToken', result.refreshToken);
+      if (result.roles.includes('business')) {
+        dispatch(setActiveRole('business'));
+        await SecureStore.setItemAsync('activeRole', 'business');
+      }
+      console.log('[PremiumPlan] Tokens + roles updated after payment');
+    }
+
+    toast.success("Premium business listing activated!");
+    navigation.navigate("MyCards");
+  };
 
   const handleContinue = async () => {
     if (!selectedPlan) {
@@ -113,25 +176,144 @@ const PremiumPlanSelection = () => {
       return;
     }
 
-    try {
-      // Here you would typically:
-      // 1. Process payment
-      // 2. Create the business card with premium status
-      // 3. Navigate to success screen or MyCards
-      
-      // For now, create the card with the form data
-      if (formData) {
-        await createCard.mutateAsync(formData as any);
-        toast.success("Premium business listing created successfully!");
-        navigation.navigate("MyCards");
-      } else {
-        toast.error("Form data missing");
-        navigation.goBack();
-      }
-    } catch (error) {
-      console.error("Error creating premium listing:", error);
-      toast.error("Failed to create listing. Please try again.");
+    // Must have either formData (new listing) or existingPromotionId (complete payment)
+    if (!formData && !existingPromotionId) {
+      toast.error("Form data missing");
+      navigation.goBack();
+      return;
     }
+
+    try {
+      setLoading(true);
+
+      let promoId: number;
+
+      if (existingPromotionId) {
+        // Mode 2: Existing promotion — skip card/promotion creation, go straight to payment
+        promoId = existingPromotionId;
+        setPendingPromoId(promoId);
+        console.log("[PremiumPlan] Using existing promotion:", promoId);
+      } else {
+        // Mode 1: New listing — create card + promotion
+        console.log("[PremiumPlan] Creating business card...");
+        const card = await createCard.mutateAsync(formData as any);
+        const cardId = typeof card.id === 'string' ? parseInt(card.id, 10) : card.id;
+        console.log("[PremiumPlan] Card created:", cardId);
+
+        console.log("[PremiumPlan] Creating promotion...");
+        const promoData = {
+          business_name: formData.company_name || formData.full_name,
+          owner_name: formData.full_name,
+          description: formData.description,
+          email: formData.email,
+          phone: formData.phone,
+          whatsapp: formData.whatsapp,
+          website: formData.website,
+          pincode: formData.pincode,
+          city: formData.city || null,
+          state: formData.state || null,
+          business_card_id: cardId,
+          listing_type: "premium",
+          listing_intent: "premium",
+          plan_type: "premium",
+          status: "pending_payment",
+        };
+
+        const promo = await createPromotion(promoData).unwrap();
+        promoId = promo.id;
+        setPendingPromoId(promoId);
+        console.log("[PremiumPlan] Promotion created:", promoId);
+      }
+
+      // Step 3: Create payment intent
+      // Resolve the correct DB pricing plan from selected plan + billing period
+      const planCode = `${selectedPlan}_${billingPeriod}`;
+      const matchedPlan = pricingPlans.find((p: any) => p.code === planCode);
+      if (!matchedPlan) {
+        toast.error("Pricing plan not available. Please try again later.");
+        return;
+      }
+
+      console.log("[PremiumPlan] Creating payment intent for plan:", planCode, "id:", matchedPlan.id);
+      const paymentIntent = await createPaymentIntent({
+        promoId,
+        pricing_plan_id: matchedPlan.id,
+      }).unwrap();
+
+      console.log("[PremiumPlan] Payment intent received:", paymentIntent.order_id);
+
+      const checkoutOptions = {
+        key: paymentIntent.key,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency,
+        order_id: paymentIntent.order_id,
+        name: "Instantly Cards",
+        description: `${planPriceMap[selectedPlan]?.label || "Premium"} Plan`,
+        prefill: {
+          name: formData?.full_name || user.name || "",
+          email: formData?.email || "",
+          contact: formData?.phone || user.phone || "",
+        },
+        theme: { color: colors.primary },
+      };
+
+      // Step 4: Open Razorpay checkout
+      if (isNativeRazorpayAvailable()) {
+        try {
+          console.log("[PremiumPlan] Opening native Razorpay...");
+          const result = await openRazorpayCheckout(checkoutOptions);
+          await completeAfterPayment(promoId, result);
+        } catch (err: any) {
+          if (err?.message?.includes("null") || err?.message?.includes("undefined")) {
+            // Native bridge failed, fall back to WebView
+            console.log("[PremiumPlan] Native bridge failed, using WebView...");
+            setRazorpayOptions(checkoutOptions);
+            setWebViewVisible(true);
+          } else {
+            throw err;
+          }
+        }
+      } else {
+        // Use WebView fallback
+        console.log("[PremiumPlan] Using WebView checkout...");
+        setRazorpayOptions(checkoutOptions);
+        setWebViewVisible(true);
+      }
+    } catch (error: any) {
+      console.error("[PremiumPlan] Error:", error);
+      toast.error(error?.data?.error || error?.message || "Failed to process. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaymentSuccess = async (data: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }) => {
+    setWebViewVisible(false);
+    try {
+      setLoading(true);
+      if (pendingPromoId) {
+        await completeAfterPayment(pendingPromoId, data);
+      }
+    } catch (error: any) {
+      console.error("[PremiumPlan] Verify error:", error);
+      toast.error("Payment received but activation failed. Please contact support.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaymentCancel = () => {
+    setWebViewVisible(false);
+    toast.error("Payment cancelled");
+  };
+
+  const handlePaymentError = (error: string) => {
+    setWebViewVisible(false);
+    toast.error(error || "Payment failed");
   };
 
   return (
@@ -149,6 +331,30 @@ const PremiumPlanSelection = () => {
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} nestedScrollEnabled>
+        {/* Billing Period Toggle */}
+        <View className="flex-row justify-center px-4 pt-4">
+          <View className="flex-row bg-muted rounded-xl overflow-hidden">
+            <Pressable
+              onPress={() => setBillingPeriod("monthly")}
+              className={cn(
+                "px-6 py-2 rounded-xl",
+                billingPeriod === "monthly" ? "bg-primary" : ""
+              )}
+            >
+              <Text className={cn("font-semibold text-sm", billingPeriod === "monthly" ? "text-primary-foreground" : "text-muted-foreground")}>Monthly</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setBillingPeriod("yearly")}
+              className={cn(
+                "px-6 py-2 rounded-xl",
+                billingPeriod === "yearly" ? "bg-primary" : ""
+              )}
+            >
+              <Text className={cn("font-semibold text-sm", billingPeriod === "yearly" ? "text-primary-foreground" : "text-muted-foreground")}>Yearly</Text>
+            </Pressable>
+          </View>
+        </View>
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -179,14 +385,14 @@ const PremiumPlanSelection = () => {
 
               {/* Pricing */}
               {/* Monthly Price */}
-              <View className="bg-white/90 rounded-lg p-3 mb-2">
+              <View className={cn("rounded-lg p-3 mb-2", billingPeriod === "monthly" ? "bg-white" : "bg-white/60")}>
                 <Text className="text-center text-lg font-bold text-gray-800">{plan.monthlyPrice}/Mo</Text>
                 <Text className="text-center text-xl font-bold text-gray-800">{plan.yearlyPrice}/Yr</Text>
                 <Text className="text-center text-xs text-gray-600 mt-1">Monthly Plan</Text>
               </View>
 
               {/* Yearly Price */}
-              <View className="bg-white/90 rounded-lg p-3 mb-2">
+              <View className={cn("rounded-lg p-3 mb-2", billingPeriod === "yearly" ? "bg-white" : "bg-white/60")}>
                 <Text className="text-center text-xl font-bold text-gray-800">{plan.monthlyYearlyPrice}/Yr</Text>
                 <Text className="text-center text-xs text-gray-600">Yearly Plan</Text>
                 <Text className="text-center text-xs font-bold text-green-600 mt-1">{plan.yearlySavings}</Text>
@@ -213,22 +419,37 @@ const PremiumPlanSelection = () => {
       <View className="border-t border-border bg-card px-4 py-3">
         <Pressable
           onPress={handleContinue}
-          disabled={!selectedPlan}
+          disabled={!selectedPlan || loading}
           className={cn(
             "w-full rounded-xl py-4 items-center justify-center",
-            selectedPlan ? "bg-primary" : "bg-muted"
+            selectedPlan && !loading ? "bg-primary" : "bg-muted"
           )}
         >
-          <Text
-            className={cn(
-              "text-base font-bold",
-              selectedPlan ? "text-primary-foreground" : "text-muted-foreground"
-            )}
-          >
-            Continue with {premiumPlans.find(p => p.id === selectedPlan)?.name || "Premium"}
-          </Text>
+          {loading ? (
+            <ActivityIndicator color={colors.primaryForeground} />
+          ) : (
+            <Text
+              className={cn(
+                "text-base font-bold",
+                selectedPlan ? "text-primary-foreground" : "text-muted-foreground"
+              )}
+            >
+              Continue with {premiumPlans.find(p => p.id === selectedPlan)?.name || "Premium"}
+            </Text>
+          )}
         </Pressable>
       </View>
+
+      {/* Razorpay WebView fallback */}
+      {razorpayOptions && (
+        <RazorpayWebView
+          visible={webViewVisible}
+          options={razorpayOptions}
+          onSuccess={handlePaymentSuccess}
+          onCancel={handlePaymentCancel}
+          onError={handlePaymentError}
+        />
+      )}
     </View>
   );
 };

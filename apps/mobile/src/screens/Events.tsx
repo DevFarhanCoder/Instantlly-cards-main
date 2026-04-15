@@ -22,8 +22,8 @@ import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Skeleton } from "../components/ui/skeleton";
 import { useAuth } from "../hooks/useAuth";
+import { useUserRole } from "../hooks/useUserRole";
 import { useEvents, useMyRegistrations } from "../hooks/useEvents";
-import { useBusinessCards } from "../hooks/useBusinessCards";
 import { cn } from "../lib/utils";
 
 const Events = () => {
@@ -36,10 +36,7 @@ const Events = () => {
     refetch: refetchEvents,
   } = useEvents();
   const { user } = useAuth();
-  const { cards } = useBusinessCards();
-  const isBusiness =
-    (cards.length > 0 || user?.roles?.includes("business")) &&
-    !user?.roles?.every((r) => r === "customer");
+  const { isBusiness } = useUserRole();
   const { registrations } = useMyRegistrations();
   const passCount = registrations.length;
 

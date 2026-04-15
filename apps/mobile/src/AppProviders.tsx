@@ -8,6 +8,7 @@ import { FavoritesProvider } from "./contexts/FavoritesContext";
 import { PushNotificationProvider } from "./contexts/PushNotificationContext";
 import { CreditsProvider, useCredits } from "./contexts/CreditsContext";
 import { checkAndRefreshCredits } from "./lib/creditsRefresh";
+import { PromotionProvider } from "./contexts/PromotionContext";
 
 // Keep React Query client for existing hooks that haven't migrated to RTK Query yet
 const queryClient = new QueryClient();
@@ -33,6 +34,8 @@ const AppProviders = ({ children }: { children: ReactNode }) => {
   if (ENABLE_FAVORITES) {
     tree = <FavoritesProvider>{tree}</FavoritesProvider>;
   }
+  // PromotionProvider depends on auth + RTK Query, so it must be inside AuthProvider
+  tree = <PromotionProvider>{tree}</PromotionProvider>;
   if (ENABLE_AUTH) {
     // AuthProvider must be inside ReduxProvider so it can dispatch
     tree = <AuthProvider>{tree}</AuthProvider>;

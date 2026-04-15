@@ -5,6 +5,7 @@ export interface LoginRequest {
   phone?: string;
   email?: string;
   password: string;
+  loginType?: 'customer' | 'business';
 }
 
 export interface SignupRequest {

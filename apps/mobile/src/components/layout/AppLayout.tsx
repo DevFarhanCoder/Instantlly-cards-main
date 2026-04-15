@@ -14,7 +14,7 @@ import BulkSendModal from "../BulkSendModal";
 
 const iconImg = require("../../../assets/icon.png");
 
-const AppLayout = ({ children }: { children: ReactNode }) => {
+const AppLayout = ({ children, headerOnly }: { children: ReactNode; headerOnly?: boolean }) => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { activeRole } = useUserRole();
@@ -109,25 +109,29 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         {children}
       </Animated.View>
 
-      <View style={styles.adBar}>
-        <BannerAdSlot variant="sticky" />
-      </View>
+      {!headerOnly && (
+        <>
+          <View style={styles.adBar}>
+            <BannerAdSlot variant="sticky" />
+          </View>
 
-      <BottomNav />
+          <BottomNav />
 
-      {/* Floating Bulk Send FAB — above banner ad + bottom nav */}
-      {FEATURES.BULK_SEND && (
-        <Pressable
-          onPress={() => setShowBulkSend(true)}
-          style={[styles.fab, { bottom: 175 }]}
-        >
-          <Send size={20} color="#fff" />
-          <Text style={styles.fabLabel}>Bulk Send</Text>
-        </Pressable>
-      )}
+          {/* Floating Bulk Send FAB — above banner ad + bottom nav */}
+          {FEATURES.BULK_SEND && (
+            <Pressable
+              onPress={() => setShowBulkSend(true)}
+              style={[styles.fab, { bottom: 175 }]}
+            >
+              <Send size={20} color="#fff" />
+              <Text style={styles.fabLabel}>Bulk Send</Text>
+            </Pressable>
+          )}
 
-      {FEATURES.BULK_SEND && (
-        <BulkSendModal open={showBulkSend} onClose={() => setShowBulkSend(false)} />
+          {FEATURES.BULK_SEND && (
+            <BulkSendModal open={showBulkSend} onClose={() => setShowBulkSend(false)} />
+          )}
+        </>
       )}
     </SafeAreaView>
   );

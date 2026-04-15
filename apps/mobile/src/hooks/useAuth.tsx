@@ -147,19 +147,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (
     phoneOrEmail: string,
     password: string,
-    isEmail = phoneOrEmail.includes('@')
-  ): Promise<{ error?: string; user?: AuthUser; businessApprovalStatus?: string | null }> => {
-    console.log(`[SIGNIN] Attempt — identifier: ${phoneOrEmail}, via: ${isEmail ? 'email' : 'phone'}`);
+    isEmail = phoneOrEmail.includes('@'),
+    loginType?: 'customer' | 'business'
+  ): Promise<{ error?: string; user?: AuthUser }> => {
+    console.log(`[SIGNIN] Attempt — identifier: ${phoneOrEmail}, via: ${isEmail ? 'email' : 'phone'}, loginType: ${loginType ?? 'any'}`);
     try {
       const body = isEmail
-        ? { email: phoneOrEmail, password }
-        : { phone: phoneOrEmail, password };
+        ? { email: phoneOrEmail, password, loginType }
+        : { phone: phoneOrEmail, password, loginType };
       const data = await loginMutation(body).unwrap();
       dispatch(setCredentials(data));
       await SecureStore.setItemAsync('accessToken', data.accessToken);
       await SecureStore.setItemAsync('refreshToken', data.refreshToken);
       console.log(`[SIGNIN] Success — userId: ${data.user.id}, roles: [${data.user.roles.join(', ')}]`);
-      return { user: data.user, businessApprovalStatus: (data as any).businessApprovalStatus ?? null };
+      return { user: data.user };
     } catch (e: any) {
       const msg = e?.data?.error ?? e?.message ?? 'Login failed';
       console.warn(`[SIGNIN] Failed — ${msg}`, e?.status ?? '');

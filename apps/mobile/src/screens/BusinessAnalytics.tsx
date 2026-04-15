@@ -18,7 +18,10 @@ import {
   Zap,
 } from "lucide-react-native";
 import { useAuth } from "../hooks/useAuth";
-import { useBusinessCards } from "../hooks/useBusinessCards";
+import { usePromotionContext, useSelectedBusinessCardId } from "../contexts/PromotionContext";
+import { hasFeature } from "../utils/tierFeatures";
+import { UpgradePrompt } from "../components/business/UpgradePrompt";
+import { PromotionSelector } from "../components/business/PromotionSelector";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../integrations/supabase/client";
 import { Button } from "../components/ui/button";
@@ -28,11 +31,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 const BusinessAnalytics = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { cards } = useBusinessCards();
-  const cardIds = cards.map((c) => c.id);
+  const { tier, selectedPromotionId } = usePromotionContext();
+  const selectedCardId = useSelectedBusinessCardId();
+  // Scope analytics to the selected promotion's business card only
+  const cardIds = selectedCardId ? [selectedCardId] : [];
+  console.log(`[BusinessAnalytics] render: selectedPromotionId=${selectedPromotionId} tier=${tier} canAccess=${hasFeature(tier, 'analytics')} selectedCardId=${selectedCardId} cardIds=${JSON.stringify(cardIds)}`);
 
   const { data: analytics = [], isLoading, refetch: refetchAnalytics } = useQuery({
-    queryKey: ["card-analytics-full", cardIds],
+    queryKey: ["card-analytics-full", cardIds, selectedPromotionId],
     queryFn: async () => {
       if (cardIds.length === 0) return [];
       const { data, error } = await supabase
@@ -48,7 +54,7 @@ const BusinessAnalytics = () => {
   });
 
   const { data: bookings = [], refetch: refetchBookings } = useQuery({
-    queryKey: ["analytics-bookings", cardIds],
+    queryKey: ["analytics-bookings", cardIds, selectedPromotionId],
     queryFn: async () => {
       if (cardIds.length === 0) return [];
       const { data, error } = await supabase
@@ -64,7 +70,7 @@ const BusinessAnalytics = () => {
   });
 
   const { data: reviews = [], refetch: refetchReviews } = useQuery({
-    queryKey: ["analytics-reviews", cardIds],
+    queryKey: ["analytics-reviews", cardIds, selectedPromotionId],
     queryFn: async () => {
       if (cardIds.length === 0) return [];
       const { data, error } = await supabase
@@ -80,7 +86,7 @@ const BusinessAnalytics = () => {
   });
 
   const { data: leads = [] } = useQuery({
-    queryKey: ["analytics-leads", cardIds],
+    queryKey: ["analytics-leads", cardIds, selectedPromotionId],
     queryFn: async () => {
       if (cardIds.length === 0) return [];
       const { data, error } = await supabase
@@ -148,19 +154,37 @@ const BusinessAnalytics = () => {
     });
   }, [analytics]);
 
-  if (!user || cards.length === 0) {
+  if (!user || cardIds.length === 0) {
     return (
       <View className="flex-1 items-center justify-center px-6">
         <BarChart3 size={48} color="#c0c4cc" />
         <Text className="text-sm text-muted-foreground mt-3 mb-4">
-          {!user ? "Sign in to view analytics" : "Create a business card first"}
+          {!user ? "Sign in to view analytics" : !selectedPromotionId ? "Select a business listing first" : "No business card linked to this listing"}
         </Text>
-        <Button
-          onPress={() => navigation.navigate(user ? "CardCreate" : "Auth")}
-          className="rounded-xl"
-        >
-          {user ? "Create Card" : "Sign In"}
-        </Button>
+        {!user && (
+          <Button
+            onPress={() => navigation.navigate("Auth")}
+            className="rounded-xl"
+          >
+            Sign In
+          </Button>
+        )}
+        {user && <PromotionSelector title="Select a listing" />}
+      </View>
+    );
+  }
+
+  if (!hasFeature(tier, 'analytics')) {
+    return (
+      <View className="flex-1 bg-background">
+        <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
+          <Pressable onPress={() => navigation.goBack()}>
+            <ArrowLeft size={20} color="#111827" />
+          </Pressable>
+          <Text className="text-lg font-bold text-foreground">Business Insights</Text>
+        </View>
+        <PromotionSelector title="Select a listing to view analytics" />
+        <UpgradePrompt feature="analytics" />
       </View>
     );
   }

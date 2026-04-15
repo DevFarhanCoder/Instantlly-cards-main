@@ -37,6 +37,7 @@ import { usePushNotifications } from "../contexts/PushNotificationContext";
 import { getBulkSentCards, type SentCardRecord } from "../components/BulkSendModal";
 import { FEATURES } from "../lib/featureFlags";
 import { useGetSharedCardsQuery } from "../store/api/businessCardsApi";
+import { useGetGroupsQuery, type GroupInfo } from "../store/api/chatApi";
 
 const demoReceivedCards: never[] = [];
 
@@ -51,6 +52,66 @@ function formatRelativeTime(isoString: string): string {
   if (days < 7) return `${days}d ago`;
   return `${Math.floor(days / 7)}w ago`;
 }
+
+const GroupsTab = () => {
+  const navigation = useNavigation<any>();
+  const { data: groups = [], isLoading } = useGetGroupsQuery();
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center pt-24">
+        <Text className="text-sm text-muted-foreground">Loading groups...</Text>
+      </View>
+    );
+  }
+
+  if (groups.length === 0) {
+    return (
+      <View className="flex-1 items-center justify-center px-6 pt-24">
+        <View className="mb-6 h-24 w-24 items-center justify-center rounded-3xl bg-muted">
+          <MessageCircle size={28} color="#6a7181" />
+        </View>
+        <Text className="text-lg font-bold text-foreground">No groups yet</Text>
+        <Text className="mt-2 text-center text-sm text-muted-foreground">
+          Create a group from your card to share with multiple people at once
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView className="px-4 pt-3 pb-4">
+      <View className="gap-1">
+        {groups.map((group: GroupInfo) => (
+          <Pressable
+            key={group.id}
+            className="flex-row items-center gap-3 rounded-xl px-3 py-3"
+            onPress={() => navigation.navigate('GroupChat', { groupId: group.id, groupName: group.name })}
+          >
+            <View className="h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Text className="text-lg">{group.icon || '👥'}</Text>
+            </View>
+            <View className="flex-1">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                  {group.name}
+                </Text>
+                {group.lastMessageTime ? (
+                  <Text className="text-[10px] text-muted-foreground">
+                    {new Date(group.lastMessageTime).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                  </Text>
+                ) : null}
+              </View>
+              <Text className="mt-0.5 text-xs text-muted-foreground" numberOfLines={1}>
+                {group.lastMessage?.content || `${group.memberCount} members · Code: ${group.joinCode}`}
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+      </View>
+    </ScrollView>
+  );
+};
 
 const SentReceivedCards = ({ tab }: { tab: string }) => {
   const navigation = useNavigation<any>();
@@ -702,6 +763,8 @@ const Messaging = () => {
 
       {activeTab === "Sent" || activeTab === "Received" ? (
         <SentReceivedCards tab={activeTab} />
+      ) : activeTab === "Groups" ? (
+        <GroupsTab />
       ) : displayConversations.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6 pt-24">
           <View className="mb-6 h-24 w-24 items-center justify-center rounded-3xl bg-muted">

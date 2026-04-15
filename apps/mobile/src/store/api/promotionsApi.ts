@@ -69,6 +69,30 @@ export const promotionsApi = baseApi.injectEndpoints({
       query: ({ id, data }) => ({ url: `/promotions/${id}`, method: 'PUT', body: data }),
       invalidatesTags: (_r, _e, { id }) => [{ type: 'Promotion', id }, 'Promotion'],
     }),
+    listPricingPlans: builder.query<any[], void>({
+      query: () => '/promotions/pricing-plans',
+    }),
+    createPromotionPaymentIntent: builder.mutation<
+      { key: string; order_id: string; amount: number; currency: string; promotion_order_id: number },
+      { promoId: number; pricing_plan_id: number }
+    >({
+      query: ({ promoId, pricing_plan_id }) => ({
+        url: `/promotions/${promoId}/payment-intent`,
+        method: 'POST',
+        body: { pricing_plan_id },
+      }),
+    }),
+    verifyPromotionPayment: builder.mutation<
+      { success: boolean; order: any; promotion: any; roles?: string[]; accessToken?: string; refreshToken?: string },
+      { promoId: number; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
+    >({
+      query: ({ promoId, ...body }) => ({
+        url: `/promotions/${promoId}/verify-payment`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Promotion'],
+    }),
   }),
 });
 
@@ -79,4 +103,7 @@ export const {
   useGetMyPromotionsQuery,
   useCreatePromotionMutation,
   useUpdatePromotionMutation,
+  useListPricingPlansQuery,
+  useCreatePromotionPaymentIntentMutation,
+  useVerifyPromotionPaymentMutation,
 } = promotionsApi;
