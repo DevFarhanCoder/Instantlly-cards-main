@@ -40,7 +40,6 @@ import { useAuth } from "../hooks/useAuth";
 import { useUserRole } from "../hooks/useUserRole";
 import { useBusinessCards, type BusinessCardRow } from "../hooks/useBusinessCards";
 import { useDirectoryCards } from "../hooks/useDirectoryCards";
-import { useUserRole } from "../hooks/useUserRole";
 import { useAppDispatch } from "../store";
 import { setActiveRole } from "../store/authSlice";
 import { useGetMyPromotionsQuery, useUpdatePromotionMutation } from "../store/api/promotionsApi";
