@@ -42,6 +42,9 @@ const SubcategoryDetail = () => {
   const categoryName = route.params?.categoryName as string ?? "Category";
   const categoryIcon = route.params?.categoryIcon as string ?? "📁";
 
+  // [DEBUG-CATEGORY] Temporary log — remove after category investigation
+  console.log('[FRONTEND-CATEGORY-SENT]', { subcategory, categoryName, categoryIcon });
+
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [showFilters, setShowFilters] = useState(false);

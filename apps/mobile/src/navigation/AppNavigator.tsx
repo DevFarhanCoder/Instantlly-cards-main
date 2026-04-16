@@ -37,6 +37,7 @@ import SubcategoryDetail from "../screens/SubcategoryDetail";
 import NearbyBusinesses from "../screens/NearbyBusinesses";
 import BusinessDashboard from "../screens/BusinessDashboard";
 import BusinessAnalytics from "../screens/BusinessAnalytics";
+import BusinessSelectorScreen from "../screens/BusinessSelectorScreen";
 import AdminDashboard from "../screens/AdminDashboard";
 import Auth from "../screens/Auth";
 import ForgotPasswordPhone from "../screens/ForgotPasswordPhone";
@@ -139,6 +140,7 @@ const BusinessAnalyticsScreen = withLayout(BusinessAnalytics);
 const SubscriptionScreen   = withLayout(Subscription);
 const NotificationsScreen  = withLayout(Notifications);
 const BusinessDashboardScreen = withLayout(BusinessDashboard);
+const BusinessSelectorWrapped = withLayout(BusinessSelectorScreen);
 const AdminDashboardScreen = withLayout(AdminDashboard);
 const EditProfileScreen    = withLayout(EditProfile);
 const PaymentMethodsScreen = withLayout(PaymentMethods);
@@ -235,6 +237,10 @@ const AppNavigator = () => {
           name="BusinessDashboard" 
           component={BusinessDashboardScreen} 
           options={{ animation: 'none' }}
+        />
+        <Stack.Screen 
+          name="BusinessSelectorScreen" 
+          component={BusinessSelectorWrapped}
         />
         <Stack.Screen 
           name="BusinessAnalytics" 

@@ -8,12 +8,16 @@ interface UpgradePromptProps {
   feature: Feature;
   /** Override the default message */
   message?: string;
+  promotionId?: number | null;
+  businessName?: string;
+  ctaLabel?: string;
 }
 
-export function UpgradePrompt({ feature, message }: UpgradePromptProps) {
+export function UpgradePrompt({ feature, message, promotionId, businessName, ctaLabel }: UpgradePromptProps) {
   const navigation = useNavigation<any>();
   const minTier = FEATURE_MIN_TIER[feature];
   const color = getTierColor(minTier);
+  const buttonLabel = ctaLabel || `Upgrade ${businessName || 'this business'} to ${getTierLabel(minTier)}`;
 
   return (
     <View className="flex-1 items-center justify-center px-6">
@@ -32,10 +36,10 @@ export function UpgradePrompt({ feature, message }: UpgradePromptProps) {
         </Text>
         <Button
           className="mt-4 rounded-xl w-full"
-          onPress={() => navigation.navigate('PremiumPlanSelection')}
+          onPress={() => navigation.navigate('PremiumPlanSelection', { promotionId })}
         >
           <Text className="text-sm font-semibold text-primary-foreground">
-            Upgrade Now
+            {buttonLabel}
           </Text>
         </Button>
       </View>
