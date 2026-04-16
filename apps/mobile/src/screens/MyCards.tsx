@@ -29,6 +29,7 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import { Button } from "../components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { BusinessCardItem } from "../components/ui/BusinessCardItem";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -439,195 +440,144 @@ const MyCards = () => {
         ) : (
           <View className="px-4 py-4 gap-4">
             <BusinessOnboarding />
-            {cards.map((card: any) => (
-              <View
-                key={card.id}
-                className="rounded-2xl border border-border bg-card p-4 shadow-sm"
-              >
-                <View className="flex-row items-start justify-between">
-                  <View className="flex-row items-start gap-3">
-                    <View className="h-12 w-12 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
-                      {card.logo_url ? (
-                        <Image
-                          source={{ uri: card.logo_url }}
-                          className="h-full w-full"
-                          resizeMode="cover"
-                        />
-                      ) : (
-                        <Text className="text-xl">🏢</Text>
-                      )}
-                    </View>
-                    <View>
-                      <Text className="text-base font-bold text-foreground">
-                        {card.full_name}
-                      </Text>
-                      {card.job_title && (
-                        <Text className="text-xs font-medium text-primary">
-                          {card.job_title}
-                        </Text>
-                      )}
-                      {card.company_name && (
-                        <Text className="text-xs text-muted-foreground">
-                          {card.company_name}
-                        </Text>
-                      )}
-                      {card.category && (
-                        <Text className="mt-0.5 text-[10px] font-medium text-primary" numberOfLines={2}>
-                          {(Array.isArray(card.category) ? card.category : [card.category]).join(' • ')}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
+            {cards.map((card: any) => {
+              const promo = promoByCardId[card.id];
+              const tier = (promo?.tier || "free") as Tier;
+              const isPremium = tier !== "free" && promo?.status === "active";
+              const statusColor = promo?.status === "active"
+                ? "bg-green-100 text-green-700"
+                : promo?.status === "pending_payment"
+                ? "bg-amber-100 text-amber-700"
+                : "bg-gray-100 text-gray-600";
+              const categoryText = card.category
+                ? (Array.isArray(card.category) ? card.category : [card.category]).join(" • ")
+                : undefined;
 
-                  {/* Promotion status badges */}
-                  {(() => {
-                    const promo = promoByCardId[card.id];
-                    if (!promo) return null;
-                    const tier = (promo.tier || 'free') as Tier;
-                    const isPremium = tier !== 'free' && promo.status === 'active';
-                    const statusColor = promo.status === 'active'
-                      ? 'bg-green-100 text-green-700'
-                      : promo.status === 'pending_payment'
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-gray-100 text-gray-600';
-                    return (
-                      <View className="items-end gap-1">
-                        <View className="flex-row flex-wrap items-center gap-1.5">
-                          <Text className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${isPremium ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                            {isPremium ? `⭐ ${promo.plan_name || 'Premium'}` : '🆓 Free'}
-                          </Text>
-                          {tier !== 'free' && (
-                            <Text style={{ backgroundColor: getTierColor(tier) + '20', color: getTierColor(tier) }} className="rounded-full px-2 py-0.5 text-[10px] font-bold">
-                              {getTierLabel(tier)}
-                            </Text>
-                          )}
-                          <Text className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor}`}>
-                            {promo.status === 'active' ? '✅ Active' : promo.status === 'pending_payment' ? '⏳ Pending Payment' : promo.status}
-                          </Text>
+              const badges = promo
+                ? [
+                    {
+                      id: "plan",
+                      label: isPremium ? `⭐ ${promo.plan_name || "Premium"}` : "🆓 Free",
+                      className: `rounded-full px-2 py-0.5 text-[10px] font-bold ${isPremium ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`,
+                    },
+                    ...(tier !== "free"
+                      ? [
+                          {
+                            id: "tier",
+                            label: getTierLabel(tier),
+                            className: "rounded-full px-2 py-0.5 text-[10px] font-bold",
+                            style: { backgroundColor: `${getTierColor(tier)}20`, color: getTierColor(tier) },
+                          },
+                        ]
+                      : []),
+                    {
+                      id: "status",
+                      label: promo.status === "active" ? "✅ Active" : promo.status === "pending_payment" ? "⏳ Pending Payment" : promo.status,
+                      className: `rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor}`,
+                    },
+                  ]
+                : [];
+
+              return (
+                <BusinessCardItem
+                  key={card.id}
+                  title={card.full_name}
+                  subtitle={card.job_title || undefined}
+                  secondaryText={card.company_name || undefined}
+                  category={categoryText}
+                  avatarUri={card.logo_url}
+                  badges={badges}
+                  badgeFooter={
+                    promo?.expiry_date ? (
+                      <Text className="text-[10px] text-gray-500">Expires {new Date(promo.expiry_date).toLocaleDateString()}</Text>
+                    ) : undefined
+                  }
+                  location={card.location || undefined}
+                  offer={card.offer || undefined}
+                  services={Array.isArray(card.services) ? card.services : []}
+                  topRight={
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Pressable className="p-1">
+                          <MoreVertical size={16} color="#6a7181" />
+                        </Pressable>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onPress={() => navigation.navigate("PublicCard", { id: `card-${card.id}` })}>
+                          <Eye size={14} color="#111827" /> View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onPress={() => navigation.navigate("CardCreate", { cardId: card.id })}>
+                          <Edit size={14} color="#111827" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onPress={() => setShareCard(card)}>
+                          <Share2 size={14} color="#111827" /> Share
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {isBusiness && (
+                          <DropdownMenuItem onPress={() => navigation.navigate("AdCreate", { cardId: card.id })}>
+                            <Megaphone size={14} color="#111827" /> Run Ad
+                          </DropdownMenuItem>
+                        )}
+                        {isBusiness && (
+                          <DropdownMenuItem onPress={() => navigation.navigate("EventCreate", { cardId: card.id })}>
+                            <Calendar size={14} color="#111827" /> List Event
+                          </DropdownMenuItem>
+                        )}
+                        {isBusiness && (
+                          <DropdownMenuItem onPress={() => navigation.navigate("VoucherCreate", { cardId: card.id })}>
+                            <Tag size={14} color="#111827" /> Create Voucher
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-destructive" onPress={() => deleteCard.mutateAsync(card.id)}>
+                          <Trash2 size={14} color="#ef4343" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  }
+                  actions={
+                    <View className="gap-2">
+                      {promo?.status === "pending_payment" ? (
+                        <View className="flex-row gap-2">
+                          <Button
+                            size="sm"
+                            className="flex-1 rounded-lg bg-amber-500"
+                            onPress={() => navigation.navigate("PremiumPlanSelection", { promotionId: promo.id, businessCardId: card.id })}
+                          >
+                            <Text className="text-xs font-medium text-white">💳 Complete Payment</Text>
+                          </Button>
                         </View>
-                        {promo.expiry_date && (
-                          <Text className="text-[10px] text-gray-500">
-                            Expires {new Date(promo.expiry_date).toLocaleDateString()}
-                          </Text>
+                      ) : null}
+                      <View className="flex-row gap-2">
+                        <Button size="sm" className="flex-1 rounded-lg" onPress={() => setShareCard(card)}>
+                          <Share2 size={14} color="#ffffff" /> Share
+                        </Button>
+                        {isBusiness && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 rounded-lg"
+                            onPress={() => navigation.navigate("AdCreate", { cardId: card.id })}
+                          >
+                            📣 Promote
+                          </Button>
+                        )}
+                        {isBusiness && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 rounded-lg"
+                            onPress={() => navigation.navigate("EventCreate", { cardId: card.id })}
+                          >
+                            🎫 Event
+                          </Button>
                         )}
                       </View>
-                    );
-                  })()}
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Pressable className="p-1">
-                        <MoreVertical size={16} color="#6a7181" />
-                      </Pressable>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onPress={() => navigation.navigate("PublicCard", { id: `card-${card.id}` })}>
-                        <Eye size={14} color="#111827" /> View
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => navigation.navigate("CardCreate", { cardId: card.id })}>
-                        <Edit size={14} color="#111827" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onPress={() => setShareCard(card)}>
-                        <Share2 size={14} color="#111827" /> Share
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      {isBusiness && (
-                        <DropdownMenuItem onPress={() => navigation.navigate("AdCreate", { cardId: card.id })}>
-                          <Megaphone size={14} color="#111827" /> Run Ad
-                        </DropdownMenuItem>
-                      )}
-                      {isBusiness && (
-                        <DropdownMenuItem onPress={() => navigation.navigate("EventCreate", { cardId: card.id })}>
-                          <Calendar size={14} color="#111827" /> List Event
-                        </DropdownMenuItem>
-                      )}
-                      {isBusiness && (
-                        <DropdownMenuItem onPress={() => navigation.navigate("VoucherCreate", { cardId: card.id })}>
-                          <Tag size={14} color="#111827" /> Create Voucher
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onPress={() => deleteCard.mutateAsync(card.id)}
-                      >
-                        <Trash2 size={14} color="#ef4343" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </View>
-
-                {card.location && (
-                  <Text className="mt-2 text-xs text-muted-foreground">
-                    📍 {card.location}
-                  </Text>
-                )}
-
-                {card.offer && (
-                  <View className="mt-2 rounded-lg bg-accent/50 px-3 py-1.5">
-                    <Text className="text-xs font-medium text-accent-foreground">
-                      🎁 {card.offer}
-                    </Text>
-                  </View>
-                )}
-
-                {card.services && card.services.length > 0 && (
-                  <View className="mt-3 flex-row flex-wrap gap-1.5">
-                    {card.services.map((s: any) => (
-                      <Text
-                        key={s}
-                        className="rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground"
-                      >
-                        {s}
-                      </Text>
-                    ))}
-                  </View>
-                )}
-
-                {/* Pending payment actions */}
-                {(() => {
-                  const promo = promoByCardId[card.id];
-                  if (!promo || promo.status !== 'pending_payment') return null;
-                  return (
-                    <View className="mt-3 flex-row gap-2">
-                      <Button
-                        size="sm"
-                        className="flex-1 rounded-lg bg-amber-500"
-                        onPress={() => navigation.navigate("PremiumPlanSelection", { promotionId: promo.id, businessCardId: card.id })}
-                      >
-                        <Text className="text-xs font-medium text-white">💳 Complete Payment</Text>
-                      </Button>
                     </View>
-                  );
-                })()}
-
-                <View className="mt-3 flex-row gap-2">
-                  <Button size="sm" className="flex-1 rounded-lg" onPress={() => setShareCard(card)}>
-                    <Share2 size={14} color="#ffffff" /> Share
-                  </Button>
-                  {isBusiness && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 rounded-lg"
-                      onPress={() => navigation.navigate("AdCreate", { cardId: card.id })}
-                    >
-                      📣 Promote
-                    </Button>
-                  )}
-                  {isBusiness && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 rounded-lg"
-                      onPress={() => navigation.navigate("EventCreate", { cardId: card.id })}
-                    >
-                      🎫 Event
-                    </Button>
-                  )}
-                </View>
-              </View>
-            ))}
+                  }
+                />
+              );
+            })}
           </View>
         )}
 
@@ -658,63 +608,71 @@ const MyCards = () => {
                   ? (Array.isArray(promo.business_card.category) ? promo.business_card.category : [promo.business_card.category]).join(' • ')
                   : null;
 
+                const badges = [
+                  {
+                    id: "status",
+                    label: statusLabel,
+                    className: `rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor}`,
+                  },
+                  ...(isPremium
+                    ? [
+                        {
+                          id: "tier",
+                          label: getTierLabel(tier),
+                          className: "rounded-full px-2 py-0.5 text-[10px] font-bold",
+                          style: { backgroundColor: getTierColor(tier) + "20", color: getTierColor(tier) },
+                        },
+                      ]
+                    : []),
+                ];
+
                 return (
-                  <View key={promo.id} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-                    <View className="flex-row items-start justify-between">
-                      <View className="flex-1">
-                        <Text className="text-base font-bold text-foreground">{promo.business_name || 'Business'}</Text>
-                        {categories && (
-                          <Text className="text-xs text-primary mt-0.5" numberOfLines={2}>{categories}</Text>
-                        )}
-                      </View>
-                      <View className="flex-row items-center gap-2">
-                        <Text className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor}`}>
-                          {statusLabel}
-                        </Text>
-                        {isPremium && (
-                          <Text style={{ backgroundColor: getTierColor(tier) + '20', color: getTierColor(tier) }} className="rounded-full px-2 py-0.5 text-[10px] font-bold">
-                            {getTierLabel(tier)}
-                          </Text>
-                        )}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Pressable className="p-1">
-                              <MoreVertical size={16} color="#6a7181" />
-                            </Pressable>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onPress={() => navigation.navigate("BusinessDetail", { id: `promo-${promo.id}` })}>
-                              <Eye size={14} color="#111827" /> View
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onPress={() => navigation.navigate("BusinessPromotionForm", { promotionId: promo.id, editMode: true })}>
-                              <Edit size={14} color="#111827" /> Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onPress={async () => {
-                                try {
-                                  await updatePromotion({ id: promo.id, data: { status: 'cancelled' } }).unwrap();
-                                  toast.success("Promotion cancelled");
-                                  refetchPromotions();
-                                } catch (e: any) {
-                                  toast.error(e?.data?.error || "Failed to cancel");
-                                }
-                              }}
-                            >
-                              <Trash2 size={14} color="#ef4343" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </View>
-                    </View>
-                    {promo.expiry_date && (
-                      <Text className="text-[10px] text-gray-500 mt-1">
-                        Expires {new Date(promo.expiry_date).toLocaleDateString()}
-                      </Text>
-                    )}
-                    {promo.status === 'pending_payment' && (
-                      <View className="mt-3">
+                  <BusinessCardItem
+                    key={promo.id}
+                    title={promo.business_name || "Business"}
+                    category={categories || undefined}
+                    fallbackAvatar="📣"
+                    badges={badges}
+                    badgeFooter={
+                      promo.expiry_date ? (
+                        <Text className="text-[10px] text-gray-500">Expires {new Date(promo.expiry_date).toLocaleDateString()}</Text>
+                      ) : undefined
+                    }
+                    minHeight={168}
+                    topRight={
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Pressable className="p-1">
+                            <MoreVertical size={16} color="#6a7181" />
+                          </Pressable>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onPress={() => navigation.navigate("BusinessDetail", { id: `promo-${promo.id}` })}>
+                            <Eye size={14} color="#111827" /> View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onPress={() => navigation.navigate("BusinessPromotionForm", { promotionId: promo.id, editMode: true })}>
+                            <Edit size={14} color="#111827" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onPress={async () => {
+                              try {
+                                await updatePromotion({ id: promo.id, data: { status: 'cancelled' } }).unwrap();
+                                toast.success("Promotion cancelled");
+                                refetchPromotions();
+                              } catch (e: any) {
+                                toast.error(e?.data?.error || "Failed to cancel");
+                              }
+                            }}
+                          >
+                            <Trash2 size={14} color="#ef4343" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    }
+                    actions={
+                      promo.status === 'pending_payment' ? (
                         <Button
                           size="sm"
                           className="rounded-lg bg-amber-500"
@@ -722,9 +680,9 @@ const MyCards = () => {
                         >
                           <Text className="text-xs font-medium text-white">💳 Complete Payment</Text>
                         </Button>
-                      </View>
-                    )}
-                  </View>
+                      ) : undefined
+                    }
+                  />
                 );
               })}
             </View>

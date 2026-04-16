@@ -36,7 +36,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { categories as fallbackCategories } from "../data/categories";
-import { useListMobileCategoriesQuery } from "../store/api/categoriesApi";
+import { useListMobileCategoriesQuery, useGetCategoryTreeQuery } from "../store/api/categoriesApi";
 import { useFavorites } from "../contexts/FavoritesContext";
 import { useAuth } from "../hooks/useAuth";
 import { useUserRole } from "../hooks/useUserRole";
@@ -56,7 +56,6 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [serviceMode, setServiceMode] = useState<ServiceMode>("all");
   const [showFilters, setShowFilters] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [minRating, setMinRating] = useState(0);
   const [maxDistance, setMaxDistance] = useState(0);
   const searchRef = useRef<TextInput>(null);
@@ -64,10 +63,11 @@ const Index = () => {
   const { toggleFavorite, isFavorite } = useFavorites();
   const userLocation = useUserLocation();
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, activeRole, isLoading: roleLoading } = useUserRole();
+  const { isAdmin, isBusiness, activeRole, isLoading: roleLoading } = useUserRole();
   const { credits } = useCredits();
   const { data: myCards = [], isLoading: isLoadingMyCards, refetch: refetchMyCards } = useGetMyCardsQuery(undefined, { skip: !user });
   const { data: categoryData = [], isLoading: isLoadingCategories, isFetching: isFetchingCategories, refetch: refetchCategories } = useListMobileCategoriesQuery(undefined, { refetchOnMountOrArgChange: true });
+  const { data: categoryTree = [] } = useGetCategoryTreeQuery();
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -112,8 +112,33 @@ const Index = () => {
 
   const suggestions = useMemo(() => {
     if (!searchQuery.trim() || searchQuery.length < 2) return [];
-    return [];
-  }, [searchQuery]);
+    const q = searchQuery.toLowerCase();
+    const results: { id: string; name: string; emoji: string; type: 'category' | 'subcategory'; parentId?: string; parentName?: string; categoryIcon?: string }[] = [];
+    // Match top-level categories
+    for (const cat of normalizedCategories) {
+      if (cat.name.toLowerCase().includes(q)) {
+        results.push({ id: cat.id, name: cat.name, emoji: cat.emoji, type: 'category' });
+      }
+    }
+    // Match subcategories from category tree
+    for (const parent of categoryTree) {
+      const parentEmoji = parent.icon || '📁';
+      for (const sub of parent.children ?? []) {
+        if (sub.name.toLowerCase().includes(q)) {
+          results.push({
+            id: String(sub.id),
+            name: sub.name,
+            emoji: sub.icon || parentEmoji,
+            type: 'subcategory',
+            parentId: String(parent.id),
+            parentName: parent.name,
+            categoryIcon: parentEmoji,
+          });
+        }
+      }
+    }
+    return results.slice(0, 20);
+  }, [searchQuery, normalizedCategories, categoryTree]);
 
   const isLikelyOpen = (hours: string | null): boolean | null => {
     if (!hours) return null;
@@ -143,37 +168,15 @@ const Index = () => {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
         }
       >
-      <View className="px-4 pt-4">
-        <View className="flex-row gap-2">
-          {([
-            { value: "all" as ServiceMode, label: "All", icon: "🔍" },
-            { value: "home" as ServiceMode, label: "Home Services", icon: "🏠" },
-            { value: "visit" as ServiceMode, label: "Visit Business", icon: "🏪" },
-          ]).map((opt) => (
-            <Pressable
-              key={opt.value}
-              onPress={() => setServiceMode(opt.value)}
-              className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-xl py-2.5 ${
-                serviceMode === opt.value
-                  ? "bg-primary"
-                  : "bg-muted/60"
-              }`}
-            >
-              <Text className={`text-xs font-semibold ${serviceMode === opt.value ? "text-primary-foreground" : "text-muted-foreground"}`}>
-                {opt.icon} {opt.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
+      <View className="px-4 pt-1">
         {/* Credits badge — always visible when logged in */}
         {user && (
           <Pressable
             onPress={() => navigation.navigate("Credits")}
-            className="mt-3 rounded-xl border border-border bg-card px-4 py-2.5 flex-row items-center justify-between"
+            className="mt-1 rounded-xl border border-border bg-card px-4 py-3 flex-row items-center justify-between"
           >
-            <View className="flex-row items-center gap-2">
-              <Text className="text-base">💳</Text>
+            <View className="flex-row items-center gap-2"> 
+              <Text className="text-lg">🪙</Text>
               <Text className="text-sm font-semibold text-foreground">Credits: {credits}</Text>
             </View>
             <Text className="text-xs text-primary font-medium">View →</Text>
@@ -185,20 +188,15 @@ const Index = () => {
             <Search size={16} color={colors.mutedForeground} style={{ position: "absolute", left: 12, top: 12 }} />
             <TextInput
               ref={searchRef}
-              placeholder="Search businesses, services, location..."
+              placeholder="Search categories & subcategories..."
               value={searchQuery}
-              onChangeText={(text) => {
-                setSearchQuery(text);
-                setShowSuggestions(true);
-              }}
-              onFocus={() => setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              onChangeText={(text) => setSearchQuery(text)}
               className="w-full rounded-xl border border-border bg-muted/50 py-2.5 pl-10 pr-20 text-sm text-foreground"
               placeholderTextColor={colors.mutedForeground}
             />
             <View style={{ position: "absolute", right: 8, top: 8, flexDirection: "row", gap: 6 }}>
               {searchQuery ? (
-                <Pressable onPress={() => { setSearchQuery(""); setShowSuggestions(false); }}>
+                <Pressable onPress={() => setSearchQuery("")}>
                   <X size={16} color={colors.mutedForeground} />
                 </Pressable>
               ) : null}
@@ -214,21 +212,6 @@ const Index = () => {
               </Pressable>
             </View>
           </View>
-
-          {showSuggestions && suggestions.length > 0 && (
-            <View className="mt-2 rounded-xl border border-border bg-card">
-              {suggestions.map((s, i) => (
-                <Pressable
-                  key={i}
-                  onPress={() => { setSearchQuery(s); setShowSuggestions(false); }}
-                  className="flex-row items-center gap-2 px-4 py-2"
-                >
-                  <Search size={14} color={colors.mutedForeground} />
-                  <Text className="text-sm text-foreground">{s}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
         </View>
 
         {showFilters && (
@@ -289,10 +272,46 @@ const Index = () => {
             <Text className="text-lg font-bold text-foreground">Categories</Text>
             <ArrowRight size={16} color={colors.mutedForeground} />
           </View>
+          {isBusiness && (
+            <Pressable
+              onPress={() => navigation.navigate("ChooseListingType")}
+              style={{ backgroundColor: "#84cc16", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>Promote Business</Text>
+            </Pressable>
+          )}
         </View>
 
         <View className="flex-row flex-wrap justify-between gap-3">
-          {(isLoadingCategories || isFetchingCategories) ? (
+          {searchQuery.trim().length >= 2 ? (
+            suggestions.length === 0 ? (
+              <Text className="text-sm text-muted-foreground py-4 text-center w-full">No results found</Text>
+            ) : (
+              suggestions.map((s) => (
+                <Pressable
+                  key={s.type + s.id}
+                  onPress={() => {
+                    setSearchQuery("");
+                    if (s.type === 'subcategory' && s.parentName) {
+                      navigation.navigate("SubcategoryDetail", { subcategory: s.name, categoryName: s.parentName, categoryIcon: s.categoryIcon || '📁' });
+                    } else {
+                      navigation.navigate("CategoryDetail", { id: s.id });
+                    }
+                  }}
+                  className="items-center gap-1.5"
+                  style={{ width: "22%" }}
+                >
+                  <View className="h-16 w-16 items-center justify-center rounded-2xl border border-border bg-card shadow-sm">
+                    <Text className="text-2xl">{s.emoji}</Text>
+                  </View>
+                  <Text className="text-[11px] font-medium text-foreground text-center" numberOfLines={2}>{s.name}</Text>
+                  {s.type === 'subcategory' && (
+                    <Text className="text-[9px] text-muted-foreground text-center" numberOfLines={1}>{s.parentName}</Text>
+                  )}
+                </Pressable>
+              ))
+            )
+          ) : (isLoadingCategories || isFetchingCategories) ? (
             Array.from({ length: 8 }).map((_, idx) => (
               <View key={`cat-skel-${idx}`} className="items-center gap-1.5" style={{ width: "22%" }}>
                 <Skeleton className="h-16 w-16 rounded-2xl" />
@@ -316,7 +335,7 @@ const Index = () => {
           )}
         </View>
 
-        {!showAllCategories && (
+        {!showAllCategories && !searchQuery.trim() && (
           <Pressable onPress={() => setShowAllCategories(true)} className="mt-3 items-center">
             <Text className="text-sm font-medium text-primary">Show all categories</Text>
           </Pressable>
