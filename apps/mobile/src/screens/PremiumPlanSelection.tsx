@@ -18,6 +18,7 @@ import {
 import { isNativeRazorpayAvailable, openRazorpayCheckout } from "../lib/payments/razorpayCheckout";
 import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
 import * as SecureStore from 'expo-secure-store';
+import { parseCategoryString } from "../lib/categoryUtils";
 
 const premiumPlans = [
   {
@@ -201,6 +202,7 @@ const PremiumPlanSelection = () => {
         console.log("[PremiumPlan] Card created:", cardId);
 
         console.log("[PremiumPlan] Creating promotion...");
+        const categoryArray = parseCategoryString(formData.category);
         const promoData = {
           business_name: formData.company_name || formData.full_name,
           owner_name: formData.full_name,
@@ -213,6 +215,7 @@ const PremiumPlanSelection = () => {
           city: formData.city || null,
           state: formData.state || null,
           business_card_id: cardId,
+          category: categoryArray,
           listing_type: "premium",
           listing_intent: "premium",
           plan_type: "premium",

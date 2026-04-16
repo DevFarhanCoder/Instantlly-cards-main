@@ -1,17 +1,22 @@
-import React, { createContext, useContext, useMemo, useState } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import React, { createContext, useContext, useRef, useMemo, useState, useCallback } from "react";
+import { Dimensions, Modal, Pressable, Text, View } from "react-native";
 import { cn } from "../../lib/utils";
+
+type TriggerLayout = { x: number; y: number; width: number; height: number };
 
 type DropdownContextValue = {
   open: boolean;
   setOpen: (open: boolean) => void;
+  triggerLayout: TriggerLayout | null;
+  setTriggerLayout: (layout: TriggerLayout | null) => void;
 };
 
 const DropdownContext = createContext<DropdownContextValue | null>(null);
 
 export const DropdownMenu = ({ children }: { children: React.ReactNode }) => {
   const [open, setOpen] = useState(false);
-  const value = useMemo(() => ({ open, setOpen }), [open]);
+  const [triggerLayout, setTriggerLayout] = useState<TriggerLayout | null>(null);
+  const value = useMemo(() => ({ open, setOpen, triggerLayout, setTriggerLayout }), [open, triggerLayout]);
   return <DropdownContext.Provider value={value}>{children}</DropdownContext.Provider>;
 };
 
@@ -23,23 +28,37 @@ export const DropdownMenuTrigger = ({
   children: React.ReactElement<any>;
 }) => {
   const context = useContext(DropdownContext);
+  const triggerRef = useRef<View>(null);
   if (!context) return children;
-  const { setOpen } = context;
+  const { setOpen, setTriggerLayout } = context;
+
+  const handlePress = useCallback((...args: any[]) => {
+    const existing = (children as any).props?.onPress;
+    if (existing) existing(...args);
+    triggerRef.current?.measureInWindow((x, y, width, height) => {
+      setTriggerLayout({ x, y, width, height });
+      setOpen(true);
+    });
+  }, [children, setOpen, setTriggerLayout]);
 
   if (asChild && React.isValidElement<any>(children)) {
-    return React.cloneElement(children as React.ReactElement<any>, {
-      onPress: (...args: any[]) => {
-        const existing = (children as any).props?.onPress;
-        if (existing) existing(...args);
-        setOpen(true);
-      },
-    });
+    return (
+      <View ref={triggerRef} collapsable={false}>
+        {React.cloneElement(children as React.ReactElement<any>, {
+          onPress: handlePress,
+        })}
+      </View>
+    );
   }
 
   return (
-    <Pressable onPress={() => setOpen(true)}>{children}</Pressable>
+    <View ref={triggerRef} collapsable={false}>
+      <Pressable onPress={handlePress}>{children}</Pressable>
+    </View>
   );
 };
+
+const MENU_WIDTH = 220;
 
 export const DropdownMenuContent = ({
   align = "end",
@@ -52,7 +71,36 @@ export const DropdownMenuContent = ({
 }) => {
   const context = useContext(DropdownContext);
   if (!context) return null;
-  const { open, setOpen } = context;
+  const { open, setOpen, triggerLayout } = context;
+
+  const screen = Dimensions.get("window");
+
+  // Position the menu below the trigger, aligned to the right edge by default
+  let menuTop = 0;
+  let menuLeft = 0;
+
+  if (triggerLayout) {
+    menuTop = triggerLayout.y + triggerLayout.height + 4;
+
+    if (align === "end") {
+      menuLeft = triggerLayout.x + triggerLayout.width - MENU_WIDTH;
+    } else if (align === "start") {
+      menuLeft = triggerLayout.x;
+    } else {
+      menuLeft = triggerLayout.x + triggerLayout.width / 2 - MENU_WIDTH / 2;
+    }
+
+    // Clamp so it doesn't overflow off screen
+    if (menuLeft < 8) menuLeft = 8;
+    if (menuLeft + MENU_WIDTH > screen.width - 8) menuLeft = screen.width - 8 - MENU_WIDTH;
+
+    // If menu would go below the screen, show it above the trigger instead
+    // (estimate max menu height ~350)
+    if (menuTop + 350 > screen.height) {
+      menuTop = triggerLayout.y - 350 - 4;
+      if (menuTop < 8) menuTop = 8;
+    }
+  }
 
   return (
     <Modal
@@ -61,14 +109,17 @@ export const DropdownMenuContent = ({
       animationType="fade"
       onRequestClose={() => setOpen(false)}
     >
-      <View className="flex-1 justify-end bg-black/30">
+      <View className="flex-1 bg-black/30">
         <Pressable className="absolute inset-0" onPress={() => setOpen(false)} />
         <View
+          style={{
+            position: "absolute",
+            top: menuTop,
+            left: menuLeft,
+            width: MENU_WIDTH,
+          }}
           className={cn(
-            "mx-4 mb-6 rounded-2xl border border-border bg-card p-2 shadow-lg",
-            align === "start" && "self-start",
-            align === "center" && "self-center",
-            align === "end" && "self-end",
+            "rounded-2xl border border-border bg-card p-2 shadow-lg",
             className
           )}
         >
