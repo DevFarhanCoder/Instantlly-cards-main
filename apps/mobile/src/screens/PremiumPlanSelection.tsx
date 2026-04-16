@@ -387,19 +387,22 @@ const PremiumPlanSelection = () => {
               </Text>
 
               {/* Pricing */}
-              {/* Monthly Price */}
-              <View className={cn("rounded-lg p-3 mb-2", billingPeriod === "monthly" ? "bg-white" : "bg-white/60")}>
-                <Text className="text-center text-lg font-bold text-gray-800">{plan.monthlyPrice}/Mo</Text>
-                <Text className="text-center text-xl font-bold text-gray-800">{plan.yearlyPrice}/Yr</Text>
-                <Text className="text-center text-xs text-gray-600 mt-1">Monthly Plan</Text>
-              </View>
+              {/* Monthly Price - only shown when monthly selected */}
+              {billingPeriod === "monthly" && (
+                <View className="rounded-lg p-3 mb-2 bg-white">
+                  <Text className="text-center text-lg font-bold text-gray-800">{plan.monthlyPrice}/Mo</Text>
+                  <Text className="text-center text-xs text-gray-600 mt-1">Monthly Plan</Text>
+                </View>
+              )}
 
-              {/* Yearly Price */}
-              <View className={cn("rounded-lg p-3 mb-2", billingPeriod === "yearly" ? "bg-white" : "bg-white/60")}>
-                <Text className="text-center text-xl font-bold text-gray-800">{plan.monthlyYearlyPrice}/Yr</Text>
-                <Text className="text-center text-xs text-gray-600">Yearly Plan</Text>
-                <Text className="text-center text-xs font-bold text-green-600 mt-1">{plan.yearlySavings}</Text>
-              </View>
+              {/* Yearly Price - only shown when yearly selected */}
+              {billingPeriod === "yearly" && (
+                <View className="rounded-lg p-3 mb-2 bg-white">
+                  <Text className="text-center text-xl font-bold text-gray-800">{plan.monthlyYearlyPrice}/Yr</Text>
+                  <Text className="text-center text-xs text-gray-600">Yearly Plan</Text>
+                  <Text className="text-center text-xs font-bold text-green-600 mt-1">{plan.yearlySavings}</Text>
+                </View>
+              )}
 
               {/* Features */}
               <View className="gap-2 mt-2">

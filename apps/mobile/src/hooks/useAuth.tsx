@@ -22,7 +22,7 @@ interface AuthContextType {
   loading: boolean;
   user: ReturnType<typeof selectCurrentUser>;
   accessToken: string | null;
-  signIn: (phoneOrEmail: string, password: string, isEmail?: boolean) => Promise<{ error?: string; user?: AuthUser }>;
+  signIn: (phoneOrEmail: string, password: string, isEmail?: boolean, loginType?: 'customer' | 'business') => Promise<{ error?: string; user?: AuthUser }>;
   signUp: (phone: string, password: string, name?: string, email?: string, role?: 'customer' | 'business') => Promise<{ error?: string; user?: AuthUser }>;
   signOut: () => Promise<void>;
 }
