@@ -33,6 +33,8 @@ const CategoryDetail = () => {
   const subcategories: MobileSubcategoryItem[] = subcategoryResponse?.data?.subcategories ?? [];
 
   const handleSubcategoryPress = (sub: MobileSubcategoryItem) => {
+    // [DEBUG-CATEGORY] Temporary log — remove after category investigation
+    console.log('[FRONTEND-CATEGORY-NAV]', { subName: sub.name, childCount: sub.child_count, subId: sub.id });
     if (sub.child_count > 0 && sub.id) {
       // Has children — drill deeper into another CategoryDetail
       navigation.push("CategoryDetail", {

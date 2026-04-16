@@ -41,7 +41,7 @@ const AdCreate = () => {
   const route = useRoute<any>();
   const preselectedCardId = route.params?.cardId || "";
   const { user } = useAuth();
-  const { tier } = usePromotionContext();
+  const { tier, selectedPromotionId, selectedPromotion } = usePromotionContext();
   const { cards } = useBusinessCards();
   const createCampaign = useCreateAdCampaign();
   const [uploadAdCreative] = useUploadAdCreativeMutation();
@@ -159,7 +159,12 @@ const AdCreate = () => {
           </Pressable>
           <Text className="text-lg font-bold text-foreground">Create Ad Campaign</Text>
         </View>
-        <UpgradePrompt feature="ads" />
+        <UpgradePrompt
+          feature="ads"
+          promotionId={selectedPromotionId}
+          businessName={selectedPromotion?.business_name}
+          message={`Upgrade this business to create ads for ${selectedPromotion?.business_name || "this listing"}.`}
+        />
       </View>
     );
   }

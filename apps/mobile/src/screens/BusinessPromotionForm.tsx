@@ -27,6 +27,7 @@ import { useAppDispatch } from "../store";
 import { setCredentials, setActiveRole } from "../store/authSlice";
 import * as SecureStore from 'expo-secure-store';
 import type { CategoryTreeNode } from "../store/api/categoriesApi";
+import { parseCategoryString } from "../lib/categoryUtils";
 
 const STEPS = [
   { id: 1, title: "Business", label: "Business Information" },
@@ -361,6 +362,7 @@ const BusinessPromotionForm = () => {
       const cardId = typeof card.id === 'string' ? parseInt(card.id, 10) : card.id;
 
       // Create a free BusinessPromotion record
+      const categoryArray = parseCategoryString(cardData.category);
       const promoResult: any = await createPromotion({
         business_name: cardData.company_name || cardData.full_name,
         owner_name: cardData.full_name,
@@ -373,6 +375,7 @@ const BusinessPromotionForm = () => {
         city: form.city || null,
         state: form.state || null,
         business_card_id: cardId,
+        category: categoryArray,
         listing_type: "free",
         listing_intent: "free",
         plan_type: "free",

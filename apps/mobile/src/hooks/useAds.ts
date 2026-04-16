@@ -18,10 +18,10 @@ export function useAdCampaigns() {
   const { user } = useAuth();
   const { tier, selectedPromotionId } = usePromotionContext();
   const canView = hasFeature(tier, 'basic_ads');
-  const skip = !user || !canView;
+  const skip = !user || !selectedPromotionId || !canView;
   console.log(`[useAdCampaigns] tier=${tier} selectedPromotionId=${selectedPromotionId} canView=${canView} skip=${skip}`);
   const result = useGetMyCampaignsQuery(
-    selectedPromotionId ? { promotionId: selectedPromotionId } : undefined,
+    { promotionId: selectedPromotionId as number },
     { skip },
   );
   // Stabilise refetch so callers don't re-render when the query is skipped
@@ -29,7 +29,7 @@ export function useAdCampaigns() {
   refetchRef.current = result.refetch;
   const stableRefetch = useCallback(() => refetchRef.current(), []);
   return {
-    data: result.data ?? [],
+    data: selectedPromotionId ? result.data ?? [] : [],
     isLoading: result.isLoading,
     refetch: stableRefetch,
   };

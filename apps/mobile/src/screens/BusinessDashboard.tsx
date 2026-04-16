@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Pressable,
@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
-  ArrowLeft,
   BarChart3,
   Calendar,
   CheckCircle,
@@ -28,6 +27,7 @@ import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useAuth } from "../hooks/useAuth";
 import { useBusinessCards } from "../hooks/useBusinessCards";
+import { usePromotionContext } from "../contexts/PromotionContext";
 import { supabase } from "../integrations/supabase/client";
 import { useListBusinessBookingsQuery, useUpdateBookingStatusMutation } from "../store/api/bookingsApi";
 import { useListMyEventsQuery } from "../store/api/eventsApi";
@@ -40,16 +40,26 @@ import PushCampaigns from "../components/business/PushCampaigns";
 import ReviewModeration from "../components/business/ReviewModeration";
 import ServicePricingManager from "../components/business/ServicePricingManager";
 import StaffManager from "../components/business/StaffManager";
+import { AppHeader } from "../components/ui/AppHeader";
 import { toast } from "../lib/toast";
 
 const BusinessDashboard = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { cards, isLoading, updateCard } = useBusinessCards();
+  const { selectedPromotionId, selectedPromotion } = usePromotionContext();
+  const businessName = selectedPromotion?.business_name || "Business";
   const queryClient = useQueryClient();
 
-  const cardIds = cards.map((c) => c.id);
-  const primaryCard = cards[0];
+  const selectedCard = cards.find((c: any) => Number(c.id) === Number(selectedPromotion?.business_card_id));
+  const cardIds = selectedCard ? [selectedCard.id] : [];
+  const primaryCard = selectedCard;
+
+  useEffect(() => {
+    if (user && !selectedPromotionId) {
+      navigation.navigate("BusinessSelectorScreen");
+    }
+  }, [user, selectedPromotionId, navigation]);
 
   const primaryCardId = primaryCard?.id;
   const numericCardId = typeof primaryCardId === 'string' ? parseInt(primaryCardId, 10) : primaryCardId;
@@ -60,6 +70,7 @@ const BusinessDashboard = () => {
   const incomingBookings: any[] = bookingsData?.data ?? [];
 
   const { data: myEvents = [], refetch: refetchEvents } = useListMyEventsQuery(undefined, { skip: !user });
+  const scopedEvents = (myEvents as any[]).filter((e: any) => Number(e.business_card_id) === Number(primaryCard?.id));
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -67,7 +78,7 @@ const BusinessDashboard = () => {
     try { await Promise.all([refetchBookings(), refetchEvents()]); } finally { setRefreshing(false); }
   }, [refetchBookings, refetchEvents]);
 
-  const eventIds = myEvents.map((e) => e.id);
+  const eventIds = scopedEvents.map((e: any) => e.id);
   const eventIdStrings = eventIds.map(String);
   const { data: eventRegistrations = [] } = useQuery({
     queryKey: ["business-event-registrations", eventIds],
@@ -97,8 +108,12 @@ const BusinessDashboard = () => {
     },
     enabled: !!user,
   });
+  const scopedVouchers = (myVouchers as any[]).filter((v: any) => {
+    if (v.business_card_id == null) return true;
+    return Number(v.business_card_id) === Number(primaryCard?.id);
+  });
 
-  const voucherIds = myVouchers.map((v) => v.id);
+  const voucherIds = scopedVouchers.map((v: any) => v.id);
   const { data: voucherClaims = [] } = useQuery({
     queryKey: ["business-voucher-claims", voucherIds],
     queryFn: async () => {
@@ -192,6 +207,29 @@ const BusinessDashboard = () => {
     },
   });
 
+  const showHeaderActions = !!selectedPromotionId;
+  const header = (
+    <AppHeader
+      title="Business Dashboard"
+      onBack={() => navigation.goBack()}
+      rightWidth={108}
+      rightAction={
+        showHeaderActions ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9 w-full gap-1 rounded-lg text-xs"
+            onPress={() => navigation.navigate("BusinessAnalytics")}
+          >
+            <BarChart3 size={14} color="#111827" /> Analytics
+          </Button>
+        ) : undefined
+      }
+      switchLabel={showHeaderActions ? businessName : undefined}
+      onSwitchPress={showHeaderActions ? () => navigation.navigate("BusinessSelectorScreen") : undefined}
+    />
+  );
+
 
   if (!user) {
     return (
@@ -209,12 +247,7 @@ const BusinessDashboard = () => {
   if (isLoading) {
     return (
       <View className="flex-1 bg-background">
-        <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
-          <Pressable onPress={() => navigation.goBack()}>
-            <ArrowLeft size={20} color="#111827" />
-          </Pressable>
-          <Text className="text-lg font-bold text-foreground">Business Dashboard</Text>
-        </View>
+        {header}
         <View className="items-center justify-center px-6 pt-24">
           <Text className="text-sm text-muted-foreground">Loading your business cards...</Text>
           <Text className="text-xs text-muted-foreground mt-2">Please check console logs for details</Text>
@@ -223,15 +256,21 @@ const BusinessDashboard = () => {
     );
   }
 
+  if (!selectedPromotionId) {
+    return (
+      <View className="flex-1 bg-background">
+        {header}
+        <View className="flex-1 items-center justify-center px-6">
+          <Text className="text-sm text-muted-foreground text-center">Opening business selector...</Text>
+        </View>
+      </View>
+    );
+  }
+
   if (cards.length === 0) {
     return (
       <View className="flex-1 bg-background">
-        <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
-          <Pressable onPress={() => navigation.goBack()}>
-            <ArrowLeft size={20} color="#111827" />
-          </Pressable>
-          <Text className="text-lg font-bold text-foreground">Business Dashboard</Text>
-        </View>
+        {header}
         <View className="items-center justify-center px-6 pt-24">
           <Text className="text-4xl mb-4">🏪</Text>
           <Text className="text-lg font-bold text-foreground">No business card yet</Text>
@@ -256,6 +295,17 @@ const BusinessDashboard = () => {
     );
   }
 
+  if (!selectedCard) {
+    return (
+      <View className="flex-1 bg-background">
+        {header}
+        <View className="flex-1 items-center justify-center px-6">
+          <Text className="text-sm text-muted-foreground text-center">No business card linked to this listing</Text>
+        </View>
+      </View>
+    );
+  }
+
   const pendingBookings = incomingBookings.filter((b) => b.status === "confirmed");
   const avgRating =
     reviews.length > 0
@@ -267,20 +317,7 @@ const BusinessDashboard = () => {
 
   return (
     <View className="flex-1 bg-background">
-      <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
-        <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
-        </Pressable>
-        <Text className="text-lg font-bold text-foreground">Business Dashboard</Text>
-        <Button
-          size="sm"
-          variant="outline"
-          className="ml-auto gap-1 rounded-lg text-xs"
-          onPress={() => navigation.navigate("BusinessAnalytics")}
-        >
-          <BarChart3 size={14} color="#111827" /> Analytics
-        </Button>
-      </View>
+      {header}
 
       <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4" refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
@@ -442,12 +479,12 @@ const BusinessDashboard = () => {
             <Button variant="outline" className="w-full gap-2 rounded-xl" onPress={() => navigation.navigate("EventCreate")}>
               <Calendar size={16} color="#111827" /> Create New Event
             </Button>
-            {myEvents.length === 0 ? (
+            {scopedEvents.length === 0 ? (
               <View className="rounded-xl border border-dashed border-border bg-muted/30 p-8 items-center">
                 <Text className="text-sm text-muted-foreground">No events created yet</Text>
               </View>
             ) : (
-              myEvents.map((e: any) => {
+              scopedEvents.map((e: any) => {
                 const regs = eventRegistrations.filter((r: any) => String(r.event_id) === String(e.id));
                 return (
                   <View key={e.id} className="rounded-xl border border-border bg-card p-4 gap-2">
@@ -493,12 +530,12 @@ const BusinessDashboard = () => {
             <Button variant="outline" className="w-full gap-2 rounded-xl" onPress={() => navigation.navigate("VoucherCreate")}>
               <Tag size={16} color="#111827" /> Create New Voucher
             </Button>
-            {myVouchers.length === 0 ? (
+            {scopedVouchers.length === 0 ? (
               <View className="rounded-xl border border-dashed border-border bg-muted/30 p-8 items-center">
                 <Text className="text-sm text-muted-foreground">No vouchers created yet</Text>
               </View>
             ) : (
-              myVouchers.map((v: any) => {
+              scopedVouchers.map((v: any) => {
                 const claims = voucherClaims.filter((c: any) => c.voucher_id === v.id);
                 return (
                   <View key={v.id} className="rounded-xl border border-border bg-card p-4 gap-2">

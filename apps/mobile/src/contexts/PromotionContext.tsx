@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../hooks/useAuth';
 import { useGetMyPromotionsQuery } from '../store/api/promotionsApi';
 import { effectiveTier, type Tier } from '../utils/tierFeatures';
@@ -27,10 +28,29 @@ const PromotionContext = createContext<PromotionContextValue>({
   isLoading: false,
 });
 
+const SELECTED_PROMOTION_KEY = 'selectedPromotionId';
+
 export function PromotionProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { data: promotions = [], isLoading } = useGetMyPromotionsQuery(undefined, { skip: !user });
   const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    AsyncStorage.getItem(SELECTED_PROMOTION_KEY)
+      .then((stored) => {
+        if (!mounted || !stored) return;
+        const parsed = parseInt(stored, 10);
+        if (!Number.isNaN(parsed)) {
+          setSelectedId(parsed);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // All promotions (free + premium + pending) — no filtering
   const allPromos = useMemo(() => promotions as any[], [promotions]);
@@ -61,6 +81,11 @@ export function PromotionProvider({ children }: { children: React.ReactNode }) {
   const selectPromotion = useCallback((id: number | null) => {
     console.log(`[PromotionContext] selectPromotion called: ${id}`);
     setSelectedId(id);
+    if (!id) {
+      AsyncStorage.removeItem(SELECTED_PROMOTION_KEY).catch(() => {});
+      return;
+    }
+    AsyncStorage.setItem(SELECTED_PROMOTION_KEY, String(id)).catch(() => {});
   }, []);
 
   const value = useMemo<PromotionContextValue>(
