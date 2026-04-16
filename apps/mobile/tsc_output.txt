@@ -1,0 +1,97 @@
+﻿src/__tests__/adHelpers.test.ts(11,3): error TS2459: Module '"../utils/adHelpers"' declares 'Ad' locally, but it is not exported.
+src/__tests__/adsApi.test.ts(3,18): error TS2305: Module '"../store/api/adsApi"' has no exported member 'useListAdsForCarouselQuery'.
+src/__tests__/adsApi.test.ts(8,31): error TS2339: Property 'listAdsForCarousel' does not exist on type '{ listActiveCampaigns: ApiEndpointQuery<QueryDefinition<void | { ad_type?: string | undefined; city?: string | undefined; }, BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError>, "Auth" | ... 13 more ... | "GroupMessages", AdCampaign[], "api", unknown>, { ...; }>; ... 9 more ...; uploadAdCreative: ApiEndpoi...'.
+src/__tests__/adSlice.test.ts(74,21): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(78,38): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/__tests__/adSlice.test.ts(86,21): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(100,14): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(102,14): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(106,21): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(118,14): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(123,14): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(127,28): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(129,14): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(139,28): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(141,14): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(145,21): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(153,14): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(164,21): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(179,21): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(189,14): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(202,18): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(202,49): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/__tests__/adSlice.test.ts(216,18): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(216,49): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/__tests__/adSlice.test.ts(230,21): error TS2571: Object is of type 'unknown'.
+src/__tests__/adSlice.test.ts(257,27): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/__tests__/adSlice.test.ts(303,24): error TS2571: Object is of type 'unknown'.
+src/__tests__/businessDetail.test.tsx(62,62): error TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
+src/__tests__/businessDetail.test.tsx(345,9): error TS2322: Type 'undefined' is not assignable to type '{ id: string; business_card_id: string; user_id: string; full_name: string; phone: string; email: string; location: string; company_name: string; job_title: string; logo_url: null; description: string; ... 27 more ...; created_at: string; }'.
+src/__tests__/businessDetail.test.tsx(352,34): error TS2345: Argument of type 'string' is not assignable to parameter of type 'ComponentType<unknown>'.
+src/__tests__/businessDetail.test.tsx(357,9): error TS2322: Type 'null' is not assignable to type '{ id: string; business_card_id: string; user_id: string; full_name: string; phone: string; email: string; location: string; company_name: string; job_title: string; logo_url: null; description: string; ... 27 more ...; created_at: string; }'.
+src/__tests__/businessDetail.test.tsx(361,9): error TS2322: Type 'string' is not assignable to type 'null'.
+src/__tests__/businessDetail.test.tsx(374,11): error TS2322: Type 'null' is not assignable to type 'string'.
+src/__tests__/businessDetail.test.tsx(374,24): error TS2322: Type 'null' is not assignable to type 'string'.
+src/__tests__/businessDetail.test.tsx(374,40): error TS2322: Type 'null' is not assignable to type 'string'.
+src/__tests__/businessDetail.test.tsx(374,60): error TS2322: Type 'null' is not assignable to type 'string'.
+src/__tests__/businessDetail.test.tsx(375,11): error TS2322: Type 'null' is not assignable to type 'string'.
+src/__tests__/businessDetail.test.tsx(375,30): error TS2322: Type 'null' is not assignable to type 'string'.
+src/__tests__/businessDetail.test.tsx(375,57): error TS2322: Type 'null' is not assignable to type 'string'.
+src/__tests__/businessDetail.test.tsx(376,11): error TS2322: Type 'null' is not assignable to type 'string'.
+src/__tests__/businessDetail.test.tsx(376,27): error TS2322: Type 'null' is not assignable to type 'string'.
+src/__tests__/businessDetail.test.tsx(376,42): error TS2322: Type 'null' is not assignable to type 'string'.
+src/__tests__/categoryDetail.test.tsx(43,76): error TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
+src/__tests__/categoryDetail.test.tsx(108,9): error TS2739: Type '{ page: number; limit: number; total: number; }' is missing the following properties from type '{ page: number; limit: number; total: number; totalPages: number; hasMore: boolean; search: null; source: string; }': totalPages, hasMore, search, source
+src/__tests__/subcategoryDetail.test.tsx(98,62): error TS2556: A spread argument must either have a tuple type or be passed to a rest parameter.
+src/__tests__/subcategoryDetail.test.tsx(253,32): error TS2345: Argument of type 'string' is not assignable to parameter of type 'ComponentType<unknown>'.
+src/components/ads/FullScreenAdModal.tsx(28,62): error TS2339: Property 'ads' does not exist on type '{ auth: AuthState; adsCarousel: AdsCarouselState; api: CombinedState<{}, "Auth" | "User" | "Category" | "BusinessCard" | "Promotion" | "Voucher" | "Ad" | "Review" | ... 6 more ... | "GroupMessages", "api">; }'.
+src/components/ads/FullScreenAdModal.tsx(29,66): error TS2339: Property 'ads' does not exist on type '{ auth: AuthState; adsCarousel: AdsCarouselState; api: CombinedState<{}, "Auth" | "User" | "Category" | "BusinessCard" | "Promotion" | "Voucher" | "Ad" | "Review" | ... 6 more ... | "GroupMessages", "api">; }'.
+src/components/FullScreenAdModal.tsx(170,15): error TS2339: Property 'description' does not exist on type 'CarouselAd'.
+src/components/FullScreenAdModal.tsx(180,19): error TS2339: Property 'description' does not exist on type 'CarouselAd'.
+src/hooks/useForceUpdate.ts(64,56): error TS2339: Property 'version' does not exist on type 'EmbeddedManifest'.
+src/navigation/AppNavigator.tsx(10,35): error TS2322: Type 'Promise<{ shouldShowAlert: true; shouldPlaySound: true; shouldSetBadge: false; }>' is not assignable to type 'Promise<NotificationBehavior>'.
+  Type '{ shouldShowAlert: true; shouldPlaySound: true; shouldSetBadge: false; }' is missing the following properties from type 'NotificationBehavior': shouldShowBanner, shouldShowList
+src/screens/Auth.tsx(189,103): error TS2554: Expected 2-3 arguments, but got 4.
+src/screens/BusinessDetail.tsx(682,9): error TS2322: Type '{ open: boolean; onOpenChange: Dispatch<SetStateAction<boolean>>; cardId: number; cardName: string; data: { fullName: string; companyName: string | null; jobTitle: string | null; ... 8 more ...; shareUrl: string; }; }' is not assignable to type 'IntrinsicAttributes & ShareCardModalProps'.
+  Property 'cardId' does not exist on type 'IntrinsicAttributes & ShareCardModalProps'.
+src/screens/CardCreate.tsx(907,23): error TS2339: Property 'logoPreview' does not exist on type '{ fullName: string; birthdate: string; anniversary: string; gender: string; phone: string; whatsapp: string; telegram: string; email: string; location: string; state: string; pincode: string; instagram: string; facebook: string; linkedin: string; youtube: string; twitter: string; }'.
+src/screens/CardCreate.tsx(909,41): error TS2339: Property 'logoPreview' does not exist on type '{ fullName: string; birthdate: string; anniversary: string; gender: string; phone: string; whatsapp: string; telegram: string; email: string; location: string; state: string; pincode: string; instagram: string; facebook: string; linkedin: string; youtube: string; twitter: string; }'.
+src/screens/CardCreate.tsx(921,25): error TS2339: Property 'jobTitle' does not exist on type '{ fullName: string; birthdate: string; anniversary: string; gender: string; phone: string; whatsapp: string; telegram: string; email: string; location: string; state: string; pincode: string; instagram: string; facebook: string; linkedin: string; youtube: string; twitter: string; }'.
+src/screens/CardCreate.tsx(924,25): error TS2339: Property 'companyName' does not exist on type '{ fullName: string; birthdate: string; anniversary: string; gender: string; phone: string; whatsapp: string; telegram: string; email: string; location: string; state: string; pincode: string; instagram: string; facebook: string; linkedin: string; youtube: string; twitter: string; }'.
+src/screens/CardCreate.tsx(928,19): error TS2339: Property 'offer' does not exist on type '{ fullName: string; birthdate: string; anniversary: string; gender: string; phone: string; whatsapp: string; telegram: string; email: string; location: string; state: string; pincode: string; instagram: string; facebook: string; linkedin: string; youtube: string; twitter: string; }'.
+src/screens/CardCreate.tsx(931,39): error TS2339: Property 'offer' does not exist on type '{ fullName: string; birthdate: string; anniversary: string; gender: string; phone: string; whatsapp: string; telegram: string; email: string; location: string; state: string; pincode: string; instagram: string; facebook: string; linkedin: string; youtube: string; twitter: string; }'.
+src/screens/GroupJoin.tsx(7,41): error TS2307: Cannot find module './routes' or its corresponding type declarations.
+src/screens/GroupJoin.tsx(23,17): error TS2339: Property 'isLoading' does not exist on type 'AuthContextType'.
+src/screens/PremiumPlanSelection.tsx(148,130): error TS2339: Property 'tier' does not exist on type '{ success: boolean; order: any; promotion: any; roles?: string[] | undefined; accessToken?: string | undefined; refreshToken?: string | undefined; }'.
+src/screens/PublicCard.tsx(359,9): error TS2322: Type '{ open: boolean; onOpenChange: Dispatch<SetStateAction<boolean>>; cardId: number; cardName: string; data: { fullName: string; companyName: string | null; jobTitle: string | null; ... 8 more ...; shareUrl: string; }; }' is not assignable to type 'IntrinsicAttributes & ShareCardModalProps'.
+  Property 'cardId' does not exist on type 'IntrinsicAttributes & ShareCardModalProps'.
+src/screens/Support.tsx(38,7): error TS2448: Block-scoped variable 'refetch' used before its declaration.
+src/screens/Support.tsx(38,7): error TS2454: Variable 'refetch' is used before being assigned.
+src/store/slices/adSlice.test.ts(24,3): error TS2741: Property 'priority' is missing in type '{ id: number; title: string; creative_url: string; ad_type: "banner"; approval_status: "approved"; status: "active"; }' but required in type 'Ad'.
+src/store/slices/adSlice.test.ts(32,3): error TS2741: Property 'priority' is missing in type '{ id: number; title: string; creative_url: string; ad_type: "banner"; approval_status: "approved"; status: "active"; }' but required in type 'Ad'.
+src/store/slices/adSlice.test.ts(40,3): error TS2741: Property 'priority' is missing in type '{ id: number; title: string; ad_type: "banner"; approval_status: "approved"; status: "active"; }' but required in type 'Ad'.
+src/store/slices/adSlice.test.ts(47,3): error TS2741: Property 'priority' is missing in type '{ id: number; title: string; image_url: string; ad_type: "banner"; approval_status: "approved"; status: "active"; }' but required in type 'Ad'.
+src/store/slices/adSlice.test.ts(69,21): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(73,38): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/store/slices/adSlice.test.ts(81,21): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(95,14): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(97,14): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(101,21): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(113,14): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(118,14): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(122,28): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(124,14): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(134,28): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(136,14): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(140,21): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(148,14): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(159,21): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(174,21): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(184,14): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(197,18): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(197,49): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/store/slices/adSlice.test.ts(211,18): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(211,49): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/store/slices/adSlice.test.ts(225,21): error TS2571: Object is of type 'unknown'.
+src/store/slices/adSlice.test.ts(252,27): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/store/slices/adSlice.test.ts(298,24): error TS2571: Object is of type 'unknown'.

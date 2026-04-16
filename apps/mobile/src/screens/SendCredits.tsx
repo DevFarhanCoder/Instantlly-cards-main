@@ -126,7 +126,7 @@ const SendCreditsScreen = () => {
                 <Ionicons name="call-outline" size={scale(13)} color={C.textMuted} />
                 <Text style={s.recipientPhone}>{recipient.phone}</Text>
               </View>
-            </View>
+            </View>0
           </View>
           <View style={s.availRow}>
             <Ionicons name="wallet-outline" size={scale(14)} color={C.textSec} />

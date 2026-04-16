@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   Text,
@@ -8,7 +9,9 @@ import {
   Modal,
   Switch,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp, X, Clock, Check, Search, Plus, Trash2 } from "lucide-react-native";
 import { Button } from "../components/ui/button";
@@ -18,6 +21,7 @@ import { Textarea } from "../components/ui/textarea";
 import { useAuth } from "../hooks/useAuth";
 import { useBusinessCards } from "../hooks/useBusinessCards";
 import { useCreatePromotionMutation } from "../store/api/promotionsApi";
+import { useUploadImageMutation } from "../store/api/businessCardsApi";
 import { toast } from "../lib/toast";
 import { cn } from "../lib/utils";
 import { colors } from "../theme/colors";
@@ -27,6 +31,7 @@ import { useAppDispatch } from "../store";
 import { setCredentials, setActiveRole } from "../store/authSlice";
 import * as SecureStore from 'expo-secure-store';
 import type { CategoryTreeNode } from "../store/api/categoriesApi";
+import { parseCategoryString } from "../lib/categoryUtils";
 
 const STEPS = [
   { id: 1, title: "Business", label: "Business Information" },
@@ -65,6 +70,57 @@ const BusinessPromotionForm = () => {
   const dispatch = useAppDispatch();
   const { createCard } = useBusinessCards();
   const [createPromotion] = useCreatePromotionMutation();
+  const [uploadImage] = useUploadImageMutation();
+
+  const MAX_IMAGES = 10;
+  const [businessImages, setBusinessImages] = useState<{ uri: string; url: string | null; uploading: boolean }[]>([]);
+
+  const pickBusinessImages = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      toast.error("Permission required to access photos");
+      return;
+    }
+    const remaining = MAX_IMAGES - businessImages.length;
+    if (remaining <= 0) {
+      toast.error(`Maximum ${MAX_IMAGES} images already selected`);
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit: remaining,
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets.length) return;
+    // Add all images as uploading
+    const newImages = result.assets.map(asset => ({ uri: asset.uri, url: null, uploading: true }));
+    setBusinessImages(prev => [...prev, ...newImages]);
+    // Upload all images
+    for (let i = 0; i < newImages.length; i++) {
+      const asset = result.assets[i];
+      const idx = businessImages.length + i;
+      try {
+        const fileName = asset.fileName || `business-${Date.now()}-${i}.jpg`;
+        const formData = new FormData();
+        formData.append("file", {
+          uri: asset.uri,
+          name: fileName,
+          type: asset.mimeType || "image/jpeg",
+        } as any);
+        const { url } = await uploadImage(formData).unwrap();
+        setBusinessImages(prev => prev.map((img, j) => j === idx ? { ...img, url, uploading: false } : img));
+      } catch (err: any) {
+        toast.error("Image upload failed");
+        setBusinessImages(prev => prev.filter((_, j) => j !== idx));
+      }
+    }
+  };
+
+  const removeBusinessImage = (index: number) => {
+    setBusinessImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const { data: categoryTree = [] } = useGetCategoryTreeQuery();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -350,6 +406,7 @@ const BusinessPromotionForm = () => {
       pan_number: form.panNumber || null,
       keywords: null,
       services: [],
+      images: businessImages.filter(i => i.url).map(i => i.url),
     };
 
     // Check if premium plan - navigate to plan selection
@@ -361,6 +418,7 @@ const BusinessPromotionForm = () => {
       const cardId = typeof card.id === 'string' ? parseInt(card.id, 10) : card.id;
 
       // Create a free BusinessPromotion record
+      const categoryArray = parseCategoryString(cardData.category);
       const promoResult: any = await createPromotion({
         business_name: cardData.company_name || cardData.full_name,
         owner_name: cardData.full_name,
@@ -373,6 +431,7 @@ const BusinessPromotionForm = () => {
         city: form.city || null,
         state: form.state || null,
         business_card_id: cardId,
+        category: categoryArray,
         listing_type: "free",
         listing_intent: "free",
         plan_type: "free",
@@ -505,6 +564,64 @@ const BusinessPromotionForm = () => {
             </View>
 
             <View>
+              <Label className={labelClass}>Business Images (Optional, up to {MAX_IMAGES})</Label>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                {businessImages.map((img, index) => (
+                  <View
+                    key={index}
+                    style={{
+                      width: 100, height: 100, borderRadius: 10,
+                      overflow: "hidden", backgroundColor: "#f3f4f6",
+                      borderWidth: 1, borderColor: img.url ? "#2563eb" : "#d1d5db",
+                    }}
+                  >
+                    <Image
+                      source={{ uri: img.uri }}
+                      style={{ width: "100%", height: "100%" }}
+                      resizeMode="contain"
+                    />
+                    {img.uploading && (
+                      <View style={{
+                        position: "absolute", inset: 0, backgroundColor: "rgba(255,255,255,0.7)",
+                        alignItems: "center", justifyContent: "center",
+                      }}>
+                        <ActivityIndicator size="small" color="#2563eb" />
+                      </View>
+                    )}
+                    <Pressable
+                      onPress={() => removeBusinessImage(index)}
+                      style={{
+                        position: "absolute", top: 4, right: 4,
+                        backgroundColor: "rgba(0,0,0,0.6)",
+                        borderRadius: 10, padding: 3,
+                      }}
+                    >
+                      <X size={12} color="#fff" />
+                    </Pressable>
+                  </View>
+                ))}
+                {businessImages.length < MAX_IMAGES && (
+                  <Pressable
+                    onPress={pickBusinessImages}
+                    style={{
+                      width: 100, height: 100, borderRadius: 10,
+                      borderWidth: 2, borderStyle: "dashed", borderColor: "#d1d5db",
+                      backgroundColor: "#f9fafb", alignItems: "center", justifyContent: "center", gap: 4,
+                    }}
+                  >
+                    <Plus size={28} color="#6b7280" />
+                    <Text style={{ fontSize: 11, color: "#6b7280", textAlign: "center" }}>Add Photos</Text>
+                  </Pressable>
+                )}
+              </View>
+              {businessImages.length > 0 && (
+                <Text style={{ fontSize: 11, color: "#6b7280", marginTop: 6 }}>
+                  {businessImages.length} image{businessImages.length > 1 ? "s" : ""} selected
+                </Text>
+              )}
+            </View>
+
+            <View>
               <Label className={labelClass}>Business Description</Label>
               <Textarea
                 placeholder="Brief description of your business"
@@ -549,7 +666,7 @@ const BusinessPromotionForm = () => {
             </View>
 
             <View>
-              <Text className="text-lg font-bold text-foreground mb-2">Add Business Category</Text>
+              <Text className="text-lg font-bold text-foreground mb-2">Add Business Category <Text style={{ color: "#ef4444" }}>*</Text></Text>
               <Text className="text-sm text-muted-foreground mb-4">
                 Choose the right business categories so your customer can easily find you
               </Text>
