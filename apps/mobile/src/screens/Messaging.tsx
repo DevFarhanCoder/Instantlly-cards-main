@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Image,
+  PanResponder,
   Pressable,
   ScrollView,
   Text,
@@ -363,6 +364,25 @@ const Messaging = () => {
 
   const scrollRef = useRef<ScrollView>(null);
   const callIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const tabSwipeResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) && Math.abs(g.dx) > 20,
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -50) {
+          setActiveTab((prev) => {
+            const i = tabs.indexOf(prev);
+            return i < tabs.length - 1 ? tabs[i + 1] : prev;
+          });
+        } else if (g.dx > 50) {
+          setActiveTab((prev) => {
+            const i = tabs.indexOf(prev);
+            return i > 0 ? tabs[i - 1] : prev;
+          });
+        }
+      },
+    })
+  ).current;
 
   const conversationsQuery = useConversations();
   const messagesQuery = useConversationMessages(selectedConv?.id || null);
@@ -753,6 +773,7 @@ const Messaging = () => {
         </View>
       </View>
 
+      <View style={{ flex: 1 }} {...tabSwipeResponder.panHandlers}>
       <View className="px-4 pt-3">
         <TextInput
           placeholder="Search conversations..."
@@ -810,6 +831,7 @@ const Messaging = () => {
           </View>
         </ScrollView>
       )}
+      </View>
     </View>
   );
 };

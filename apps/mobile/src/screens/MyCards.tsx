@@ -12,6 +12,7 @@ import {
   Linking,
 } from "react-native";
 import ContactPickerModal from "../components/ContactPickerModal";
+import { buildWhatsAppMessage, type ShareCardData } from "../components/ShareCardModal";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import {
   Calendar,
@@ -117,9 +118,35 @@ const MyCards = () => {
     if (!shareCard) return;
     
     const shareUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantlly.lovable.app'}/card/${shareCard.id}`;
-    const text = `${shareCard.full_name}${shareCard.company_name ? ` — ${shareCard.company_name}` : ""}${shareCard.job_title ? ` | ${shareCard.job_title}` : ""}\n\n${shareCard.phone}${shareCard.email ? `\n${shareCard.email}` : ""}${shareCard.location ? `\n📍 ${shareCard.location}` : ""}${shareCard.offer ? `\n\n🎁 ${shareCard.offer}` : ""}\n\n${shareUrl}`;
-    
-    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(text)}`;
+    const cardData: ShareCardData = {
+      fullName: shareCard.full_name,
+      companyName: shareCard.company_name,
+      jobTitle: shareCard.job_title,
+      phone: shareCard.phone,
+      email: shareCard.email,
+      location: shareCard.location,
+      mapsLink: shareCard.maps_link,
+      companyPhone: shareCard.company_phone,
+      companyEmail: shareCard.company_email,
+      companyAddress: shareCard.company_address,
+      companyMapsLink: shareCard.company_maps_link,
+      website: shareCard.website,
+      category: shareCard.category,
+      businessDescription: shareCard.description,
+      keywords: shareCard.keywords,
+      businessHours: shareCard.business_hours,
+      offer: shareCard.offer,
+      services: shareCard.services,
+      logoUrl: shareCard.logo_url,
+      facebook: shareCard.facebook,
+      instagram: shareCard.instagram,
+      youtube: shareCard.youtube,
+      linkedin: shareCard.linkedin,
+      twitter: shareCard.twitter,
+      shareUrl,
+    };
+    const message = buildWhatsAppMessage(cardData);
+    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
     
     try {
       const canOpen = await Linking.canOpenURL(whatsappUrl);
