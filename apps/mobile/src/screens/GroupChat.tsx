@@ -38,6 +38,39 @@ import type { RootStackParamList } from '../navigation/routes';
 
 type GroupChatRoute = RouteProp<RootStackParamList, 'GroupChat'>;
 
+function parseSharedCardPayload(content: string): Record<string, any> | null {
+  if (!content) return null;
+  try {
+    const parsed = JSON.parse(content);
+    if (typeof parsed === 'string') {
+      return JSON.parse(parsed);
+    }
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractSharedCardId(cardData: Record<string, any> | null): string | null {
+  if (!cardData) return null;
+  const explicitId = cardData.detail_id ?? cardData.route_id;
+  if (explicitId !== null && explicitId !== undefined) {
+    const normalizedExplicitId = String(explicitId).trim();
+    if (normalizedExplicitId.length > 0) return normalizedExplicitId;
+  }
+
+  const rawId = cardData.card_id ?? cardData.business_card_id ?? cardData.id;
+  if (rawId === null || rawId === undefined) return null;
+
+  const normalized = String(rawId).trim();
+  if (!normalized) return null;
+  if (normalized.startsWith('card-') || normalized.startsWith('promo-')) {
+    return normalized;
+  }
+
+  return `card-${normalized}`;
+}
+
 // ─── Card Picker Modal ────────────────────────────────────────────────────────
 
 const CardPicker = ({
@@ -51,7 +84,7 @@ const CardPicker = ({
 }) => {
   const { cards = [], isLoading } = useBusinessCards() as any;
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.pickerOverlay}>
         <View style={styles.pickerSheet}>
           <View style={styles.pickerHeader}>
@@ -112,6 +145,7 @@ const GroupInfoScreen = ({
   onCopyCode: () => void;
   groupId: number;
 }) => {
+  const navigation = useNavigation<any>();
   const [tab, setTab] = useState<'members' | 'media'>('members');
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -140,13 +174,21 @@ const GroupInfoScreen = ({
     [mediaData]
   );
 
+  const handleRequestClose = () => {
+    if (editingName) {
+      setEditingName(false);
+      return;
+    }
+    onClose();
+  };
+
   if (!detail) return null;
   return (
-    <Modal visible={visible} animationType="slide" transparent={false}>
+    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={handleRequestClose}>
       <SafeAreaView style={styles.infoContainer}>
         {/* Header */}
         <View style={styles.infoHeader}>
-          <Pressable onPress={onClose} hitSlop={8} style={styles.infoBackBtn}>
+          <Pressable onPress={handleRequestClose} hitSlop={8} style={styles.infoBackBtn}>
             <Ionicons name="arrow-back" size={22} color="#111827" />
           </Pressable>
           <Text style={styles.infoHeaderTitle}>Group Info</Text>
@@ -289,10 +331,19 @@ const GroupInfoScreen = ({
                   <Ionicons name="card-outline" size={14} color="#6B7280" /> Shared Cards ({cards.length})
                 </Text>
                 {cards.map((item) => {
-                  let card: any = {};
-                  try { card = JSON.parse(item.content); } catch {}
+                  const card = parseSharedCardPayload(item.content) ?? {};
+                  const cardId = extractSharedCardId(card);
+
+                  const handleOpenCard = () => {
+                    if (!cardId) {
+                      toast.error('Card details are unavailable for this message');
+                      return;
+                    }
+                    navigation.navigate('PublicCard', { id: cardId });
+                  };
+
                   return (
-                    <View key={item.id} style={styles.mediaCardRow}>
+                    <Pressable key={item.id} style={styles.mediaCardRow} onPress={handleOpenCard}>
                       {card.logo_url ? (
                         <Image source={{ uri: card.logo_url }} style={styles.mediaCardLogo} />
                       ) : (
@@ -305,9 +356,9 @@ const GroupInfoScreen = ({
                         {card.company_name ? (
                           <Text style={styles.mediaCardSub} numberOfLines={1}>{card.company_name}</Text>
                         ) : null}
-                        <Text style={styles.mediaCardMeta}>Shared by {item.senderName}</Text>
+                        <Text style={styles.mediaCardMeta}>Shared by {item.senderName} · Tap to view</Text>
                       </View>
-                    </View>
+                    </Pressable>
                   );
                 })}
               </>
@@ -335,10 +386,17 @@ const Bubble = ({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) => {
     hour12: true,
   });
 
-  let cardData: any = null;
-  if (msg.messageType === 'card') {
-    try { cardData = JSON.parse(msg.content); } catch {}
-  }
+  const navigation = useNavigation<any>();
+  const cardData = msg.messageType === 'card' ? parseSharedCardPayload(msg.content) : null;
+  const cardId = extractSharedCardId(cardData);
+
+  const handleOpenCard = () => {
+    if (!cardId) {
+      toast.error('Card details are unavailable for this message');
+      return;
+    }
+    navigation.navigate('PublicCard', { id: cardId });
+  };
 
   return (
     <View style={[styles.bubbleWrap, isMe ? styles.bubbleRight : styles.bubbleLeft]}>
@@ -353,7 +411,7 @@ const Bubble = ({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) => {
           />
         </View>
       ) : msg.messageType === 'card' && cardData ? (
-        <View style={[styles.bubble, styles.bubbleCard]}>
+        <Pressable style={[styles.bubble, styles.bubbleCard]} onPress={handleOpenCard}>
           <View style={styles.cardBubbleRow}>
             {cardData.logo_url ? (
               <Image source={{ uri: cardData.logo_url }} style={styles.cardBubbleLogo} />
@@ -370,8 +428,8 @@ const Bubble = ({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) => {
             </View>
           </View>
           <View style={styles.cardBubbleDivider} />
-          <Text style={styles.cardBubbleTag}>Business Card</Text>
-        </View>
+          <Text style={styles.cardBubbleTag}>Business Card · Tap to view</Text>
+        </Pressable>
       ) : (
         <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
           <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>{msg.content}</Text>
@@ -475,8 +533,11 @@ export default function GroupChat() {
     setShowCardPicker(false);
     setSending(true);
     try {
+      const cardId = String(card.id).trim();
       const content = JSON.stringify({
-        id: card.id,
+        id: cardId,
+        card_id: cardId,
+        detail_id: `card-${cardId}`,
         full_name: card.full_name,
         company_name: card.company_name,
         logo_url: card.logo_url,
@@ -500,8 +561,9 @@ export default function GroupChat() {
 
   const handleWhatsApp = useCallback(async () => {
     if (!detail) return;
-    const inviteUrl = `${API_URL}/invite/${detail.joinCode}`;
-    const text = `Join my group "${detail.name}" on Instantlly Cards!\n\nTap to join directly:\n${inviteUrl}\n\nOr use code *${detail.joinCode}* inside the app.`;
+    const inviteUrl = `${process.env.EXPO_PUBLIC_INVITE_URL || 'https://backend.instantllycards.com'}/invite/${detail.joinCode}`;
+    const playStoreUrl = `https://play.google.com/store/apps/details?id=com.instantllycards.www.twa`;
+    const text = `Join my group *"${detail.name}"* on *Instantlly Cards!* 📇\n\nTap to join directly:\n${inviteUrl}\n\nOr use join code *${detail.joinCode}* inside the app.\n\n📲 *Don't have the app? Download it free here:*\n${playStoreUrl}`;
     const url = `whatsapp://send?text=${encodeURIComponent(text)}`;
     try {
       const canOpen = await Linking.canOpenURL(url);

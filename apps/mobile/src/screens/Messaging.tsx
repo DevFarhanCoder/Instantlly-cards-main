@@ -54,9 +54,51 @@ function formatRelativeTime(isoString: string): string {
   return `${Math.floor(days / 7)}w ago`;
 }
 
+function getGroupPreviewText(group: GroupInfo): string {
+  const message = group.lastMessage;
+  if (!message) {
+    return `${group.memberCount} members · Code: ${group.joinCode}`;
+  }
+
+  const senderPrefix = message.senderName ? `${message.senderName}: ` : "";
+  const raw = String(message.content ?? "").trim();
+
+  if (!raw) {
+    return `${senderPrefix}Sent a message`;
+  }
+
+  const isLikelyJson = raw.startsWith("{") || raw.startsWith("[");
+  if (isLikelyJson) {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const fullName = typeof parsed.full_name === "string" ? parsed.full_name.trim() : "";
+      const companyName = typeof parsed.company_name === "string" ? parsed.company_name.trim() : "";
+
+      if (fullName || companyName) {
+        const cardLabel = fullName || companyName;
+        return `${senderPrefix}Shared card: ${cardLabel}`;
+      }
+
+      return `${senderPrefix}Shared a card`;
+    } catch {
+      // Keep raw text when payload is not valid JSON.
+    }
+  }
+
+  const isImageUrl = /^https?:\/\/.+\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(raw);
+  if (isImageUrl) {
+    return `${senderPrefix}Sent an image`;
+  }
+
+  return `${senderPrefix}${raw}`;
+}
+
 const GroupsTab = () => {
   const navigation = useNavigation<any>();
-  const { data: groups = [], isLoading } = useGetGroupsQuery();
+  const { data: groups = [], isLoading } = useGetGroupsQuery(undefined, {
+    pollingInterval: 5000,
+    refetchOnMountOrArgChange: true,
+  });
 
   if (isLoading) {
     return (
@@ -81,7 +123,11 @@ const GroupsTab = () => {
   }
 
   return (
-    <ScrollView className="px-4 pt-3 pb-4">
+    <ScrollView
+      className="px-4 pt-3"
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
       <View className="gap-1">
         {groups.map((group: GroupInfo) => (
           <Pressable
@@ -104,7 +150,7 @@ const GroupsTab = () => {
                 ) : null}
               </View>
               <Text className="mt-0.5 text-xs text-muted-foreground" numberOfLines={1}>
-                {group.lastMessage?.content || `${group.memberCount} members · Code: ${group.joinCode}`}
+                {getGroupPreviewText(group)}
               </Text>
             </View>
           </Pressable>
@@ -119,9 +165,37 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
   const { user } = useAuth();
   const [sentCards, setSentCards] = useState<SentCardRecord[]>([]);
 
+  const getSharedCardTargetId = (card: any): string | null => {
+    const explicitId = card?.detail_id ?? card?.route_id;
+    if (explicitId !== null && explicitId !== undefined) {
+      const normalizedExplicitId = String(explicitId).trim();
+      if (normalizedExplicitId.length > 0) return normalizedExplicitId;
+    }
+
+    const rawId = card?.card_id ?? card?.business_card_id ?? card?.id;
+    if (rawId === null || rawId === undefined) return null;
+    const normalized = String(rawId).trim();
+    if (!normalized) return null;
+    if (normalized.startsWith("card-") || normalized.startsWith("promo-")) {
+      return normalized;
+    }
+    return `card-${normalized}`;
+  };
+
+  const openCardDetails = (card: any) => {
+    const cardId = getSharedCardTargetId(card);
+    if (!cardId) {
+      toast.error("Card details are unavailable for this item");
+      return;
+    }
+    navigation.navigate("PublicCard", { id: cardId });
+  };
+
   // Real sent + received cards from API (SharedCard)
   const { data: sharedCards = [], isLoading: sharedLoading } = useGetSharedCardsQuery(undefined, {
     skip: tab !== "Received" && tab !== "Sent",
+    pollingInterval: 3000,        // poll every 3s as socket fallback
+    refetchOnMountOrArgChange: true, // refetch each time the tab is opened
   });
   const myUserId = String(user?.id ?? "");
   const receivedCards = sharedCards.filter((s: any) => s.recipient_id === myUserId);
@@ -133,7 +207,11 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
 
   if (tab === "Received") {
     return (
-      <ScrollView className="px-4 pt-4 pb-4">
+      <ScrollView
+        className="px-4 pt-4"
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 32 }}
+      >
         <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           📥 Cards Shared With You
         </Text>
@@ -155,7 +233,7 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
               <Pressable
                 key={card.id}
                 className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3"
-                onPress={() => navigation.navigate("PublicCard", { id: String(card.card_id) })}
+                onPress={() => openCardDetails(card)}
               >
                 <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
                   {card.card_photo ? (
@@ -166,10 +244,10 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
                 </View>
                 <View className="flex-1">
                   <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-                    {card.card_title}
+                    From: {card.sender_name}
                   </Text>
-                  <Text className="mt-0.5 text-[10px] text-muted-foreground">
-                    From {card.sender_name}
+                  <Text className="mt-0.5 text-[10px] text-muted-foreground" numberOfLines={1}>
+                    {card.card_title}
                   </Text>
                   <Text className="mt-0.5 text-[10px] text-muted-foreground">
                     {formatRelativeTime(card.sent_at || card.created_at)}
@@ -188,7 +266,11 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
 
   // Sent tab — bulk-sent (AsyncStorage) + individual in-app shares (API)
   return (
-    <ScrollView className="px-4 pt-4 pb-4">
+    <ScrollView
+      className="px-4 pt-4"
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
       {/* Individual in-app shares */}
       {(sharedLoading || sentIndividualCards.length > 0) && (
         <>
@@ -202,9 +284,10 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
           ) : (
             <View className="gap-3 mb-4">
               {sentIndividualCards.map((card: any) => (
-                <View
+                <Pressable
                   key={card.id}
                   className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3"
+                  onPress={() => openCardDetails(card)}
                 >
                   <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
                     {card.card_photo ? (
@@ -215,10 +298,10 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
                   </View>
                   <View className="flex-1">
                     <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-                      {card.card_title}
+                      To: {card.recipient_name}
                     </Text>
-                    <Text className="mt-0.5 text-[10px] text-muted-foreground">
-                      To {card.recipient_name}
+                    <Text className="mt-0.5 text-[10px] text-muted-foreground" numberOfLines={1}>
+                      {card.card_title}
                     </Text>
                     <Text className="mt-0.5 text-[10px] text-muted-foreground">
                       {formatRelativeTime(card.sent_at || card.created_at)}
@@ -227,7 +310,7 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
                   <Text className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
                     Sent
                   </Text>
-                </View>
+                </Pressable>
               ))}
             </View>
           )}
@@ -251,9 +334,10 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
           ) : (
             <View className="gap-3">
               {sentCards.map((record) => (
-                <View
+                <Pressable
                   key={record.id}
                   className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3"
+                  onPress={() => openCardDetails(record)}
                 >
                   <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
                     {record.cardLogo ? (
@@ -264,20 +348,19 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
                   </View>
                   <View className="flex-1">
                     <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-                      {record.cardName}
+                      To: {record.sentToEmoji} {record.sentTo}
                     </Text>
-                    {record.cardCategory && (
-                      <Text className="text-[10px] text-muted-foreground">{record.cardCategory}</Text>
-                    )}
+                    <Text className="mt-0.5 text-[10px] text-muted-foreground" numberOfLines={1}>
+                      {record.cardName}{record.cardCategory ? ` · ${record.cardCategory}` : ""}
+                    </Text>
                     <Text className="mt-0.5 text-[10px] text-muted-foreground">
-                      {record.sentToEmoji} {record.sentTo}
-                      {record.levelLabel ? ` · ${record.levelLabel} level` : ""} · {formatRelativeTime(record.sentAt)}
+                      {record.levelLabel ? `${record.levelLabel} level · ` : ""}{formatRelativeTime(record.sentAt)}
                     </Text>
                   </View>
                   <Text className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
                     Sent
                   </Text>
-                </View>
+                </Pressable>
               ))}
             </View>
           )}
