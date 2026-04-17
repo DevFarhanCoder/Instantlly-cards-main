@@ -46,16 +46,14 @@ const AppLayout = ({ children, headerOnly }: { children: ReactNode; headerOnly?:
               <Text style={styles.brandDark}> Cards</Text>
             </Text>
           </Pressable>
-          {user && activeRole && (
-            <View style={[styles.roleBadge, activeRole === 'business' ? styles.roleBadgeBusiness : styles.roleBadgeCustomer]}>
-              <View style={[styles.roleDot, activeRole === 'business' ? styles.roleDotBusiness : styles.roleDotCustomer]} />
-              <Text style={[styles.roleBadgeText, activeRole === 'business' ? styles.roleBadgeTextBusiness : styles.roleBadgeTextCustomer]}>
-                {activeRole === 'business' ? 'Business' : 'Customer'}
-              </Text>
-            </View>
-          )}
         </View>
         <View style={styles.headerActions}>
+          {user && activeRole === 'business' && (
+            <View style={styles.roleBadgeBusiness}>
+              <View style={styles.roleDotBusiness} />
+              <Text style={styles.roleBadgeTextBusiness}>BUSINESS</Text>
+            </View>
+          )}
           <Pressable
             onPress={() => navigation.navigate("Notifications")}
             style={styles.iconButton}
@@ -179,7 +177,7 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   iconButton: {
     height: 40,
@@ -240,47 +238,31 @@ const styles = StyleSheet.create({
   adBar: {
     // Full-bleed: no padding so ad images span edge-to-edge
   },
-  roleBadge: {
+  roleBadgeBusiness: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
-    marginLeft: 34,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    gap: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 20,
+    gap: 4,
+    marginLeft: 8,
+    marginRight: 4,
     borderWidth: 1,
-  },
-  roleBadgeBusiness: {
-    backgroundColor: "rgba(43, 184, 228, 0.12)",
-    borderColor: "rgba(43, 184, 228, 0.35)",
-  },
-  roleBadgeCustomer: {
-    backgroundColor: "rgba(107, 114, 128, 0.10)",
-    borderColor: "rgba(107, 114, 128, 0.25)",
-  },
-  roleDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    borderColor: "#2563eb",
+    backgroundColor: "transparent",
   },
   roleDotBusiness: {
-    backgroundColor: "#2bb8e4",
-  },
-  roleDotCustomer: {
-    backgroundColor: "#6b7280",
-  },
-  roleBadgeText: {
-    fontSize: 10,
-    fontWeight: "600",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#2563eb",
   },
   roleBadgeTextBusiness: {
-    color: "#1a8fb5",
-  },
-  roleBadgeTextCustomer: {
-    color: "#4b5563",
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    color: "#2563eb",
   },
 });
 
