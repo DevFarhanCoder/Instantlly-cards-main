@@ -2,7 +2,7 @@
   "expo": {
     "name": "Instantly Cards",
     "slug": "mobile",
-    "version": "1.0.80",
+    "version": "1.0.82",
     "scheme": "instantllycards",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -24,7 +24,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.instantllycards.www.twa",
-      "versionCode": 80,
+      "versionCode": 82,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -46,7 +46,7 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "plugins": ["expo-font", "expo-updates"],
+    "plugins": ["expo-font", "expo-updates", "expo-contacts"],
     "extra": {
       "eas": {
         "projectId": "ae117f79-1ff9-47e8-8741-b0a7c789566c"

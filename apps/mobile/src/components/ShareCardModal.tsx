@@ -10,15 +10,80 @@ export type ShareCardData = {
   companyName?: string | null;
   jobTitle?: string | null;
   phone?: string | null;
+  whatsapp?: string | null;
   email?: string | null;
   location?: string | null;
+  mapsLink?: string | null;
+  companyPhone?: string | null;
+  companyEmail?: string | null;
+  companyAddress?: string | null;
+  companyMapsLink?: string | null;
   website?: string | null;
   category?: string | null;
+  businessDescription?: string | null;
+  keywords?: string | null;
+  businessHours?: string | null;
   offer?: string | null;
   services?: string[] | null;
   logoUrl?: string | null;
+  facebook?: string | null;
+  instagram?: string | null;
+  youtube?: string | null;
+  linkedin?: string | null;
+  twitter?: string | null;
   shareUrl: string;
 };
+
+export function buildWhatsAppMessage(data: ShareCardData): string {
+  const lines: string[] = ["*This is My Instantlly Digital Visiting Card* 📇\n"];
+
+  // Personal details
+  if (data.fullName) lines.push(`▪️ 👤 *Name:* ${data.fullName}`);
+  if (data.phone) lines.push(`▪️ 📱 *Personal Phone:* ${data.phone}`);
+  if (data.whatsapp) lines.push(`▪️ 💬 *Personal WhatsApp:* ${data.whatsapp}`);
+  if (data.email) lines.push(`▪️ 📧 *Personal Email:* ${data.email}`);
+  if (data.location) lines.push(`▪️ 🏠 *Address:* ${data.location}`);
+  if (data.mapsLink) lines.push(`▪️ 📍 *Google Maps:* ${data.mapsLink}`);
+
+  // Company details
+  const hasCompany = data.companyName || data.companyPhone || data.companyEmail || data.companyAddress;
+  if (hasCompany) lines.push("");
+  if (data.companyName) lines.push(`▪️ 🏢 *Company Name:* ${data.companyName}`);
+  if (data.companyPhone) lines.push(`▪️ 📱 *Company Phone:* ${data.companyPhone}`);
+  if (data.jobTitle) lines.push(`▪️ 💼 *Designation:* ${data.jobTitle}`);
+  if (data.businessDescription) lines.push(`▪️ 🏭 *Company Business:* ${data.businessDescription}`);
+  if (data.category) lines.push(`▪️ 🛠️ *Business Category:* ${data.category}`);
+  if (data.keywords) lines.push(`▪️ 🔎 *Search Keywords:* ${data.keywords}`);
+  if (data.website) lines.push(`▪️ 🌍 *Company Website:* ${data.website}`);
+  if (data.companyEmail) lines.push(`▪️ 📧 *Company Email:* ${data.companyEmail}`);
+  if (data.companyAddress) lines.push(`▪️ 🏭 *Company Address:* ${data.companyAddress}`);
+  if (data.businessHours) lines.push(`▪️ 🕐 *Business Hours:* ${data.businessHours}`);
+
+  // Social media
+  const hasSocial = data.facebook || data.instagram || data.youtube || data.linkedin || data.twitter;
+  if (hasSocial) {
+    lines.push("");
+    lines.push("▪️ 🔗 *Social Media:*");
+    if (data.facebook) lines.push(`  👥 Facebook: ${data.facebook}`);
+    if (data.instagram) lines.push(`  📸 Instagram: ${data.instagram}`);
+    if (data.youtube) lines.push(`  ▶️ YouTube: ${data.youtube}`);
+    if (data.linkedin) lines.push(`  🟦 LinkedIn: ${data.linkedin}`);
+    if (data.twitter) lines.push(`  🐦 Twitter: ${data.twitter}`);
+  }
+
+  // Offer
+  if (data.offer) {
+    lines.push("");
+    lines.push(`🎁 *Special Offer:* ${data.offer}`);
+  }
+
+
+  // Share link (future feature)
+  // lines.push("");
+  // lines.push(`🔗 *View My Card:* ${data.shareUrl}`);
+
+  return lines.join("\n");
+}
 
 interface ShareCardModalProps {
   open: boolean;
@@ -34,9 +99,10 @@ const ShareCardModal = ({ open, onOpenChange, data }: ShareCardModalProps) => {
 
   const handleShare = async () => {
     try {
+      const message = buildWhatsAppMessage(data);
       await Share.share({
         title: data.fullName,
-        message: `${data.fullName}${data.companyName ? ` — ${data.companyName}` : ""}\n${data.shareUrl}`,
+        message,
         url: data.shareUrl,
       });
     } catch {
@@ -44,13 +110,19 @@ const ShareCardModal = ({ open, onOpenChange, data }: ShareCardModalProps) => {
     }
   };
 
-  const handleWhatsApp = () => {
-    const text = encodeURIComponent(
-      `${data.fullName}${data.companyName ? ` — ${data.companyName}` : ""}\n${data.shareUrl}`
-    );
-    Linking.openURL(`https://wa.me/?text=${text}`).catch(() => {
+  const handleWhatsApp = async () => {
+    const message = buildWhatsAppMessage(data);
+    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+    try {
+      const canOpen = await Linking.canOpenURL(whatsappUrl);
+      if (canOpen) {
+        await Linking.openURL(whatsappUrl);
+      } else {
+        await Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
+      }
+    } catch {
       toast.error("Unable to open WhatsApp");
-    });
+    }
   };
 
   return (
