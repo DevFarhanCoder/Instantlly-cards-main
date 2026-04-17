@@ -119,6 +119,8 @@ export const baseApi = createApi({
     'Chat',
     'ChatMessages',
     'GroupMessages',
+    'Referral',
+    'Credits',
   ],
   endpoints: () => ({}),
 });

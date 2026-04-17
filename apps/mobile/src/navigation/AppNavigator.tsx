@@ -4,6 +4,7 @@ import { NavigationContainer, createNavigationContainerRef } from "@react-naviga
 import * as ExpoNotifications from "expo-notifications";
 import { useDeferredGroupJoin } from "../hooks/useDeferredGroupJoin";
 import { checkInstallReferrer } from "../utils/deferredGroupJoin";
+import { captureInitialReferralIfPresent } from "../utils/referral";
 
 // Show notifications even when app is in the foreground
 ExpoNotifications.setNotificationHandler({
@@ -11,6 +12,8 @@ ExpoNotifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -28,6 +31,9 @@ import EditProfile from "../screens/EditProfile";
 import PaymentMethods from "../screens/PaymentMethods";
 import PrivacySecurity from "../screens/PrivacySecurity";
 import ReferAndEarn from "../screens/ReferAndEarn";
+import ReferralHistory from "../screens/ReferralHistory";
+import EarningsHistory from "../screens/EarningsHistory";
+import PerReferralInfo from "../screens/PerReferralInfo";
 import Ads from "../screens/Ads";
 import AdCreate from "../screens/AdCreate";
 import AdDashboard from "../screens/AdDashboard";
@@ -59,6 +65,7 @@ import EventScanner from "../screens/EventScanner";
 import CardCreate from "../screens/CardCreate";
 import BusinessPromotionForm from "../screens/BusinessPromotionForm";
 import PremiumPlanSelection from "../screens/PremiumPlanSelection";
+import FreePlanConfirmation from "../screens/FreePlanConfirmation";
 import ChooseListingType from "../screens/ChooseListingType";
 import PublicCard from "../screens/PublicCard";
 import MyPasses from "../screens/MyPasses";
@@ -116,6 +123,7 @@ const MyCardsScreen        = withLayout(MyCards);
 const CardCreateScreen     = withLayout(CardCreate);
 const BusinessPromotionFormScreen = withLayout(BusinessPromotionForm);
 const PremiumPlanSelectionScreen = withLayout(PremiumPlanSelection);
+const FreePlanConfirmationScreen = withLayout(FreePlanConfirmation);
 const BusinessDetailScreen = withLayout(BusinessDetail);
 const CategoryDetailScreen = withLayout(CategoryDetail);
 const SubcategoryDetailScreen = withLayout(SubcategoryDetail);
@@ -146,6 +154,9 @@ const EditProfileScreen    = withLayout(EditProfile);
 const PaymentMethodsScreen = withLayout(PaymentMethods);
 const PrivacySecurityScreen = withLayout(PrivacySecurity);
 const ReferAndEarnScreen   = withLayout(ReferAndEarn);
+const ReferralHistoryScreen = withLayout(ReferralHistory);
+const EarningsHistoryScreen = withLayout(EarningsHistory);
+const PerReferralInfoScreen = withLayout(PerReferralInfo);
 const MyFavouritesScreen   = withLayout(MyFavourites);
 const TrackBookingScreen   = withLayout(TrackBooking);
 const BookingDetailScreen  = withLayout(BookingDetail);
@@ -170,6 +181,8 @@ const linking = {
     screens: {
       // instantllycards://join?code=XXXX
       GroupJoin: { path: 'join' },
+      // instantllycards://signup?ref=ABC123  → Auth screen, referral code passed as route param
+      Auth: 'signup',
     },
   },
 };
@@ -178,7 +191,10 @@ const linking = {
 const AppNavigator = () => {
   // On first launch after Play Store install, read the referrer and save any
   // pending group join code to AsyncStorage.
-  useEffect(() => { checkInstallReferrer(); }, []);
+  useEffect(() => {
+    checkInstallReferrer();
+    captureInitialReferralIfPresent();
+  }, []);
 
   // After the user logs in / signs up, process any deferred join code.
   useDeferredGroupJoin();
@@ -263,6 +279,7 @@ const AppNavigator = () => {
         <Stack.Screen name="CardCreate" component={CardCreateScreen} />
         <Stack.Screen name="BusinessPromotionForm" component={BusinessPromotionFormScreen} />
         <Stack.Screen name="PremiumPlanSelection" component={PremiumPlanSelectionScreen} />
+        <Stack.Screen name="FreePlanConfirmation" component={FreePlanConfirmationScreen} />
         <Stack.Screen name="BusinessDetail" component={BusinessDetailScreen} />
         <Stack.Screen name="CategoryDetail" component={CategoryDetailScreen} />
         <Stack.Screen name="SubcategoryDetail" component={SubcategoryDetailScreen} />
@@ -286,6 +303,9 @@ const AppNavigator = () => {
         <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
         <Stack.Screen name="PrivacySecurity" component={PrivacySecurityScreen} />
         <Stack.Screen name="ReferAndEarn" component={ReferAndEarnScreen} />
+        <Stack.Screen name="ReferralHistory" component={ReferralHistoryScreen} />
+        <Stack.Screen name="EarningsHistory" component={EarningsHistoryScreen} />
+        <Stack.Screen name="PerReferralInfo" component={PerReferralInfoScreen} />
         <Stack.Screen name="MyFavourites" component={MyFavouritesScreen} />
         <Stack.Screen name="TrackBooking" component={TrackBookingScreen} />
         <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
