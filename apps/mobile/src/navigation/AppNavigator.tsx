@@ -4,6 +4,11 @@ import { NavigationContainer, createNavigationContainerRef } from "@react-naviga
 import * as ExpoNotifications from "expo-notifications";
 import { useDeferredGroupJoin } from "../hooks/useDeferredGroupJoin";
 import { checkInstallReferrer } from "../utils/deferredGroupJoin";
+import { socketService } from "../services/socketService";
+import { useAuth } from "../hooks/useAuth";
+import { store } from "../store";
+import { businessCardsApi } from "../store/api/businessCardsApi";
+import { chatApi } from "../store/api/chatApi";
 
 // Show notifications even when app is in the foreground
 ExpoNotifications.setNotificationHandler({
@@ -176,12 +181,86 @@ const linking = {
 
 // ─── Navigator ────────────────────────────────────────────────────────────────
 const AppNavigator = () => {
+  const { user } = useAuth();
+
   // On first launch after Play Store install, read the referrer and save any
   // pending group join code to AsyncStorage.
   useEffect(() => { checkInstallReferrer(); }, []);
 
   // After the user logs in / signs up, process any deferred join code.
   useDeferredGroupJoin();
+
+  // Connect socket when logged in; disconnect on logout.
+  // Also ensure notification permission is granted so group message notifications work.
+  useEffect(() => {
+    if (!user) {
+      socketService.disconnect();
+      return;
+    }
+    socketService.connect().catch(() => { /* silent — polling is the fallback */ });
+
+    // Request notification permission if not already granted
+    ExpoNotifications.getPermissionsAsync().then(({ status }) => {
+      if (status !== 'granted') {
+        ExpoNotifications.requestPermissionsAsync();
+      }
+    });
+
+    return () => { socketService.disconnect(); };
+  }, [user?.id]);
+
+  // Listen for group message notifications and fire a local notification
+  // when the user is NOT currently viewing that group's chat screen.
+  useEffect(() => {
+    const handler = async (data: {
+      groupId: number;
+      groupName: string;
+      senderName: string;
+      content: string;
+      messageType: string;
+    }) => {
+      // Don't notify if the user is already in this group's chat
+      const currentRoute = navigationRef.getCurrentRoute();
+      if (
+        currentRoute?.name === 'GroupChat' &&
+        (currentRoute.params as any)?.groupId === data.groupId
+      ) return;
+
+      const { status } = await ExpoNotifications.getPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const isCard = data.messageType === 'card' || (() => {
+        try { const p = JSON.parse(data.content); return !!p?.full_name; } catch { return false; }
+      })();
+      const body = isCard
+        ? `${data.senderName} shared a business card`
+        : data.content.length > 60 ? `${data.content.slice(0, 60)}…` : data.content;
+
+      await ExpoNotifications.scheduleNotificationAsync({
+        content: {
+          title: `${data.groupName}`,
+          body: `${data.senderName}: ${body}`,
+          data: { screen: 'GroupChat', groupId: data.groupId, groupName: data.groupName },
+        },
+        trigger: null,
+      });
+
+      // Refresh the groups list so the last-message preview updates
+      store.dispatch(chatApi.util.invalidateTags(['Group']));
+    };
+
+    socketService.on('group:notification', handler);
+    return () => { socketService.off('group:notification', handler); };
+  }, []);
+
+  // When a card is shared TO this user, instantly refresh the Sent/Received list.
+  useEffect(() => {
+    const handler = () => {
+      store.dispatch(businessCardsApi.util.invalidateTags(['SharedCard']));
+    };
+    socketService.on('card:shared', handler);
+    return () => { socketService.off('card:shared', handler); };
+  }, []);
 
   // Handle notification taps: navigate to GroupChat when user taps a group invite notification.
   const notifListenerRef = useRef<ExpoNotifications.Subscription | null>(null);
