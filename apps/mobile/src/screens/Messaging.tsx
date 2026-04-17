@@ -123,7 +123,11 @@ const GroupsTab = () => {
   }
 
   return (
-    <ScrollView className="px-4 pt-3 pb-4">
+    <ScrollView
+      className="px-4 pt-3"
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
       <View className="gap-1">
         {groups.map((group: GroupInfo) => (
           <Pressable
@@ -203,7 +207,11 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
 
   if (tab === "Received") {
     return (
-      <ScrollView className="px-4 pt-4 pb-4">
+      <ScrollView
+        className="px-4 pt-4"
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 32 }}
+      >
         <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           📥 Cards Shared With You
         </Text>
@@ -258,7 +266,11 @@ const SentReceivedCards = ({ tab }: { tab: string }) => {
 
   // Sent tab — bulk-sent (AsyncStorage) + individual in-app shares (API)
   return (
-    <ScrollView className="px-4 pt-4 pb-4">
+    <ScrollView
+      className="px-4 pt-4"
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
       {/* Individual in-app shares */}
       {(sharedLoading || sentIndividualCards.length > 0) && (
         <>
