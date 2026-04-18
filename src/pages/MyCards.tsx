@@ -213,7 +213,7 @@ const MyCards = () => {
             <DialogTitle>Share "{shareCard?.full_name}"</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center gap-4 py-4">
-            <QRCodeSVG value={`instantly://card/${shareCard?.id}`} size={160} />
+            <QRCodeSVG value={`${window.location.origin}/card/${shareCard?.id}`} size={160} />
             <p className="text-xs text-muted-foreground">Scan to view this card</p>
           </div>
           <div className="space-y-2">

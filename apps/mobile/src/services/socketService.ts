@@ -43,6 +43,25 @@ type SocketEvents = {
   user_online: (data: { userId: number }) => void;
   user_offline: (data: { userId: number }) => void;
   'group:sharing_started': (data: { groupId: number; joinCode: string }) => void;
+  'group:notification': (data: {
+    groupId: number;
+    groupName: string;
+    senderId: number;
+    senderName: string;
+    content: string;
+    messageType: string;
+    createdAt: string;
+  }) => void;
+  'card:shared': (data: {
+    id: number;
+    card_id: number;
+    card_title: string;
+    card_photo?: string;
+    sender_id: string;
+    sender_name: string;
+    recipient_id: string;
+    sent_at: string;
+  }) => void;
 };
 
 const listeners = new Map<string, Set<(...args: any[]) => void>>();

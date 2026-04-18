@@ -83,7 +83,9 @@ export const promotionsApi = baseApi.injectEndpoints({
       }),
     }),
     verifyPromotionPayment: builder.mutation<
-      { success: boolean; order: any; promotion: any; roles?: string[]; accessToken?: string; refreshToken?: string },
+      {
+        tier: any; success: boolean; order: any; promotion: any; roles?: string[]; accessToken?: string; refreshToken?: string 
+},
       { promoId: number; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
     >({
       query: ({ promoId, ...body }) => ({
