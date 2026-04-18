@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { ArrowLeft, Check } from "lucide-react-native";
+import { ArrowLeft, Check, Crown } from "lucide-react-native";
 import { cn } from "../lib/utils";
 import { colors } from "../theme/colors";
 import { useAuth } from "../hooks/useAuth";
@@ -28,7 +28,9 @@ const premiumPlans = [
     yearlyPrice: "₹18,000",
     monthlyYearlyPrice: "₹15,000",
     yearlySavings: "Save ₹3,000/Year",
-    bgColor: "#D4A574",
+    bgColor: "#ffffff",
+    accentColor: "#1e293b",
+    tagColor: "#64748b",
     isFree: false,
     features: [
       { name: "Visiting Card", available: true },
@@ -44,7 +46,9 @@ const premiumPlans = [
     yearlyPrice: "₹30,000",
     monthlyYearlyPrice: "₹25,000",
     yearlySavings: "Save ₹5,000/Year",
-    bgColor: "#C17B5A",
+    bgColor: "#fffbeb",
+    accentColor: "#92400e",
+    tagColor: "#b45309",
     isFree: false,
     features: [
       { name: "Visiting Card", available: true },
@@ -62,7 +66,9 @@ const premiumPlans = [
     yearlyPrice: "₹48,000",
     monthlyYearlyPrice: "₹40,000",
     yearlySavings: "Save ₹8,000/Year",
-    bgColor: "#6B9BD1",
+    bgColor: "#fef2f2",
+    accentColor: "#991b1b",
+    tagColor: "#dc2626",
     isFree: false,
     features: [
       { name: "Visiting Card", available: true },
@@ -84,7 +90,9 @@ const premiumPlans = [
     yearlyPrice: "₹60,000",
     monthlyYearlyPrice: "₹50,000",
     yearlySavings: "Save ₹10,000/Year",
-    bgColor: "#B89BC9",
+    bgColor: "#faf5ff",
+    accentColor: "#581c87",
+    tagColor: "#7c3aed",
     isFree: false,
     features: [
       { name: "Visiting Card", available: true },
@@ -361,7 +369,7 @@ const PremiumPlanSelection = () => {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 20 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 20 }}
           nestedScrollEnabled
       >
         {premiumPlans.map((plan, index) => {
@@ -372,44 +380,70 @@ const PremiumPlanSelection = () => {
               key={plan.id}
               onPress={() => setSelectedPlan(plan.id)}
               style={{
-                width: 200,
-                marginRight: index < premiumPlans.length - 1 ? 12 : 0,
-                backgroundColor: plan.bgColor,
-                borderRadius: 16,
-                padding: 16,
-                borderWidth: isSelected ? 3 : 0,
-                borderColor: isSelected ? "#000" : "transparent",
+                width: 210,
+                marginRight: index < premiumPlans.length - 1 ? 14 : 0,
+                backgroundColor: isSelected ? plan.bgColor : "#ffffff",
+                borderRadius: 20,
+                padding: 18,
+                borderWidth: isSelected ? 2.5 : 1,
+                borderColor: isSelected ? plan.tagColor : "#e5e7eb",
+                shadowColor: isSelected ? plan.tagColor : "#000",
+                shadowOpacity: isSelected ? 0.15 : 0.06,
+                shadowOffset: { width: 0, height: 4 },
+                shadowRadius: 16,
+                elevation: isSelected ? 6 : 2,
               }}
             >
-              {/* Plan Name */}
-              <Text className="text-center text-white font-bold text-base mb-3" style={{ textShadowColor: "rgba(0,0,0,0.3)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>
-                {plan.name}
-              </Text>
+              {/* Popular badge for Scale */}
+              {plan.id === "scale" && (
+                <View style={{ position: "absolute", top: -10, alignSelf: "center", left: 0, right: 0, alignItems: "center" }}>
+                  <View style={{ backgroundColor: "#dc2626", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 10, fontWeight: "800", color: "#fff", letterSpacing: 1 }}>MOST POPULAR</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Plan Icon + Name */}
+              <View style={{ alignItems: "center", marginBottom: 14, marginTop: plan.id === "scale" ? 4 : 0 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: plan.tagColor + "15", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
+                  <Crown size={20} color={plan.tagColor} strokeWidth={2.5} />
+                </View>
+                <Text style={{ textAlign: "center", fontWeight: "900", fontSize: 16, color: plan.accentColor, letterSpacing: 2.5 }}>
+                  {plan.name}
+                </Text>
+              </View>
 
               {/* Pricing */}
               {/* Monthly Price - only shown when monthly selected */}
               {billingPeriod === "monthly" && (
-                <View className="rounded-lg p-3 mb-2 bg-white">
-                  <Text className="text-center text-lg font-bold text-gray-800">{plan.monthlyPrice}/Mo</Text>
-                  <Text className="text-center text-xs text-gray-600 mt-1">Monthly Plan</Text>
+                <View style={{ backgroundColor: plan.tagColor + "10", borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: plan.tagColor + "25" }}>
+                  <Text style={{ textAlign: "center", fontSize: 22, fontWeight: "800", color: "#111827" }}>{plan.monthlyPrice}</Text>
+                  <Text style={{ textAlign: "center", fontSize: 12, color: "#6b7280", marginTop: 2, fontWeight: "500" }}>per month</Text>
                 </View>
               )}
 
               {/* Yearly Price - only shown when yearly selected */}
               {billingPeriod === "yearly" && (
-                <View className="rounded-lg p-3 mb-2 bg-white">
-                  <Text className="text-center text-xl font-bold text-gray-800">{plan.monthlyYearlyPrice}/Yr</Text>
-                  <Text className="text-center text-xs text-gray-600">Yearly Plan</Text>
-                  <Text className="text-center text-xs font-bold text-green-600 mt-1">{plan.yearlySavings}</Text>
+                <View style={{ backgroundColor: plan.tagColor + "10", borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: plan.tagColor + "25" }}>
+                  <Text style={{ textAlign: "center", fontSize: 22, fontWeight: "800", color: "#111827" }}>{plan.monthlyYearlyPrice}</Text>
+                  <Text style={{ textAlign: "center", fontSize: 12, color: "#6b7280", fontWeight: "500" }}>per year</Text>
+                  <View style={{ backgroundColor: "#dc2626", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: "center", marginTop: 6 }}>
+                    <Text style={{ fontSize: 10, fontWeight: "700", color: "#fff" }}>{plan.yearlySavings}</Text>
+                  </View>
                 </View>
               )}
 
+              {/* Divider */}
+              <View style={{ height: 1, backgroundColor: "#e5e7eb", marginVertical: 10 }} />
+
               {/* Features */}
-              <View className="gap-2 mt-2">
+              <View style={{ gap: 10 }}>
                 {plan.features.map((feature, idx) => (
-                  <View key={idx} className="flex-row items-center gap-2">
-                    <Check size={16} color="#22c55e" strokeWidth={3} />
-                    <Text className="text-xs text-white flex-1" numberOfLines={1}>
+                  <View key={idx} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#dc262615", alignItems: "center", justifyContent: "center" }}>
+                      <Check size={13} color="#dc2626" strokeWidth={3} />
+                    </View>
+                    <Text style={{ fontSize: 13, color: "#1f2937", flex: 1, fontWeight: "500" }} numberOfLines={1}>
                       {feature.name}
                     </Text>
                   </View>
@@ -422,23 +456,34 @@ const PremiumPlanSelection = () => {
       </ScrollView>
 
       {/* Footer - Continue Button */}
-      <View className="border-t border-border bg-card px-4 py-3">
+      <View style={{ borderTopWidth: 1, borderTopColor: "#e5e7eb", backgroundColor: "#fff", paddingHorizontal: 16, paddingVertical: 14 }}>
         <Pressable
           onPress={handleContinue}
           disabled={!selectedPlan || loading}
-          className={cn(
-            "w-full rounded-xl py-4 items-center justify-center",
-            selectedPlan && !loading ? "bg-primary" : "bg-muted"
-          )}
+          style={{
+            width: "100%",
+            borderRadius: 14,
+            paddingVertical: 16,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: selectedPlan && !loading ? "#dc2626" : "#e5e7eb",
+            shadowColor: "#dc2626",
+            shadowOpacity: selectedPlan && !loading ? 0.3 : 0,
+            shadowOffset: { width: 0, height: 4 },
+            shadowRadius: 12,
+            elevation: selectedPlan && !loading ? 4 : 0,
+          }}
         >
           {loading ? (
-            <ActivityIndicator color={colors.primaryForeground} />
+            <ActivityIndicator color="#fff" />
           ) : (
             <Text
-              className={cn(
-                "text-base font-bold",
-                selectedPlan ? "text-primary-foreground" : "text-muted-foreground"
-              )}
+              style={{
+                fontSize: 16,
+                fontWeight: "700",
+                color: selectedPlan ? "#fff" : "#9ca3af",
+                letterSpacing: 0.5,
+              }}
             >
               Continue with {premiumPlans.find(p => p.id === selectedPlan)?.name || "Premium"}
             </Text>

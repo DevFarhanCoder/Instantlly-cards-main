@@ -65,6 +65,12 @@ const ChooseListingType = () => {
   const { user } = useAuth();
 
   const handleContinue = (planId: string) => {
+    if (planId === "free") {
+      // Show free plan confirmation screen
+      navigation.navigate("FreePlanConfirmation");
+      return;
+    }
+
     // Check if user is authenticated before proceeding
     if (!user) {
       toast.info("Please sign in to create your business listing");
