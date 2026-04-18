@@ -4,7 +4,7 @@ import { NavigationContainer, createNavigationContainerRef } from "@react-naviga
 import * as ExpoNotifications from "expo-notifications";
 import { useDeferredGroupJoin } from "../hooks/useDeferredGroupJoin";
 import { checkInstallReferrer } from "../utils/deferredGroupJoin";
-import { captureInitialReferralIfPresent } from "../utils/referral";
+import { captureInitialReferralIfPresent, captureInstallReferralIfPresent } from "../utils/referral";
 import { socketService } from "../services/socketService";
 import { useAuth } from "../hooks/useAuth";
 import { store } from "../store";
@@ -186,7 +186,7 @@ const linking = {
     screens: {
       // instantllycards://join?code=XXXX
       GroupJoin: { path: 'join' },
-      // instantllycards://signup?ref=ABC123  → Auth screen, referral code passed as route param
+      // instantllycards://signup?utm_campaign=ABC123XY → Auth screen, referral code as route param
       Auth: 'signup',
     },
   },
@@ -201,6 +201,7 @@ const AppNavigator = () => {
   useEffect(() => {
     checkInstallReferrer();
     captureInitialReferralIfPresent();
+    captureInstallReferralIfPresent();
   }, []);
 
   // After the user logs in / signs up, process any deferred join code.
