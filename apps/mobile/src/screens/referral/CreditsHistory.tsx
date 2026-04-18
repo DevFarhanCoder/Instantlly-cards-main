@@ -146,15 +146,6 @@ const CreditsHistoryScreen = () => {
                   <Text style={s.verifiedText}>Verified</Text>
                 </View>
               </View>
-              <View style={s.bannerDivider} />
-              <View style={s.bannerExpiryRow}>
-                <Ionicons name="time-outline" size={scale(14)} color={C.warning} />
-                <Text style={s.bannerExpiry}>
-                  {"Expires: "}
-                  <Text style={{ color: C.warning, fontWeight: "700" }}>{expiryLabel}</Text>
-                  {daysRemaining != null && <Text>{`  •  ${daysRemaining} days left`}</Text>}
-                </Text>
-              </View>
             </View>
 
             {/* Transfer Credits Button */}

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { View, ScrollView, Pressable, Text, Modal, StyleSheet, Image, KeyboardAvoidingView, Platform } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Users, Store, Shield, ChevronDown, Eye, EyeOff } from "lucide-react-native";
 import * as SecureStore from "expo-secure-store";
 import { useAuth } from "../hooks/useAuth";
+import { consumePendingReferral } from "../utils/referral";
 import { useAppDispatch } from "../store";
 import { setActiveRole } from "../store/authSlice";
 import { Input } from "../components/ui/input";
@@ -113,6 +114,16 @@ const Auth = ({ navigation }: Props) => {
   const [countryCode, setCountryCode] = useState("+91");
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showRoleSelection, setShowRoleSelection] = useState(false);
+  // Referral code: comes from deep link param (?ref=) or from SecureStore (Play Store referrer)
+  const [referralCode, setReferralCode] = useState<string>(
+    (route.params?.ref ?? route.params?.referralCode ?? "").toString().toUpperCase()
+  );
+  useEffect(() => {
+    if (referralCode) return; // already got it from route params
+    consumePendingReferral().then((code) => {
+      if (code) setReferralCode(code);
+    });
+  }, []);
   /** Roles returned by the login response — used to populate the role selection modal. */
   const [loginRoles, setLoginRoles] = useState<string[]>([]);
   const { signIn, signUp } = useAuth();
@@ -170,7 +181,7 @@ const Auth = ({ navigation }: Props) => {
 
       if (isSignUp) {
         console.log('[Auth Screen] Calling signUp...');
-        const { error } = await signUp(fullPhone, password, name.trim() || undefined, undefined, roleTab);
+        const { error } = await signUp(fullPhone, password, name.trim() || undefined, undefined, roleTab, referralCode.trim() || undefined);
         if (error) {
           console.warn('[Auth Screen] signUp error:', error);
           toast.error(error);
@@ -420,6 +431,8 @@ const Auth = ({ navigation }: Props) => {
                     )}
                   </View>
                 )}
+
+
 
                 {/* Submit Button */}
                 <Pressable

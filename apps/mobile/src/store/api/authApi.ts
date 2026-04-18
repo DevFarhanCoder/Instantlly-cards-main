@@ -14,6 +14,7 @@ export interface SignupRequest {
   name?: string;
   email?: string;
   role?: 'customer' | 'business';
+  referralCode?: string;
 }
 
 export interface AuthResponse {

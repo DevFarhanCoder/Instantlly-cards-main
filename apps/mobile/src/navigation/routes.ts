@@ -4,6 +4,7 @@ export type RootStackParamList = {
   CardCreate: { cardId?: string; plan?: string; skipPreview?: boolean } | undefined;
   BusinessPromotionForm: { plan?: string } | undefined;
   PremiumPlanSelection: { formData?: any } | undefined;
+  FreePlanConfirmation: undefined;
   BusinessDetail: { id: string } | undefined;
   CategoryDetail: { id: string } | undefined;
   SubcategoryDetail: { subcategory: string; categoryName: string; categoryIcon: string } | undefined;
@@ -35,6 +36,9 @@ export type RootStackParamList = {
   PaymentMethods: undefined;
   PrivacySecurity: undefined;
   ReferAndEarn: undefined;
+  ReferralHistory: undefined;
+  EarningsHistory: undefined;
+  PerReferralInfo: undefined;
   MyFavourites: undefined;
   TrackBooking: undefined;
   BookingDetail: { id: string | number } | undefined;
