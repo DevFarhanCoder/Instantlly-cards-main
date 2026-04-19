@@ -12,7 +12,11 @@ import {
   Linking,
 } from "react-native";
 import ContactPickerModal from "../components/ContactPickerModal";
-import { buildWhatsAppMessage, type ShareCardData } from "../components/ShareCardModal";
+import {
+  buildReferralPlayStoreLink,
+  buildWhatsAppMessage,
+  type ShareCardData,
+} from "../components/ShareCardModal";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import {
   Calendar,
@@ -54,6 +58,21 @@ import GroupSharingModal, { type GSModalMode } from "../components/group-sharing
 import GroupConnectionScreen from "../components/group-sharing/GroupConnectionScreen";
 import GroupSharingSessionScreen from "../components/group-sharing/GroupSharingSessionScreen";
 import type { GroupSession } from "../services/groupSharingService";
+import { useGetReferralStatsQuery } from "../store/api/referralApi";
+
+function fallbackCode(userId: number | string | undefined): string {
+  if (!userId) return "------";
+  const base = String(userId);
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+
+  for (let i = 0; i < 6; i++) {
+    const seed = (parseInt(base, 10) * (i + 7) + i * 13) % chars.length;
+    code += chars[Math.abs(seed)];
+  }
+
+  return code;
+}
 
 const MyCards = () => {
   const navigation = useNavigation<any>();
@@ -65,6 +84,7 @@ const MyCards = () => {
   const { cards, isLoading, deleteCard, refetch: refetchCards } = useBusinessCards() as any;
   const { data: directoryCards = [], isLoading: isFetchingNetwork, refetch: refetchDirectory } = useDirectoryCards();
   const { data: myPromotions = [], refetch: refetchPromotions } = useGetMyPromotionsQuery(undefined, { skip: !user });
+  const { data: referralStats } = useGetReferralStatsQuery(undefined, { skip: !user });
   const [updatePromotion] = useUpdatePromotionMutation();
 
   // Build a map from business_card_id → promotion info
@@ -146,7 +166,9 @@ const MyCards = () => {
       twitter: shareCard.twitter,
       shareUrl,
     };
-    const message = buildWhatsAppMessage(cardData);
+    const referralCode = referralStats?.referralCode || fallbackCode(user?.id);
+    const referralPlayStoreLink = buildReferralPlayStoreLink(referralCode === "------" ? null : referralCode);
+    const message = buildWhatsAppMessage(cardData, referralPlayStoreLink);
     const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
     
     try {

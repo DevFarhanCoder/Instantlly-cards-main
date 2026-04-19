@@ -4,6 +4,8 @@ import * as Clipboard from "expo-clipboard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { toast } from "../lib/toast";
+import { useAuth } from "../hooks/useAuth";
+import { useGetReferralStatsQuery } from "../store/api/referralApi";
 
 export type ShareCardData = {
   fullName: string;
@@ -34,36 +36,58 @@ export type ShareCardData = {
   shareUrl: string;
 };
 
-export function buildWhatsAppMessage(data: ShareCardData): string {
+function fallbackCode(userId: number | string | undefined): string {
+  if (!userId) return "------";
+  const base = String(userId);
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "";
+
+  for (let i = 0; i < 6; i++) {
+    const seed = (parseInt(base, 10) * (i + 7) + i * 13) % chars.length;
+    code += chars[Math.abs(seed)];
+  }
+
+  return code;
+}
+
+export function buildReferralPlayStoreLink(referralCode?: string | null): string {
+  const base = "https://play.google.com/store/apps/details?id=com.instantllycards.www.twa";
+  const code = String(referralCode ?? "").trim();
+  if (!code) return base;
+  return `${base}&referrer=utm_source%3Dreferral%26utm_campaign%3D${encodeURIComponent(code)}`;
+}
+
+export function buildWhatsAppMessage(data: ShareCardData, referralPlayStoreLink?: string): string {
+  const resolvedReferralLink = referralPlayStoreLink || buildReferralPlayStoreLink();
   const lines: string[] = ["*This is My Instantlly Digital Visiting Card* 📇\n"];
 
   // Personal details
-  if (data.fullName) lines.push(`▪️ 👤 *Name:* ${data.fullName}`);
-  if (data.phone) lines.push(`▪️ 📱 *Personal Phone:* ${data.phone}`);
-  if (data.whatsapp) lines.push(`▪️ 💬 *Personal WhatsApp:* ${data.whatsapp}`);
-  if (data.email) lines.push(`▪️ 📧 *Personal Email:* ${data.email}`);
-  if (data.location) lines.push(`▪️ 🏠 *Address:* ${data.location}`);
-  if (data.mapsLink) lines.push(`▪️ 📍 *Google Maps:* ${data.mapsLink}`);
+  if (data.fullName) lines.push(`👤 *Name:* ${data.fullName}`);
+  if (data.phone) lines.push(`📱 *Personal Phone:* ${data.phone}`);
+  if (data.whatsapp) lines.push(`💬 *Personal WhatsApp:* ${data.whatsapp}`);
+  if (data.email) lines.push(`📧 *Personal Email:* ${data.email}`);
+  if (data.location) lines.push(`🏠 *Address:* ${data.location}`);
+  if (data.mapsLink) lines.push(`📍 *Google Maps:* ${data.mapsLink}`);
 
   // Company details
   const hasCompany = data.companyName || data.companyPhone || data.companyEmail || data.companyAddress;
   if (hasCompany) lines.push("");
-  if (data.companyName) lines.push(`▪️ 🏢 *Company Name:* ${data.companyName}`);
-  if (data.companyPhone) lines.push(`▪️ 📱 *Company Phone:* ${data.companyPhone}`);
-  if (data.jobTitle) lines.push(`▪️ 💼 *Designation:* ${data.jobTitle}`);
-  if (data.businessDescription) lines.push(`▪️ 🏭 *Company Business:* ${data.businessDescription}`);
-  if (data.category) lines.push(`▪️ 🛠️ *Business Category:* ${data.category}`);
-  if (data.keywords) lines.push(`▪️ 🔎 *Search Keywords:* ${data.keywords}`);
-  if (data.website) lines.push(`▪️ 🌍 *Company Website:* ${data.website}`);
-  if (data.companyEmail) lines.push(`▪️ 📧 *Company Email:* ${data.companyEmail}`);
-  if (data.companyAddress) lines.push(`▪️ 🏭 *Company Address:* ${data.companyAddress}`);
-  if (data.businessHours) lines.push(`▪️ 🕐 *Business Hours:* ${data.businessHours}`);
+  if (data.companyName) lines.push(`🏢 *Company Name:* ${data.companyName}`);
+  if (data.companyPhone) lines.push(`📱 *Company Phone:* ${data.companyPhone}`);
+  if (data.jobTitle) lines.push(`💼 *Designation:* ${data.jobTitle}`);
+  if (data.businessDescription) lines.push(`🏭 *Company Business:* ${data.businessDescription}`);
+  if (data.category) lines.push(`🛠️ *Business Category:* ${data.category}`);
+  if (data.keywords) lines.push(`🔎 *Search Keywords:* ${data.keywords}`);
+  if (data.website) lines.push(`🌍 *Company Website:* ${data.website}`);
+  if (data.companyEmail) lines.push(`📧 *Company Email:* ${data.companyEmail}`);
+  if (data.companyAddress) lines.push(`🏭 *Company Address:* ${data.companyAddress}`);
+  if (data.businessHours) lines.push(`🕐 *Business Hours:* ${data.businessHours}`);
 
   // Social media
   const hasSocial = data.facebook || data.instagram || data.youtube || data.linkedin || data.twitter;
   if (hasSocial) {
     lines.push("");
-    lines.push("▪️ 🔗 *Social Media:*");
+    lines.push("🔗 *Social Media:*");
     if (data.facebook) lines.push(`  👥 Facebook: ${data.facebook}`);
     if (data.instagram) lines.push(`  📸 Instagram: ${data.instagram}`);
     if (data.youtube) lines.push(`  ▶️ YouTube: ${data.youtube}`);
@@ -82,6 +106,11 @@ export function buildWhatsAppMessage(data: ShareCardData): string {
   // lines.push("");
   // lines.push(`🔗 *View My Card:* ${data.shareUrl}`);
 
+  lines.push("");
+  lines.push("Make your FREE Instantly Digital Visiting Card Download the Mobile App");
+  lines.push(`Referrall Link : ${resolvedReferralLink}`);
+  lines.push("Visit Website : www.Instantlly.com");
+
   return lines.join("\n");
 }
 
@@ -92,6 +121,11 @@ interface ShareCardModalProps {
 }
 
 const ShareCardModal = ({ open, onOpenChange, data }: ShareCardModalProps) => {
+  const { user } = useAuth();
+  const { data: referralStats } = useGetReferralStatsQuery(undefined, { skip: !user });
+  const referralCode = referralStats?.referralCode || fallbackCode(user?.id);
+  const referralPlayStoreLink = buildReferralPlayStoreLink(referralCode === "------" ? null : referralCode);
+
   const handleCopy = async () => {
     await Clipboard.setStringAsync(data.shareUrl);
     toast.success("Link copied!");
@@ -99,7 +133,7 @@ const ShareCardModal = ({ open, onOpenChange, data }: ShareCardModalProps) => {
 
   const handleShare = async () => {
     try {
-      const message = buildWhatsAppMessage(data);
+      const message = buildWhatsAppMessage(data, referralPlayStoreLink);
       await Share.share({
         title: data.fullName,
         message,
@@ -111,7 +145,7 @@ const ShareCardModal = ({ open, onOpenChange, data }: ShareCardModalProps) => {
   };
 
   const handleWhatsApp = async () => {
-    const message = buildWhatsAppMessage(data);
+    const message = buildWhatsAppMessage(data, referralPlayStoreLink);
     const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
     try {
       const canOpen = await Linking.canOpenURL(whatsappUrl);
