@@ -114,9 +114,9 @@ const Auth = ({ navigation }: Props) => {
   const [countryCode, setCountryCode] = useState("+91");
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showRoleSelection, setShowRoleSelection] = useState(false);
-  // Referral code: comes from deep link param (?ref=) or from SecureStore (Play Store referrer)
+  // Referral code: comes from deep link param (?utm_campaign=) or from SecureStore (Play Store referrer)
   const [referralCode, setReferralCode] = useState<string>(
-    (route.params?.ref ?? route.params?.referralCode ?? "").toString().toUpperCase()
+    (route.params?.utm_campaign ?? route.params?.referralCode ?? "").toString().toUpperCase()
   );
   useEffect(() => {
     if (referralCode) return; // already got it from route params
