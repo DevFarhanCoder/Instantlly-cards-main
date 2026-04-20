@@ -448,7 +448,16 @@ const Bubble = ({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) => {
         </View>
       )}
 
-      <Text style={[styles.timeLabel, isMe && styles.timeLabelRight]}>{time}</Text>
+      <View style={[styles.timeRow, isMe && styles.timeRowRight]}>
+        <Text style={[styles.timeLabel, isMe && styles.timeLabelRight]}>{time}</Text>
+        {isMe ? (
+          msg.isRead ? (
+            <Ionicons name="checkmark-done" size={12} color="#93c5fd" style={styles.tickIcon} />
+          ) : (
+            <Ionicons name="checkmark" size={12} color="#dbeafe" style={styles.tickIcon} />
+          )
+        ) : null}
+      </View>
     </View>
   );
 };
@@ -777,8 +786,11 @@ const styles = StyleSheet.create({
   bubbleThem: { backgroundColor: '#FFFFFF', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#E5E7EB' },
   bubbleText: { fontSize: 14, color: '#111827', lineHeight: 20 },
   bubbleTextMe: { color: '#FFFFFF' },
-  timeLabel: { fontSize: 10, color: '#9CA3AF', marginTop: 2, marginLeft: 4 },
-  timeLabelRight: { marginLeft: 0, marginRight: 4 },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2, marginLeft: 4 },
+  timeRowRight: { marginLeft: 0, marginRight: 4 },
+  timeLabel: { fontSize: 10, color: '#9CA3AF' },
+  timeLabelRight: {},
+  tickIcon: { marginTop: 1 },
   bubbleImage: { width: 200, height: 200, borderRadius: 13 },
 
   // Card bubble

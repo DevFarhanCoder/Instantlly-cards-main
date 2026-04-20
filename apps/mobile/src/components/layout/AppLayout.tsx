@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { Animated, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { Bell, MessageCircle, Send, User } from "lucide-react-native";
 import BottomNav from "./BottomNav";
 import BannerAdSlot from "../ads/BannerAdSlot";
@@ -11,18 +11,40 @@ import { useUserRole } from "../../hooks/useUserRole";
 import { useNotifications } from "../../hooks/useNotifications";
 import { FEATURES } from "../../lib/featureFlags";
 import BulkSendModal from "../BulkSendModal";
+import { useGetConversationsQuery } from "../../store/api/chatApi";
 
 const iconImg = require("../../../assets/icon.png");
 
-const AppLayout = ({ children, headerOnly }: { children: ReactNode; headerOnly?: boolean }) => {
+const AppLayout = ({
+  children,
+  headerOnly,
+  hideAdBar,
+}: {
+  children: ReactNode;
+  headerOnly?: boolean;
+  hideAdBar?: boolean;
+}) => {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { width } = useWindowDimensions();
   const { user } = useAuth();
   const { activeRole } = useUserRole();
   const { unreadCount } = useNotifications();
+  const { data: conversations = [] } = useGetConversationsQuery(undefined, {
+    skip: !user,
+    pollingInterval: 5000,
+    refetchOnMountOrArgChange: true,
+  });
+  const chatUnreadCount = conversations
+    .filter((c) => !c.isGroup)
+    .reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+  const combinedUnreadCount = (unreadCount || 0) + chatUnreadCount;
+  const combinedUnreadLabel = combinedUnreadCount > 99 ? "99+" : String(combinedUnreadCount);
+  const chatUnreadLabel = chatUnreadCount > 99 ? "99+" : String(chatUnreadCount);
   const enterAnim = useRef(new Animated.Value(0)).current;
   const [showBulkSend, setShowBulkSend] = useState(false);
   const compactHeader = width < 390;
+  const effectiveHideAdBar = Boolean(hideAdBar || route?.params?.hideAdBar);
 
   useEffect(() => {
     enterAnim.setValue(0);
@@ -63,10 +85,10 @@ const AppLayout = ({ children, headerOnly }: { children: ReactNode; headerOnly?:
             style={[styles.iconButton, compactHeader && styles.iconButtonCompact]}
           >
             <Bell size={20} color={colors.foreground} />
-            {unreadCount > 0 && (
+            {combinedUnreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
-                  {unreadCount > 99 ? "99+" : unreadCount}
+                  {combinedUnreadLabel}
                 </Text>
               </View>
             )}
@@ -76,6 +98,13 @@ const AppLayout = ({ children, headerOnly }: { children: ReactNode; headerOnly?:
             style={[styles.iconButton, compactHeader && styles.iconButtonCompact]}
           >
             <MessageCircle size={20} color={colors.foreground} />
+            {chatUnreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {chatUnreadLabel}
+                </Text>
+              </View>
+            )}
           </Pressable>
           <Pressable
             onPress={() => navigation.navigate(user ? "Profile" : "Auth")}
@@ -113,9 +142,11 @@ const AppLayout = ({ children, headerOnly }: { children: ReactNode; headerOnly?:
 
       {!headerOnly && (
         <>
-          <View style={styles.adBar}>
-            <BannerAdSlot variant="sticky" />
-          </View>
+          {!effectiveHideAdBar && (
+            <View style={styles.adBar}>
+              <BannerAdSlot variant="sticky" />
+            </View>
+          )}
 
           <BottomNav />
 
@@ -123,7 +154,7 @@ const AppLayout = ({ children, headerOnly }: { children: ReactNode; headerOnly?:
           {FEATURES.BULK_SEND && (
             <Pressable
               onPress={() => setShowBulkSend(true)}
-              style={[styles.fab, { bottom: 175 }]}
+              style={[styles.fab, { bottom: effectiveHideAdBar ? 115 : 175 }]}
             >
               <Send size={20} color="#fff" />
               <Text style={styles.fabLabel}>Bulk Send</Text>
