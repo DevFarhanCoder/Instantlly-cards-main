@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
+  ActivityIndicator,
   Image,
+  Linking,
+  Modal,
   PanResponder,
   Pressable,
   ScrollView,
@@ -31,16 +34,29 @@ import { useAuth } from "../hooks/useAuth";
 import {
   useConversationMessages,
   useConversations,
+  useCreateConversation,
   useSendMessage,
   type DbConversation,
 } from "../hooks/useMessages";
+import * as Contacts from "expo-contacts";
 import { usePushNotifications } from "../contexts/PushNotificationContext";
 import { getBulkSentCards, type SentCardRecord } from "../components/BulkSendModal";
 import { FEATURES } from "../lib/featureFlags";
 import { useGetSharedCardsQuery } from "../store/api/businessCardsApi";
 import { useGetGroupsQuery, type GroupInfo } from "../store/api/chatApi";
+import { useMatchContactsMutation, type AppUser } from "../store/api/usersApi";
 
 const demoReceivedCards: never[] = [];
+
+type DeviceContact = {
+  name: string;
+  phone: string;
+};
+
+function normalizePhone(raw: string): string {
+  const digits = String(raw).replace(/\D/g, "");
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
 
 function formatRelativeTime(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -432,6 +448,182 @@ const TypingDot = ({ delay = 0 }: { delay?: number }) => {
   );
 };
 
+const StartChatModal = ({
+  visible,
+  onClose,
+  onStartChat,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onStartChat: (user: AppUser) => Promise<void>;
+}) => {
+  const [allContacts, setAllContacts] = useState<DeviceContact[]>([]);
+  const [appUserMap, setAppUserMap] = useState<Map<string, AppUser>>(new Map());
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [matchContacts] = useMatchContactsMutation();
+
+  const loadContacts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status !== "granted") {
+        toast.error("Contacts permission denied");
+        onClose();
+        return;
+      }
+
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Name],
+      });
+
+      const seen = new Set<string>();
+      const contacts: DeviceContact[] = [];
+      for (const c of data) {
+        const name = c.name ?? "";
+        for (const p of c.phoneNumbers ?? []) {
+          const phone = normalizePhone(p.number ?? "");
+          if (phone.length >= 7 && !seen.has(phone)) {
+            seen.add(phone);
+            contacts.push({ name, phone });
+          }
+        }
+      }
+
+      setAllContacts(contacts);
+
+      if (contacts.length > 0) {
+        const matched = await matchContacts({ phones: contacts.map((c) => c.phone) }).unwrap();
+        const map = new Map<string, AppUser>();
+        for (const u of matched) {
+          map.set(normalizePhone(u.phone), u);
+        }
+        setAppUserMap(map);
+      }
+    } catch {
+      toast.error("Failed to load contacts");
+      setAppUserMap(new Map());
+    } finally {
+      setLoading(false);
+    }
+  }, [matchContacts, onClose]);
+
+  useEffect(() => {
+    if (!visible) return;
+    setSearch("");
+    loadContacts();
+  }, [visible, loadContacts]);
+
+  const list = useMemo(() => {
+    return allContacts
+      .filter((c) => {
+        if (!search) return true;
+        return c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search);
+      })
+      .sort((a, b) => {
+        const aIsApp = appUserMap.has(a.phone);
+        const bIsApp = appUserMap.has(b.phone);
+        if (aIsApp && !bIsApp) return -1;
+        if (!aIsApp && bIsApp) return 1;
+        return a.name.localeCompare(b.name);
+      });
+  }, [allContacts, appUserMap, search]);
+
+  const handleInvite = (contact: DeviceContact) => {
+    const webUrl = process.env.EXPO_PUBLIC_WEB_URL || "https://instantlly.lovable.app";
+    const msg = `Hey! I'm using Instantlly Cards. Join me here: ${webUrl}`;
+    Linking.openURL(`sms:${contact.phone}?body=${encodeURIComponent(msg)}`).catch(() =>
+      Linking.openURL(`whatsapp://send?phone=${contact.phone}&text=${encodeURIComponent(msg)}`)
+    );
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <View className="flex-1 bg-background">
+        <View className="border-b border-border bg-card px-4 pt-12 pb-4 flex-row items-center gap-3">
+          <Pressable onPress={onClose} className="p-1">
+            <ArrowLeft size={20} color="#111827" />
+          </Pressable>
+          <View className="flex-1">
+            <Text className="text-lg font-bold text-foreground">Start New Chat</Text>
+            <Text className="text-xs text-muted-foreground">Select contact to chat or invite</Text>
+          </View>
+        </View>
+
+        <View className="px-4 pt-3 pb-2">
+          <TextInput
+            placeholder="Search contacts..."
+            className="w-full rounded-xl border border-border bg-muted/50 px-4 py-2.5 text-sm text-foreground"
+            placeholderTextColor="#6a7181"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+
+        {loading ? (
+          <View className="flex-1 items-center justify-center gap-3">
+            <ActivityIndicator color="#2463eb" />
+            <Text className="text-sm text-muted-foreground">Loading contacts...</Text>
+          </View>
+        ) : list.length === 0 ? (
+          <View className="flex-1 items-center justify-center px-6">
+            <Text className="text-sm font-semibold text-foreground">No contacts found</Text>
+          </View>
+        ) : (
+          <ScrollView className="px-4 pt-2 pb-4">
+            <View className="gap-2">
+              {list.map((item: DeviceContact) => {
+                const appUser = appUserMap.get(item.phone);
+                const isAppUser = !!appUser;
+                return (
+                  <View
+                    key={`${item.phone}-${item.name}`}
+                    className={`flex-row items-center gap-3 rounded-xl border p-3 ${
+                      isAppUser ? "border-primary/30 bg-primary/5" : "border-border bg-card"
+                    }`}
+                  >
+                    <View className="h-11 w-11 items-center justify-center rounded-full bg-primary/10 overflow-hidden">
+                      {appUser?.profile_picture ? (
+                        <Image source={{ uri: appUser.profile_picture }} style={{ width: 44, height: 44 }} />
+                      ) : (
+                        <Text className="text-lg font-bold text-primary">{(item.name || item.phone)[0].toUpperCase()}</Text>
+                      )}
+                    </View>
+
+                    <View className="flex-1">
+                      <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                        {item.name || item.phone}
+                      </Text>
+                      <Text className="text-xs text-muted-foreground">{item.phone}</Text>
+                    </View>
+
+                    {isAppUser && appUser ? (
+                      <Button
+                        size="sm"
+                        className="rounded-lg"
+                        onPress={async () => {
+                          await onStartChat(appUser);
+                          onClose();
+                        }}
+                      >
+                        <Text className="text-xs font-semibold text-white">Chat</Text>
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" className="rounded-lg" onPress={() => handleInvite(item)}>
+                        <Text className="text-xs font-semibold text-muted-foreground">Invite</Text>
+                      </Button>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+        )}
+      </View>
+    </Modal>
+  );
+};
+
 const Messaging = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
@@ -444,6 +636,7 @@ const Messaging = () => {
   const [showCallDialog, setShowCallDialog] = useState(false);
   const [callActive, setCallActive] = useState(false);
   const [callTimer, setCallTimer] = useState(0);
+  const [showStartChatModal, setShowStartChatModal] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
   const callIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -470,6 +663,7 @@ const Messaging = () => {
   const conversationsQuery = useConversations();
   const messagesQuery = useConversationMessages(selectedConv?.id || null);
   const sendMessageMutation = useSendMessage();
+  const createConversationMutation = useCreateConversation();
 
   const conversations = conversationsQuery.data ?? [];
   const dbMessages = messagesQuery.data ?? [];
@@ -538,6 +732,20 @@ const Messaging = () => {
     setCallActive(false);
     setShowCallDialog(false);
     toast({ title: "Call ended", description: `Duration: ${formatCallTime(callTimer)}` });
+  };
+
+  const handleStartChatWithUser = async (targetUser: AppUser) => {
+    try {
+      const conversation = await createConversationMutation.mutateAsync({
+        businessId: String(targetUser.id),
+        businessName: targetUser.name?.trim() || targetUser.phone,
+        businessAvatar: targetUser.profile_picture || undefined,
+      });
+      setSelectedConv(conversation);
+      setActiveTab("Chats");
+    } catch {
+      toast.error("Unable to start chat right now");
+    }
   };
 
   if (!user) {
@@ -915,6 +1123,21 @@ const Messaging = () => {
         </ScrollView>
       )}
       </View>
+
+      {activeTab === "Chats" && (
+        <Pressable
+          onPress={() => setShowStartChatModal(true)}
+          className="absolute bottom-6 right-4 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg"
+        >
+          <MessageCircle size={22} color="#ffffff" />
+        </Pressable>
+      )}
+
+      <StartChatModal
+        visible={showStartChatModal}
+        onClose={() => setShowStartChatModal(false)}
+        onStartChat={handleStartChatWithUser}
+      />
     </View>
   );
 };

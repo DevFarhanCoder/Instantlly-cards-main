@@ -49,7 +49,7 @@ export default function GroupJoin() {
     }
 
     setStatus('joining');
-    joinGroup({ joinCode: code })
+    joinGroup({ joinCode: code, source: 'invite_link' })
       .unwrap()
       .then((result) => {
         setStatus('done');

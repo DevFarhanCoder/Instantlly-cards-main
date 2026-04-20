@@ -385,6 +385,7 @@ const Bubble = ({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) => {
     minute: '2-digit',
     hour12: true,
   });
+  const isJoinViaLinkSystem = (msg.metadata as any)?.systemEvent === 'group_join_via_link';
 
   const navigation = useNavigation<any>();
   const cardData = msg.messageType === 'card' ? parseSharedCardPayload(msg.content) : null;
@@ -397,6 +398,17 @@ const Bubble = ({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) => {
     }
     navigation.navigate('PublicCard', { id: cardId });
   };
+
+  if (isJoinViaLinkSystem) {
+    return (
+      <View style={styles.systemWrap}>
+        <View style={styles.systemPill}>
+          <Text style={styles.systemText}>{msg.content}</Text>
+        </View>
+        <Text style={styles.systemTime}>{time}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.bubbleWrap, isMe ? styles.bubbleRight : styles.bubbleLeft]}>
@@ -716,6 +728,33 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   emptyText: { fontSize: 14, color: '#9CA3AF' },
   messagesList: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+
+  // System messages
+  systemWrap: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    marginVertical: 6,
+    maxWidth: '90%',
+  },
+  systemPill: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  systemText: {
+    fontSize: 12,
+    color: '#4B5563',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  systemTime: {
+    marginTop: 3,
+    fontSize: 10,
+    color: '#9CA3AF',
+  },
 
   // Upload banner
   uploadingBanner: {

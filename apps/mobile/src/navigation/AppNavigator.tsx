@@ -282,9 +282,12 @@ const AppNavigator = () => {
       const title = data.isJoiner
         ? `Welcome to ${data.groupName}! 🎉`
         : `${data.groupName}`;
+      const joinedText = data.joinedViaLink
+        ? `${data.joinerName} joined via invite link.`
+        : `${data.joinerName} joined the group.`;
       const body = data.isJoiner
         ? `You've joined "${data.groupName}". Say hello to the group!`
-        : `${data.joinerName} joined the group.`;
+        : joinedText;
 
       await ExpoNotifications.scheduleNotificationAsync({
         content: {
