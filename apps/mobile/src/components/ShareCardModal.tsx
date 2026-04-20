@@ -107,7 +107,8 @@ export function buildWhatsAppMessage(data: ShareCardData, referralPlayStoreLink?
   // lines.push(`🔗 *View My Card:* ${data.shareUrl}`);
 
   lines.push("");
-  lines.push("Make your FREE Instantly Digital Visiting Card Download the Mobile App");
+  lines.push("Make your FREE Instantly Digital Visiting Card Download the *Mobile App* to create and share your own card!");
+  lines.push("");
   lines.push(`Referrall Link : ${resolvedReferralLink}`);
   lines.push("Visit Website : www.Instantlly.com");
 
