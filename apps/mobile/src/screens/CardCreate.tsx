@@ -491,9 +491,10 @@ const CardCreate = () => {
   const [whatsappCountry, setWhatsappCountry] = useState("+91");
   const [showPhoneCountryPicker, setShowPhoneCountryPicker] = useState(false);
   const [showWhatsappCountryPicker, setShowWhatsappCountryPicker] = useState(false);
-  const uploading = false;
+  const [uploading, setUploading] = useState(false);
   const isEdit = !!cardId;
   const [showForm, setShowForm] = useState(false);
+  const [profilePhotoUri, setProfilePhotoUri] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     fullName: "",
@@ -552,6 +553,7 @@ const CardCreate = () => {
       youtube: card.youtube || "",
       twitter: card.twitter || "",
     });
+    if (card.logo_url) setProfilePhotoUri(card.logo_url);
     // Restore country codes
     if ((card as any).personal_country_code) setPhoneCountry((card as any).personal_country_code);
   }, [isEdit, cardId, cards]);
@@ -559,6 +561,43 @@ const CardCreate = () => {
   const updateField = useCallback((field: string, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   }, []);
+
+  const [uploadImage] = useUploadImageMutation();
+
+  const pickProfilePhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      toast.error("Permission to access photos is required");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setProfilePhotoUri(result.assets[0].uri);
+    }
+  };
+
+  const uploadProfilePhoto = async (): Promise<string | null> => {
+    if (!profilePhotoUri || profilePhotoUri.startsWith("http")) return profilePhotoUri;
+    try {
+      setUploading(true);
+      const uri = profilePhotoUri;
+      const ext = uri.split(".").pop() || "jpg";
+      const formData = new FormData();
+      formData.append("file", { uri, name: `profile.${ext}`, type: `image/${ext}` } as any);
+      const result = await uploadImage(formData).unwrap();
+      return result.url;
+    } catch {
+      toast.error("Profile photo upload failed");
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const formatDateInput = (text: string): string => {
     const numericOnly = text.replace(/[^\d]/g, "");
@@ -646,6 +685,8 @@ const CardCreate = () => {
       return;
     }
 
+    const profilePhotoUrl = await uploadProfilePhoto();
+
     // Convert DD/MM/YYYY to ISO date for DateTime fields
     const parseDate = (str: string): string | null => {
       if (!str) return null;
@@ -674,6 +715,7 @@ const CardCreate = () => {
       youtube: form.youtube || null,
       twitter: form.twitter || null,
       personal_country_code: phoneCountry,
+      logo_url: profilePhotoUrl || null,
     };
 
     if (isEdit) {
@@ -904,9 +946,9 @@ const CardCreate = () => {
           <View className="rounded-xl border border-border bg-card p-3">
             <View className="flex-row items-center gap-2.5">
               <View className="h-12 w-12 items-center justify-center rounded-lg bg-primary/10 overflow-hidden">
-                {form.logoPreview ? (
+                {profilePhotoUri ? (
                   <Image
-                    source={{ uri: form.logoPreview }}
+                    source={{ uri: profilePhotoUri }}
                     style={{ height: "100%", width: "100%" }}
                   />
                 ) : (
@@ -918,17 +960,17 @@ const CardCreate = () => {
                   {form.fullName || "Your Name"}
                 </Text>
                 <Text className="text-[10px] text-muted-foreground">
-                  {form.jobTitle || "Job Title"}
+                  {form.phone || "Phone"}
                 </Text>
                 <Text className="text-[10px] text-muted-foreground">
-                  {form.companyName || "Company"}
+                  {form.email || "Email"}
                 </Text>
               </View>
             </View>
-            {form.offer ? (
-              <View className="mt-2 rounded-lg bg-success/10 px-2 py-1.5">
-                <Text className="text-[10px] font-semibold text-success">
-                  {"\u{1F381}"} {form.offer}
+            {form.location ? (
+              <View className="mt-2 rounded-lg bg-muted px-2 py-1.5">
+                <Text className="text-[10px] font-semibold text-muted-foreground">
+                  {"📍"} {form.location}
                 </Text>
               </View>
             ) : null}
@@ -951,6 +993,29 @@ const CardCreate = () => {
           stepNum={1}
           isComplete={sectionComplete.personal}
         >
+          <View style={{ gap: 6 }}>
+            <Label className={labelClass}>Profile Photo</Label>
+            <View className="flex-row items-center gap-4">
+              <View className="h-20 w-20 rounded-full bg-muted/50 items-center justify-center overflow-hidden border border-border">
+                {profilePhotoUri ? (
+                  <Image source={{ uri: profilePhotoUri }} style={{ width: 80, height: 80, borderRadius: 40 }} resizeMode="cover" />
+                ) : (
+                  <User size={32} color="#9ca3af" />
+                )}
+              </View>
+              <View className="flex-1 gap-2">
+                <Pressable
+                  onPress={pickProfilePhoto}
+                  className="flex-row items-center justify-center gap-2 rounded-xl bg-primary/10 py-3 px-4"
+                >
+                  <Camera size={16} color="#2563eb" />
+                  <Text className="text-sm font-medium text-primary">
+                    {profilePhotoUri ? "Change Photo" : "Upload Photo"}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
           <View style={{ gap: 6 }}>
             <Label className={labelClass}>Full Name *</Label>
             <Input
