@@ -513,6 +513,11 @@ const CardCreate = () => {
     linkedin: "",
     youtube: "",
     twitter: "",
+    // Preview-only fields (not sent to API)
+    logoPreview: "",
+    jobTitle: "",
+    companyName: "",
+    offer: "",
   });
 
   useEffect(() => {

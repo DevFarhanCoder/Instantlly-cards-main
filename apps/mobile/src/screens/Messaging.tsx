@@ -495,8 +495,12 @@ const StartChatModal = ({
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [matchContacts] = useMatchContactsMutation();
+  const isLoadingRef = useRef(false);
 
   const loadContacts = useCallback(async () => {
+    // Prevent concurrent calls triggered by parent re-renders during polling
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
     setLoading(true);
     try {
       const { status } = await Contacts.requestPermissionsAsync();
@@ -538,13 +542,14 @@ const StartChatModal = ({
       setAppUserMap(new Map());
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
     }
   }, [matchContacts, onClose]);
 
   useEffect(() => {
     if (!visible) return;
     setSearch("");
-    loadContacts();
+    void loadContacts();
   }, [visible, loadContacts]);
 
   const list = useMemo(() => {
@@ -671,6 +676,7 @@ const Messaging = () => {
   const [callTimer, setCallTimer] = useState(0);
   const [showStartChatModal, setShowStartChatModal] = useState(false);
   const [optimisticMessages, setOptimisticMessages] = useState<DbMessage[]>([]);
+  const lastHideAdBarRef = useRef<boolean | null>(null);
 
   const scrollRef = useRef<ScrollView>(null);
   const callIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -755,7 +761,9 @@ const Messaging = () => {
       socketService.off("new_message", onNewMessage);
       socketService.off("messages_read", onMessagesRead);
     };
-  }, [user, selectedConv?.id, conversationsQuery, messagesQuery]);
+  // Only depend on stable primitives — not the full RTK query objects which
+  // change reference on every poll response and would re-register listeners.
+  }, [user?.id, selectedConv?.id, conversationsQuery.refetch, messagesQuery.refetch]);
 
   useEffect(() => {
     if (!selectedConv?.id) return;
@@ -766,10 +774,18 @@ const Messaging = () => {
   }, [selectedConv?.id]);
 
   useEffect(() => {
-    if (navigation.isFocused()) {
-      navigation.setParams({ hideAdBar: !!selectedConv });
-    }
+    if (!navigation.isFocused()) return;
+    const nextHideAdBar = !!selectedConv;
+    // Guard: skip the setParams call when the value hasn't changed to avoid
+    // triggering needless re-renders of the parent AppLayout on every poll.
+    if (lastHideAdBarRef.current === nextHideAdBar) return;
+    lastHideAdBarRef.current = nextHideAdBar;
+    navigation.setParams({ hideAdBar: nextHideAdBar });
   }, [navigation, selectedConv]);
+
+  const closeStartChatModal = useCallback(() => {
+    setShowStartChatModal(false);
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
@@ -1263,7 +1279,7 @@ const Messaging = () => {
 
       <StartChatModal
         visible={showStartChatModal}
-        onClose={() => setShowStartChatModal(false)}
+        onClose={closeStartChatModal}
         onStartChat={handleStartChatWithUser}
       />
     </View>

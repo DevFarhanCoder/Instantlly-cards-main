@@ -20,7 +20,7 @@ export default function GroupJoin() {
   const route = useRoute<GroupJoinRoute>();
   const { code } = route.params ?? {};
 
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [joinGroup] = useJoinGroupMutation();
 
   const [status, setStatus] = useState<'pending' | 'joining' | 'done' | 'error'>('pending');
