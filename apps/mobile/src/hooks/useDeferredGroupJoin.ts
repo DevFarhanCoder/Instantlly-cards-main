@@ -31,7 +31,7 @@ export function useDeferredGroupJoin() {
       if (!code) return;
 
       try {
-        const result = await joinGroup({ joinCode: code }).unwrap();
+        const result = await joinGroup({ joinCode: code, source: 'invite_link' }).unwrap();
 
         // Clear the pending code regardless of outcome
         await clearPendingJoinCode();

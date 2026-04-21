@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
+  ActivityIndicator,
   Image,
+  Linking,
+  Modal,
   PanResponder,
   Pressable,
   ScrollView,
@@ -31,16 +34,31 @@ import { useAuth } from "../hooks/useAuth";
 import {
   useConversationMessages,
   useConversations,
+  useCreateConversation,
   useSendMessage,
   type DbConversation,
+  type DbMessage,
 } from "../hooks/useMessages";
+import * as Contacts from "expo-contacts";
 import { usePushNotifications } from "../contexts/PushNotificationContext";
 import { getBulkSentCards, type SentCardRecord } from "../components/BulkSendModal";
 import { FEATURES } from "../lib/featureFlags";
 import { useGetSharedCardsQuery } from "../store/api/businessCardsApi";
 import { useGetGroupsQuery, type GroupInfo } from "../store/api/chatApi";
+import { useMatchContactsMutation, type AppUser } from "../store/api/usersApi";
+import { socketService, type MessagePayload } from "../services/socketService";
 
 const demoReceivedCards: never[] = [];
+
+type DeviceContact = {
+  name: string;
+  phone: string;
+};
+
+function normalizePhone(raw: string): string {
+  const digits = String(raw).replace(/\D/g, "");
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
 
 function formatRelativeTime(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -91,6 +109,37 @@ function getGroupPreviewText(group: GroupInfo): string {
   }
 
   return `${senderPrefix}${raw}`;
+}
+
+function parseSharedCardPayload(content: string): Record<string, any> | null {
+  if (!content) return null;
+  try {
+    const parsed = JSON.parse(content);
+    if (typeof parsed === "string") {
+      return JSON.parse(parsed);
+    }
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractSharedCardId(cardData: Record<string, any> | null): string | null {
+  if (!cardData) return null;
+  const explicitId = cardData.detail_id ?? cardData.route_id;
+  if (explicitId !== null && explicitId !== undefined) {
+    const normalizedExplicitId = String(explicitId).trim();
+    if (normalizedExplicitId.length > 0) return normalizedExplicitId;
+  }
+
+  const rawId = cardData.card_id ?? cardData.business_card_id ?? cardData.id;
+  if (rawId === null || rawId === undefined) return null;
+  const normalized = String(rawId).trim();
+  if (!normalized) return null;
+  if (normalized.startsWith("card-") || normalized.startsWith("promo-")) {
+    return normalized;
+  }
+  return `card-${normalized}`;
 }
 
 const GroupsTab = () => {
@@ -432,6 +481,182 @@ const TypingDot = ({ delay = 0 }: { delay?: number }) => {
   );
 };
 
+const StartChatModal = ({
+  visible,
+  onClose,
+  onStartChat,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onStartChat: (user: AppUser) => Promise<void>;
+}) => {
+  const [allContacts, setAllContacts] = useState<DeviceContact[]>([]);
+  const [appUserMap, setAppUserMap] = useState<Map<string, AppUser>>(new Map());
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [matchContacts] = useMatchContactsMutation();
+
+  const loadContacts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status !== "granted") {
+        toast.error("Contacts permission denied");
+        onClose();
+        return;
+      }
+
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Name],
+      });
+
+      const seen = new Set<string>();
+      const contacts: DeviceContact[] = [];
+      for (const c of data) {
+        const name = c.name ?? "";
+        for (const p of c.phoneNumbers ?? []) {
+          const phone = normalizePhone(p.number ?? "");
+          if (phone.length >= 7 && !seen.has(phone)) {
+            seen.add(phone);
+            contacts.push({ name, phone });
+          }
+        }
+      }
+
+      setAllContacts(contacts);
+
+      if (contacts.length > 0) {
+        const matched = await matchContacts({ phones: contacts.map((c) => c.phone) }).unwrap();
+        const map = new Map<string, AppUser>();
+        for (const u of matched) {
+          map.set(normalizePhone(u.phone), u);
+        }
+        setAppUserMap(map);
+      }
+    } catch {
+      toast.error("Failed to load contacts");
+      setAppUserMap(new Map());
+    } finally {
+      setLoading(false);
+    }
+  }, [matchContacts, onClose]);
+
+  useEffect(() => {
+    if (!visible) return;
+    setSearch("");
+    loadContacts();
+  }, [visible, loadContacts]);
+
+  const list = useMemo(() => {
+    return allContacts
+      .filter((c) => {
+        if (!search) return true;
+        return c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search);
+      })
+      .sort((a, b) => {
+        const aIsApp = appUserMap.has(a.phone);
+        const bIsApp = appUserMap.has(b.phone);
+        if (aIsApp && !bIsApp) return -1;
+        if (!aIsApp && bIsApp) return 1;
+        return a.name.localeCompare(b.name);
+      });
+  }, [allContacts, appUserMap, search]);
+
+  const handleInvite = (contact: DeviceContact) => {
+    const webUrl = process.env.EXPO_PUBLIC_WEB_URL || "https://instantlly.lovable.app";
+    const msg = `Hey! I'm using Instantlly Cards. Join me here: ${webUrl}`;
+    Linking.openURL(`sms:${contact.phone}?body=${encodeURIComponent(msg)}`).catch(() =>
+      Linking.openURL(`whatsapp://send?phone=${contact.phone}&text=${encodeURIComponent(msg)}`)
+    );
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <View className="flex-1 bg-background">
+        <View className="border-b border-border bg-card px-4 pt-12 pb-4 flex-row items-center gap-3">
+          <Pressable onPress={onClose} className="p-1">
+            <ArrowLeft size={20} color="#111827" />
+          </Pressable>
+          <View className="flex-1">
+            <Text className="text-lg font-bold text-foreground">Start New Chat</Text>
+            <Text className="text-xs text-muted-foreground">Select contact to chat or invite</Text>
+          </View>
+        </View>
+
+        <View className="px-4 pt-3 pb-2">
+          <TextInput
+            placeholder="Search contacts..."
+            className="w-full rounded-xl border border-border bg-muted/50 px-4 py-2.5 text-sm text-foreground"
+            placeholderTextColor="#6a7181"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+
+        {loading ? (
+          <View className="flex-1 items-center justify-center gap-3">
+            <ActivityIndicator color="#2463eb" />
+            <Text className="text-sm text-muted-foreground">Loading contacts...</Text>
+          </View>
+        ) : list.length === 0 ? (
+          <View className="flex-1 items-center justify-center px-6">
+            <Text className="text-sm font-semibold text-foreground">No contacts found</Text>
+          </View>
+        ) : (
+          <ScrollView className="px-4 pt-2 pb-4">
+            <View className="gap-2">
+              {list.map((item: DeviceContact) => {
+                const appUser = appUserMap.get(item.phone);
+                const isAppUser = !!appUser;
+                return (
+                  <View
+                    key={`${item.phone}-${item.name}`}
+                    className={`flex-row items-center gap-3 rounded-xl border p-3 ${
+                      isAppUser ? "border-primary/30 bg-primary/5" : "border-border bg-card"
+                    }`}
+                  >
+                    <View className="h-11 w-11 items-center justify-center rounded-full bg-primary/10 overflow-hidden">
+                      {appUser?.profile_picture ? (
+                        <Image source={{ uri: appUser.profile_picture }} style={{ width: 44, height: 44 }} />
+                      ) : (
+                        <Text className="text-lg font-bold text-primary">{(item.name || item.phone)[0].toUpperCase()}</Text>
+                      )}
+                    </View>
+
+                    <View className="flex-1">
+                      <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                        {item.name || item.phone}
+                      </Text>
+                      <Text className="text-xs text-muted-foreground">{item.phone}</Text>
+                    </View>
+
+                    {isAppUser && appUser ? (
+                      <Button
+                        size="sm"
+                        className="rounded-lg"
+                        onPress={async () => {
+                          await onStartChat(appUser);
+                          onClose();
+                        }}
+                      >
+                        <Text className="text-xs font-semibold text-white">Chat</Text>
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" className="rounded-lg" onPress={() => handleInvite(item)}>
+                        <Text className="text-xs font-semibold text-muted-foreground">Invite</Text>
+                      </Button>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+        )}
+      </View>
+    </Modal>
+  );
+};
+
 const Messaging = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
@@ -444,6 +669,8 @@ const Messaging = () => {
   const [showCallDialog, setShowCallDialog] = useState(false);
   const [callActive, setCallActive] = useState(false);
   const [callTimer, setCallTimer] = useState(0);
+  const [showStartChatModal, setShowStartChatModal] = useState(false);
+  const [optimisticMessages, setOptimisticMessages] = useState<DbMessage[]>([]);
 
   const scrollRef = useRef<ScrollView>(null);
   const callIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -470,9 +697,79 @@ const Messaging = () => {
   const conversationsQuery = useConversations();
   const messagesQuery = useConversationMessages(selectedConv?.id || null);
   const sendMessageMutation = useSendMessage();
+  const createConversationMutation = useCreateConversation();
 
   const conversations = conversationsQuery.data ?? [];
   const dbMessages = messagesQuery.data ?? [];
+  const combinedMessages = useMemo(() => {
+    if (!selectedConv) return dbMessages;
+
+    const optimisticForChat = optimisticMessages.filter(
+      (m) => m.conversation_id === selectedConv.id
+    );
+
+    if (optimisticForChat.length === 0) return dbMessages;
+
+    const merged = [...dbMessages, ...optimisticForChat];
+    const byId = new Map<string, DbMessage>();
+    for (const msg of merged) {
+      byId.set(msg.id, msg);
+    }
+    return Array.from(byId.values()).sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  }, [dbMessages, optimisticMessages, selectedConv]);
+
+  useEffect(() => {
+    setOptimisticMessages([]);
+  }, [selectedConv?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    socketService.connect().catch(() => {
+      // Non-blocking: polling still works if socket is unavailable.
+    });
+
+    const onNewMessage = (msg: MessagePayload) => {
+      // Keep chat list fresh as soon as a new DM arrives.
+      conversationsQuery.refetch();
+
+      // If currently inside this chat, refresh message timeline immediately.
+      if (selectedConv?.id && msg.chatId && String(msg.chatId) === selectedConv.id) {
+        messagesQuery.refetch();
+      }
+    };
+
+    const onMessagesRead = (data: { chatId: number; readBy: number; readAt: string }) => {
+      if (selectedConv?.id && String(data.chatId) === selectedConv.id) {
+        messagesQuery.refetch();
+      }
+      conversationsQuery.refetch();
+    };
+
+    socketService.on("new_message", onNewMessage);
+    socketService.on("messages_read", onMessagesRead);
+
+    return () => {
+      socketService.off("new_message", onNewMessage);
+      socketService.off("messages_read", onMessagesRead);
+    };
+  }, [user, selectedConv?.id, conversationsQuery, messagesQuery]);
+
+  useEffect(() => {
+    if (!selectedConv?.id) return;
+    const chatId = Number(selectedConv.id);
+    if (Number.isNaN(chatId)) return;
+
+    socketService.markRead({ chatId });
+  }, [selectedConv?.id]);
+
+  useEffect(() => {
+    if (navigation.isFocused()) {
+      navigation.setParams({ hideAdBar: !!selectedConv });
+    }
+  }, [navigation, selectedConv]);
 
   const scrollToBottom = useCallback(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
@@ -480,7 +777,7 @@ const Messaging = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [dbMessages, scrollToBottom]);
+  }, [combinedMessages, scrollToBottom]);
 
   useEffect(() => {
     if (callActive) {
@@ -504,28 +801,34 @@ const Messaging = () => {
     const inputText = messageInput.trim();
     setMessageInput("");
 
-    await sendMessageMutation.mutateAsync({
-      conversationId: selectedConv.id,
+    const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const optimisticMsg: DbMessage = {
+      id: tempId,
+      conversation_id: selectedConv.id,
+      sender_type: "user",
       text: inputText,
-      senderType: "user",
-    });
+      message_type: "text",
+      card_data: null,
+      created_at: new Date().toISOString(),
+      read_at: null,
+    };
 
-    const aiReply = getAIReply(inputText);
-    if (aiReply) {
-      setIsTyping(true);
-      setTimeout(async () => {
-        await sendMessageMutation.mutateAsync({
-          conversationId: selectedConv.id,
-          text: aiReply,
-          senderType: "bot",
-        });
-        setIsTyping(false);
-        sendPushNotification(
-          `${selectedConv.business_name} replied`,
-          aiReply.substring(0, 100),
-          { tag: `msg-${selectedConv.id}`, url: "/messaging" }
-        );
-      }, 1000 + Math.random() * 1500);
+    setOptimisticMessages((prev) => [...prev, optimisticMsg]);
+
+    try {
+      const sentMsg = await sendMessageMutation.mutateAsync({
+        conversationId: selectedConv.id,
+        text: inputText,
+        senderType: "user",
+        receiverId: Number(selectedConv.business_id),
+      });
+      setOptimisticMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? sentMsg : m))
+      );
+    } catch {
+      setOptimisticMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setMessageInput(inputText);
+      toast.error("Unable to send message right now");
     }
   };
 
@@ -538,6 +841,20 @@ const Messaging = () => {
     setCallActive(false);
     setShowCallDialog(false);
     toast({ title: "Call ended", description: `Duration: ${formatCallTime(callTimer)}` });
+  };
+
+  const handleStartChatWithUser = async (targetUser: AppUser) => {
+    try {
+      const conversation = await createConversationMutation.mutateAsync({
+        businessId: String(targetUser.id),
+        businessName: targetUser.name?.trim() || targetUser.phone,
+        businessAvatar: targetUser.profile_picture || undefined,
+      });
+      setSelectedConv(conversation);
+      setActiveTab("Chats");
+    } catch {
+      toast.error("Unable to start chat right now");
+    }
   };
 
   if (!user) {
@@ -652,14 +969,6 @@ const Messaging = () => {
           </Button>
         </View>
 
-        <View className="flex-row items-center gap-2 border-b border-primary/10 bg-primary/5 px-4 py-2">
-          <Bot size={14} color="#2463eb" />
-          <Text className="text-[10px] font-medium text-primary flex-1">
-            AI auto-replies enabled for FAQs • Powered by Instantly AI
-          </Text>
-          <Sparkles size={12} color="#2463eb" />
-        </View>
-
         {permission !== "granted" && permission !== "unsupported" && (
           <Pressable
             onPress={requestPermission}
@@ -679,75 +988,83 @@ const Messaging = () => {
           contentContainerStyle={{ paddingBottom: 16, gap: 12 }}
           onContentSizeChange={scrollToBottom}
         >
-          {dbMessages.map((msg) => {
+          {combinedMessages.map((msg) => {
             const isMe = msg.sender_type === "user";
-            const isBot = msg.sender_type === "bot";
             const isRead = !!msg.read_at;
+            const isImage = msg.message_type === "image";
+            const cardData = msg.message_type === "card" ? parseSharedCardPayload(msg.text) : null;
+            const cardId = extractSharedCardId(cardData);
+
+            const openSharedCard = () => {
+              if (!cardId) {
+                toast.error("Card details are unavailable for this message");
+                return;
+              }
+              navigation.navigate("PublicCard", { id: cardId });
+            };
+
             return (
               <View
                 key={msg.id}
                 className={`flex ${isMe ? "items-end" : "items-start"}`}
               >
                 <View className="gap-1">
-                  {isBot && (
-                    <View className="flex-row items-center gap-1">
-                      <Bot size={12} color="#2463eb" />
-                      <Text className="text-[9px] font-medium text-primary">
-                        AI Assistant
+                  {isImage ? (
+                    <View className={`max-w-[80%] rounded-2xl p-1 ${isMe ? "bg-primary" : "bg-card border border-border"}`}>
+                      <Image source={{ uri: msg.text }} className="h-52 w-52 rounded-xl" resizeMode="cover" />
+                    </View>
+                  ) : cardData ? (
+                    <Pressable onPress={openSharedCard} className="max-w-[80%] rounded-2xl border border-border bg-card px-3 py-3">
+                      <View className="flex-row items-center gap-2">
+                        {cardData.logo_url ? (
+                          <Image source={{ uri: cardData.logo_url }} className="h-10 w-10 rounded-lg" />
+                        ) : (
+                          <View className="h-10 w-10 rounded-lg bg-primary/10 items-center justify-center">
+                            <MessageCircle size={16} color="#2463eb" />
+                          </View>
+                        )}
+                        <View className="flex-1">
+                          <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                            {cardData.full_name || "Business Card"}
+                          </Text>
+                          {cardData.company_name ? (
+                            <Text className="text-xs text-muted-foreground" numberOfLines={1}>
+                              {cardData.company_name}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+                      <View className="mt-2 border-t border-border pt-2">
+                        <Text className="text-[11px] font-medium text-primary">Business Card · Tap to view</Text>
+                      </View>
+                    </Pressable>
+                  ) : (
+                    <View
+                      className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
+                        isMe ? "bg-primary rounded-br-sm" : "bg-card border border-border rounded-bl-sm"
+                      }`}
+                    >
+                      <Text className={`text-sm ${isMe ? "text-primary-foreground" : "text-foreground"}`}>
+                        {msg.text}
                       </Text>
                     </View>
                   )}
-                  <View
-                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 ${
-                      isMe
-                        ? "bg-primary rounded-br-sm"
-                        : isBot
-                        ? "bg-primary/10 border border-primary/20 rounded-bl-sm"
-                        : "bg-card border border-border rounded-bl-sm"
-                    }`}
-                  >
-                    <Text className={`text-sm ${isMe ? "text-primary-foreground" : "text-foreground"}`}>
-                      {msg.text}
+
+                  <View className={`mt-1 flex-row items-center gap-1 ${isMe ? "justify-end" : ""}`}>
+                    <Text className={`text-[10px] ${isMe ? "text-primary/70" : "text-muted-foreground"}`}>
+                      {new Date(msg.created_at).toLocaleTimeString("en-IN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      })}
                     </Text>
-                    <View className={`mt-1 flex-row items-center gap-1 ${isMe ? "justify-end" : ""}`}>
-                      <Text className={`text-[10px] ${isMe ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
-                        {new Date(msg.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                      </Text>
-                      {isMe && (isRead ? <CheckCheck size={12} color="#93c5fd" /> : <Check size={12} color="#dbeafe" />)}
-                    </View>
+                    {isMe && (isRead ? <CheckCheck size={12} color="#93c5fd" /> : <Check size={12} color="#dbeafe" />)}
                   </View>
                 </View>
               </View>
             );
           })}
-
-          {isTyping && (
-            <View className="items-start">
-              <View className="flex-row items-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 rounded-bl-sm">
-                <Bot size={14} color="#2463eb" />
-                <View className="flex-row gap-1">
-                  <TypingDot delay={0} />
-                  <TypingDot delay={150} />
-                  <TypingDot delay={300} />
-                </View>
-              </View>
-            </View>
-          )}
         </ScrollView>
-
-        <View className="border-t border-border bg-card px-4 py-2">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {["What are your hours?", "Pricing info", "How to book?", "Payment methods"].map((q) => (
-              <Pressable
-                key={q}
-                onPress={() => setMessageInput(q)}
-                className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5"
-              >
-                <Text className="text-[11px] font-medium text-primary">{q}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
 
         <View className="border-t border-border bg-card px-4 py-3">
           <View className="flex-row gap-2">
@@ -846,9 +1163,11 @@ const Messaging = () => {
                 onPress={() => setActiveTab(tab)}
                 className="flex-1 pb-3"
               >
-                <Text className={`text-center text-sm font-medium ${activeTab === tab ? "text-primary" : "text-muted-foreground"}`}>
-                  {tab}
-                </Text>
+                <View className="flex-row items-center justify-center gap-1.5">
+                  <Text className={`text-center text-sm font-medium ${activeTab === tab ? "text-primary" : "text-muted-foreground"}`}>
+                    {tab}
+                  </Text>
+                </View>
                 {activeTab === tab && <View className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
               </Pressable>
             ))}
@@ -895,18 +1214,35 @@ const Messaging = () => {
                 </View>
                 <View className="flex-1">
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                    <Text
+                      className={`text-sm ${conv.unread_count > 0 ? "font-bold text-foreground" : "font-semibold text-foreground"}`}
+                      numberOfLines={1}
+                    >
                       {conv.business_name}
                     </Text>
-                    <Text className="text-[10px] text-muted-foreground">
-                      {new Date(conv.updated_at).toLocaleDateString("en-IN", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </Text>
+                    <View className="items-end gap-1">
+                      <Text
+                        className={`text-[10px] ${conv.unread_count > 0 ? "text-primary font-semibold" : "text-muted-foreground"}`}
+                      >
+                        {new Date(conv.updated_at).toLocaleDateString("en-IN", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </Text>
+                      {conv.unread_count > 0 ? (
+                        <View className="min-w-[20px] rounded-full bg-primary px-1.5 py-0.5 items-center justify-center">
+                          <Text className="text-[10px] font-semibold text-white">
+                            {conv.unread_count}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
-                  <Text className="mt-0.5 text-xs text-muted-foreground" numberOfLines={1}>
-                    Tap to continue conversation
+                  <Text
+                    className={`mt-0.5 text-xs ${conv.unread_count > 0 ? "text-foreground font-semibold" : "text-muted-foreground"}`}
+                    numberOfLines={1}
+                  >
+                    {conv.last_message_preview || "Tap to continue conversation"}
                   </Text>
                 </View>
               </Pressable>
@@ -915,6 +1251,21 @@ const Messaging = () => {
         </ScrollView>
       )}
       </View>
+
+      {activeTab === "Chats" && (
+        <Pressable
+          onPress={() => setShowStartChatModal(true)}
+          className="absolute bottom-6 right-4 h-14 w-14 items-center justify-center rounded-full bg-primary shadow-lg"
+        >
+          <MessageCircle size={22} color="#ffffff" />
+        </Pressable>
+      )}
+
+      <StartChatModal
+        visible={showStartChatModal}
+        onClose={() => setShowStartChatModal(false)}
+        onStartChat={handleStartChatWithUser}
+      />
     </View>
   );
 };

@@ -121,6 +121,7 @@ export const baseApi = createApi({
     'GroupMessages',
     'Referral',
     'Credits',
+    'Notification',
   ],
   endpoints: () => ({}),
 });

@@ -264,11 +264,53 @@ const AppNavigator = () => {
       });
 
       // Refresh the groups list so the last-message preview updates
-      store.dispatch(chatApi.util.invalidateTags(['Group']));
+      store.dispatch(chatApi.util.invalidateTags(['Group', 'Notification']));
     };
 
     socketService.on('group:notification', handler);
     return () => { socketService.off('group:notification', handler); };
+  }, []);
+
+  // Show in-app banner when a 1:1 DM arrives while the app is foregrounded but NOT in that chat.
+  useEffect(() => {
+    const handler = async (data: {
+      chatId: number;
+      message: { senderName?: string; sender?: { name?: string }; content: string; messageType?: string };
+    }) => {
+      // Don't notify if the user is already viewing this chat
+      const currentRoute = navigationRef.getCurrentRoute();
+      if (
+        currentRoute?.name === 'Messaging' &&
+        (currentRoute.params as any)?.chatId === data.chatId
+      ) return;
+
+      const { status } = await ExpoNotifications.getPermissionsAsync();
+      if (status !== 'granted') return;
+
+      const msg = data.message;
+      const senderName = msg.senderName ?? msg.sender?.name ?? 'New Message';
+      const isCard = msg.messageType === 'card' || (() => {
+        try { const p = JSON.parse(msg.content); return !!p?.full_name; } catch { return false; }
+      })();
+      const body = isCard
+        ? 'Shared a business card'
+        : msg.content.length > 60 ? `${msg.content.slice(0, 60)}…` : msg.content;
+
+      await ExpoNotifications.scheduleNotificationAsync({
+        content: {
+          title: senderName,
+          body,
+          data: { screen: 'Chat', chatId: data.chatId },
+        },
+        trigger: null,
+      });
+
+      // Refresh conversation list + notification bell
+      store.dispatch(chatApi.util.invalidateTags(['Chat', 'Notification']));
+    };
+
+    socketService.on('chat:notification', handler);
+    return () => { socketService.off('chat:notification', handler); };
   }, []);
 
   // When a new member joins a group, show a local notification and refresh groups list.
@@ -282,9 +324,12 @@ const AppNavigator = () => {
       const title = data.isJoiner
         ? `Welcome to ${data.groupName}! 🎉`
         : `${data.groupName}`;
+      const joinedText = data.joinedViaLink
+        ? `${data.joinerName} joined via invite link.`
+        : `${data.joinerName} joined the group.`;
       const body = data.isJoiner
         ? `You've joined "${data.groupName}". Say hello to the group!`
-        : `${data.joinerName} joined the group.`;
+        : joinedText;
 
       await ExpoNotifications.scheduleNotificationAsync({
         content: {
