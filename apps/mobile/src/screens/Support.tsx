@@ -32,10 +32,6 @@ const Support = () => {
   const [submitting, setSubmitting] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try { await refetch(); } finally { setRefreshing(false); }
-  }, [refetch]);
 
   const { data: tickets = [], refetch } = useQuery({
     queryKey: ["support-tickets", user?.id],
@@ -51,6 +47,11 @@ const Support = () => {
     },
     enabled: !!user,
   });
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refetch(); } finally { setRefreshing(false); }
+  }, [refetch]);
 
   const handleSubmit = async () => {
     if (!user) {
