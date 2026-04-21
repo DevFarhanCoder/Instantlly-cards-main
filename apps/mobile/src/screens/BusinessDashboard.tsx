@@ -31,6 +31,7 @@ import { usePromotionContext } from "../contexts/PromotionContext";
 import { supabase } from "../integrations/supabase/client";
 import { useListBusinessBookingsQuery, useUpdateBookingStatusMutation } from "../store/api/bookingsApi";
 import { useListMyEventsQuery } from "../store/api/eventsApi";
+import { useGetMyCreatedVouchersQuery, useUpdateVoucherStatusMutation } from "../store/api/vouchersApi";
 import BookingCalendar from "../components/business/BookingCalendar";
 import BusinessHoursEditor from "../components/business/BusinessHoursEditor";
 import LeadsManager from "../components/business/LeadsManager";
@@ -95,39 +96,12 @@ const BusinessDashboard = () => {
     enabled: eventIdStrings.length > 0,
   });
 
-  const { data: myVouchers = [] } = useQuery({
-    queryKey: ["business-vouchers", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("vouchers")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: !!user,
-  });
-  const scopedVouchers = (myVouchers as any[]).filter((v: any) => {
-    if (v.business_card_id == null) return true;
-    return Number(v.business_card_id) === Number(primaryCard?.id);
-  });
-
-  const voucherIds = scopedVouchers.map((v: any) => v.id);
-  const { data: voucherClaims = [] } = useQuery({
-    queryKey: ["business-voucher-claims", voucherIds],
-    queryFn: async () => {
-      if (voucherIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("claimed_vouchers")
-        .select("*")
-        .in("voucher_id", voucherIds)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: voucherIds.length > 0,
-  });
+  const promotionIdNum = selectedPromotionId ? Number(selectedPromotionId) : undefined;
+  const { data: scopedVouchersRaw = [] } = useGetMyCreatedVouchersQuery(
+    promotionIdNum ? { promotionId: promotionIdNum } : undefined,
+    { skip: !user }
+  );
+  const scopedVouchers = scopedVouchersRaw as any[];
 
   const { data: reviews = [] } = useQuery({
     queryKey: ["business-reviews", cardIds],
@@ -185,16 +159,15 @@ const BusinessDashboard = () => {
     },
   };
 
-  const updateVoucherStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from("vouchers").update({ status }).eq("id", id);
-      if (error) throw error;
+  const [updateVoucherStatusTrigger] = useUpdateVoucherStatusMutation();
+  const updateVoucherStatus = {
+    mutate: ({ id, status }: { id: any; status: string }) => {
+      const numId = typeof id === 'string' ? parseInt(id, 10) : id;
+      updateVoucherStatusTrigger({ id: numId, status }).then(() => {
+        toast.success("Voucher updated!");
+      });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["business-vouchers"] });
-      toast.success("Voucher updated!");
-    },
-  });
+  };
 
   const deleteEvent = useMutation({
     mutationFn: async (id: string) => {
@@ -536,7 +509,6 @@ const BusinessDashboard = () => {
               </View>
             ) : (
               scopedVouchers.map((v: any) => {
-                const claims = voucherClaims.filter((c: any) => c.voucher_id === v.id);
                 return (
                   <View key={v.id} className="rounded-xl border border-border bg-card p-4 gap-2">
                     <View className="flex-row items-start justify-between">
@@ -564,7 +536,7 @@ const BusinessDashboard = () => {
                       </View>
                     </View>
                     <Text className="text-xs text-muted-foreground">
-                      🎫 {claims.length} claimed
+                      🎫 {v.claimed_count || 0} claimed
                       {v.max_claims ? ` / ${v.max_claims} max` : ""}
                     </Text>
                   </View>

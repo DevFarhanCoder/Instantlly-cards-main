@@ -6,6 +6,7 @@ import { toast } from "sonner";
 export interface Voucher {
   id: string;
   user_id: string;
+  business_promotion_id: string | null;
   business_card_id: string | null;
   title: string;
   subtitle: string | null;

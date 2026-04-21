@@ -524,7 +524,7 @@ const MyCards = () => {
                           </DropdownMenuItem>
                         )}
                         {isBusiness && (
-                          <DropdownMenuItem onPress={() => navigation.navigate("VoucherCreate", { cardId: card.id })}>
+                          <DropdownMenuItem onPress={() => navigation.navigate("VoucherCreate", { promotionId: promo?.id })}>
                             <Tag size={14} color="#111827" /> Create Voucher
                           </DropdownMenuItem>
                         )}

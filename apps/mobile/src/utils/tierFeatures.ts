@@ -14,14 +14,15 @@ export type Feature =
   | 'analytics'
   | 'basic_ads'
   | 'ads'
+  | 'voucher'
   | 'priority_listing'
   | 'max_visibility';
 
 export const TIER_FEATURES: Record<Tier, Feature[]> = {
   free: ['basic_listing'],
   growth: ['basic_listing', 'analytics', 'basic_ads'],
-  boost: ['basic_listing', 'analytics', 'basic_ads', 'ads', 'priority_listing'],
-  scale: ['basic_listing', 'analytics', 'basic_ads', 'ads', 'priority_listing', 'max_visibility'],
+  boost: ['basic_listing', 'analytics', 'basic_ads', 'ads', 'voucher', 'priority_listing'],
+  scale: ['basic_listing', 'analytics', 'basic_ads', 'ads', 'voucher', 'priority_listing', 'max_visibility'],
 };
 
 export const TIER_RANK: Record<Tier, number> = {
@@ -65,6 +66,7 @@ export const FEATURE_MIN_TIER: Record<Feature, Tier> = {
   analytics: 'growth',
   basic_ads: 'growth',
   ads: 'boost',
+  voucher: 'boost',
   priority_listing: 'boost',
   max_visibility: 'scale',
 };

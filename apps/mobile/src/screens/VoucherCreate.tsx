@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
 import { useAuth } from "../hooks/useAuth";
-import { useBusinessCards } from "../hooks/useBusinessCards";
+import { usePromotionContext } from "../contexts/PromotionContext";
 import { useCreateVoucher } from "../hooks/useVouchers";
 import { toast } from "../lib/toast";
 
@@ -28,15 +28,16 @@ const voucherCategories = [
 const VoucherCreate = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const preselectedCardId = route?.params?.cardId || "";
+  const routePromotionId = route?.params?.promotionId ? Number(route.params.promotionId) : null;
   const { user } = useAuth();
-  const { cards } = useBusinessCards();
+  const { selectedPromotion, selectedPromotionId } = usePromotionContext();
   const createVoucher = useCreateVoucher();
 
-  const defaultCardId = preselectedCardId || (cards.length === 1 ? cards[0].id : "");
-  const defaultCategory = defaultCardId
-    ? cards.find((c) => c.id === defaultCardId)?.category?.toLowerCase() || "general"
-    : "general";
+  const resolvedPromotionId = routePromotionId || selectedPromotionId;
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const defaultCategory = "general";
 
   const [form, setForm] = useState({
     title: "",
@@ -46,10 +47,10 @@ const VoucherCreate = () => {
     discounted_price: "",
     discount_label: "",
     terms: "",
+    code: "",
     max_claims: "",
     expires_at: "",
     is_popular: false,
-    business_card_id: defaultCardId,
   });
 
   const update = (field: string, value: any) => setForm((p) => ({ ...p, [field]: value }));
@@ -63,17 +64,63 @@ const VoucherCreate = () => {
     return 0;
   }, [form.original_price, form.discounted_price]);
 
+  const validateForm = () => {
+    const nextErrors: Record<string, string> = {};
+    if (!resolvedPromotionId) nextErrors.promotion = "Select a promotion first";
+    if (!form.title || form.title.trim().length < 3) nextErrors.title = "Title must be at least 3 characters";
+
+    const original = Number(form.original_price);
+    const discounted = Number(form.discounted_price);
+    if (!form.original_price || Number.isNaN(original) || original <= 0) nextErrors.original_price = "Enter a valid original price";
+    if (!form.discounted_price || Number.isNaN(discounted) || discounted < 0) nextErrors.discounted_price = "Enter a valid discounted price";
+    if (!Number.isNaN(original) && !Number.isNaN(discounted) && discounted > original) {
+      nextErrors.discounted_price = "Discounted price cannot exceed original price";
+    }
+
+    if (form.expires_at) {
+      const dt = new Date(form.expires_at);
+      if (isNaN(dt.getTime())) {
+        nextErrors.expires_at = "Expiry must be a valid date (YYYY-MM-DD)";
+      } else if (dt <= new Date()) {
+        nextErrors.expires_at = "Expiry must be in the future";
+      }
+    }
+
+    if (form.max_claims) {
+      const maxClaims = Number(form.max_claims);
+      if (Number.isNaN(maxClaims) || maxClaims <= 0) nextErrors.max_claims = "Max claims must be greater than 0";
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const canSubmit = useMemo(() => {
+    const original = Number(form.original_price);
+    const discounted = Number(form.discounted_price);
+    return Boolean(
+      resolvedPromotionId &&
+      form.title.trim().length >= 3 &&
+      !Number.isNaN(original) &&
+      !Number.isNaN(discounted) &&
+      original > 0 &&
+      discounted >= 0 &&
+      discounted <= original
+    );
+  }, [resolvedPromotionId, form.title, form.original_price, form.discounted_price]);
+
   const handleSubmit = async () => {
     if (!user) {
       toast.error("Please sign in");
       navigation.navigate("Auth");
       return;
     }
-    if (!form.title || !form.original_price || !form.discounted_price) {
-      toast.error("Please fill title and pricing");
+    if (!validateForm()) {
+      toast.error("Please fix highlighted fields");
       return;
     }
     await createVoucher.mutateAsync({
+      business_promotion_id: resolvedPromotionId,
       title: form.title,
       subtitle: form.subtitle || null,
       category: form.category,
@@ -81,10 +128,10 @@ const VoucherCreate = () => {
       discounted_price: parseFloat(form.discounted_price),
       discount_label: form.discount_label || null,
       terms: form.terms || null,
+      code: form.code || null,
       max_claims: form.max_claims ? parseInt(form.max_claims, 10) : null,
       expires_at: form.expires_at && !isNaN(new Date(form.expires_at).getTime()) ? new Date(form.expires_at).toISOString() : null,
       is_popular: form.is_popular,
-      business_card_id: form.business_card_id || null,
     } as any);
     navigation.navigate("Vouchers");
   };
@@ -99,27 +146,29 @@ const VoucherCreate = () => {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5 gap-4">
-        {cards.length > 0 && (
-          <View className="gap-2">
-            <Label>Link to Business Card</Label>
-            <Select value={form.business_card_id} onValueChange={(v) => update("business_card_id", v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a card (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                {cards.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.full_name} {c.company_name ? `— ${c.company_name}` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </View>
-        )}
+        <View className="gap-2 rounded-xl border border-border bg-card p-3">
+          <Label>Selected Promotion</Label>
+          {selectedPromotion ? (
+            <Text className="text-sm text-foreground">
+              {selectedPromotion.business_name}
+            </Text>
+          ) : (
+            <Text className="text-sm text-destructive">No listing selected</Text>
+          )}
+          <Button
+            variant="outline"
+            className="rounded-lg"
+            onPress={() => navigation.navigate("BusinessSelectorScreen")}
+          >
+            Switch Listing
+          </Button>
+          {errors.promotion ? <Text className="text-xs text-destructive">{errors.promotion}</Text> : null}
+        </View>
 
         <View className="gap-2">
           <Label>Voucher Title *</Label>
           <Input placeholder="e.g. Spa Day Package" value={form.title} onChangeText={(v) => update("title", v)} />
+          {errors.title ? <Text className="text-xs text-destructive">{errors.title}</Text> : null}
         </View>
 
         <View className="gap-2">
@@ -152,6 +201,7 @@ const VoucherCreate = () => {
               value={form.original_price}
               onChangeText={(v) => update("original_price", v)}
             />
+            {errors.original_price ? <Text className="text-xs text-destructive">{errors.original_price}</Text> : null}
           </View>
           <View className="flex-1 gap-2">
             <Label>Discounted Price (₹) *</Label>
@@ -161,6 +211,7 @@ const VoucherCreate = () => {
               value={form.discounted_price}
               onChangeText={(v) => update("discounted_price", v)}
             />
+            {errors.discounted_price ? <Text className="text-xs text-destructive">{errors.discounted_price}</Text> : null}
           </View>
         </View>
 
@@ -183,6 +234,15 @@ const VoucherCreate = () => {
         </View>
 
         <View className="gap-2">
+          <Label>Voucher Code (Optional)</Label>
+          <Input
+            placeholder="e.g. SUMMER30"
+            value={form.code}
+            onChangeText={(v) => update("code", v)}
+          />
+        </View>
+
+        <View className="gap-2">
           <Label>Terms & Conditions</Label>
           <Textarea
             placeholder="e.g. Valid Mon-Fri only. Cannot be combined with other offers."
@@ -201,6 +261,7 @@ const VoucherCreate = () => {
               value={form.max_claims}
               onChangeText={(v) => update("max_claims", v)}
             />
+            {errors.max_claims ? <Text className="text-xs text-destructive">{errors.max_claims}</Text> : null}
           </View>
           <View className="flex-1 gap-2">
             <Label>Expires On</Label>
@@ -209,6 +270,7 @@ const VoucherCreate = () => {
               value={form.expires_at}
               onChangeText={(v) => update("expires_at", v)}
             />
+            {errors.expires_at ? <Text className="text-xs text-destructive">{errors.expires_at}</Text> : null}
           </View>
         </View>
 
@@ -222,7 +284,7 @@ const VoucherCreate = () => {
       </ScrollView>
 
       <View className="border-t border-border bg-card px-4 py-3">
-        <Button className="w-full rounded-xl py-4" onPress={handleSubmit} disabled={createVoucher.isPending}>
+        <Button className="w-full rounded-xl py-4" onPress={handleSubmit} disabled={createVoucher.isPending || !canSubmit}>
           {createVoucher.isPending ? "Creating..." : "Create Voucher"}
         </Button>
       </View>
