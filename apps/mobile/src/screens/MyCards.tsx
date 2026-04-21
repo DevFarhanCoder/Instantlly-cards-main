@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import * as SecureStore from "expo-secure-store";
 import {
@@ -11,6 +11,7 @@ import {
   View,
   Linking,
 } from "react-native";
+import { generateAndShareCardImage } from "../utils/cardImageGenerator";
 import ContactPickerModal from "../components/ContactPickerModal";
 import {
   buildReferralPlayStoreLink,
@@ -29,6 +30,7 @@ import {
   Tag,
   Trash2,
   Lock,
+  Phone,
 } from "lucide-react-native";
 import QRCode from "react-native-qrcode-svg";
 import { Button } from "../components/ui/button";
@@ -102,6 +104,7 @@ const MyCards = () => {
   const demoCards = directoryCards;
   const [shareCard, setShareCard] = useState<BusinessCardRow | null>(null);
   const [contactPickerCard, setContactPickerCard] = useState<BusinessCardRow | null>(null);
+  const cardViewRef = useRef<View>(null);
 
   // ── Group Sharing state ────────────────────────────────────────────────────
   const [gsModalMode, setGsModalMode] = useState<GSModalMode>('create');
@@ -137,7 +140,7 @@ const MyCards = () => {
 
   const handleWhatsAppShare = async () => {
     if (!shareCard) return;
-    
+
     const shareUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantlly.lovable.app'}/card/${shareCard.id}`;
     const cardData: ShareCardData = {
       fullName: shareCard.full_name,
@@ -168,22 +171,24 @@ const MyCards = () => {
     };
     const referralCode = referralStats?.referralCode || fallbackCode(user?.id);
     const referralPlayStoreLink = buildReferralPlayStoreLink(referralCode === "------" ? null : referralCode);
-    const message = buildWhatsAppMessage(cardData, referralPlayStoreLink);
-    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
-    
+
     try {
-      const canOpen = await Linking.canOpenURL(whatsappUrl);
-      if (canOpen) {
-        await Linking.openURL(whatsappUrl);
-        toast.success("Opening WhatsApp...");
-      } else {
-        toast.error("WhatsApp is not installed");
+      const result = await generateAndShareCardImage(cardViewRef, { ...cardData, referralCode }, "whatsapp");
+      if (!result.success && result.error !== "native_module_not_available") {
+        // Fallback to text-only
+        const message = buildWhatsAppMessage(cardData, referralPlayStoreLink);
+        const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+        const canOpen = await Linking.canOpenURL(whatsappUrl);
+        if (canOpen) {
+          await Linking.openURL(whatsappUrl);
+        } else {
+          await Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
+        }
       }
-    } catch (error) {
-      console.error("Error opening WhatsApp:", error);
-      toast.error("Failed to open WhatsApp");
+    } catch {
+      toast.error("Unable to share card");
     }
-    
+
     setShareCard(null);
   };
 
@@ -223,7 +228,7 @@ const MyCards = () => {
                   onPress={() => navigation.navigate("BusinessDetail", { id: `card-${card.id}` })}
                 >
                   <View className="flex-row items-start gap-3">
-                    <View className="h-12 w-12 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+                    <View className="h-14 w-14 items-center justify-center rounded-full bg-primary/10 overflow-hidden border-2 border-primary/20">
                       {card.logo_url ? (
                         <Image
                           source={{ uri: card.logo_url }}
@@ -231,7 +236,7 @@ const MyCards = () => {
                           resizeMode="cover"
                         />
                       ) : (
-                        <Text className="text-xl">🏢</Text>
+                        <Text className="text-2xl">🏢</Text>
                       )}
                     </View>
                     <View className="flex-1">
@@ -323,11 +328,11 @@ const MyCards = () => {
                   onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
                 >
                   <View className="flex-row items-start gap-3">
-                    <View className="h-12 w-12 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+                    <View className="h-14 w-14 items-center justify-center rounded-full bg-primary/10 overflow-hidden border-2 border-primary/20">
                       {card.logo_url ? (
                         <Image source={{ uri: card.logo_url }} className="h-full w-full" resizeMode="cover" />
                       ) : (
-                        <Text className="text-xl">🏢</Text>
+                        <Text className="text-2xl">🏢</Text>
                       )}
                     </View>
                     <View className="flex-1">
@@ -736,11 +741,11 @@ const MyCards = () => {
                 onPress={() => navigation.navigate("BusinessDetail", { id: card.id })}
               >
                 <View className="flex-row items-start gap-3">
-                  <View className="h-12 w-12 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+                  <View className="h-14 w-14 items-center justify-center rounded-full bg-primary/10 overflow-hidden border-2 border-primary/20">
                     {card.logo_url ? (
                       <Image source={{ uri: card.logo_url }} className="h-full w-full" resizeMode="cover" />
                     ) : (
-                      <Text className="text-xl">🏢</Text>
+                      <Text className="text-2xl">🏢</Text>
                     )}
                   </View>
                   <View className="flex-1">
@@ -840,6 +845,81 @@ const MyCards = () => {
           <DialogHeader>
             <DialogTitle>Share "{shareCard?.full_name}"</DialogTitle>
           </DialogHeader>
+
+          {/* Hidden off-screen card view — captured as image when sharing */}
+          <View
+            ref={cardViewRef}
+            collapsable={false}
+            style={{ position: 'absolute', left: -9999, top: 0, width: 1050, height: 600, flexDirection: 'row', backgroundColor: '#fff', overflow: 'hidden' }}
+          >
+            {/* Left section */}
+            <View style={{ width: '40%', backgroundColor: '#4A6B82', justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+              {shareCard?.logo_url ? (
+                <View style={{ width: 240, height: 240, borderRadius: 120, borderWidth: 5, borderColor: '#FFFFFF', backgroundColor: '#FFFFFF', overflow: 'hidden' }}>
+                  <Image source={{ uri: shareCard.logo_url }} style={{ width: 240, height: 240 }} resizeMode="cover" />
+                </View>
+              ) : (
+                <View style={{ width: 240, height: 240, borderRadius: 120, borderWidth: 5, borderColor: '#FFFFFF', backgroundColor: '#5A7B92', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                  <Text style={{ fontSize: 90 }}>🏢</Text>
+                </View>
+              )}
+            </View>
+            {/* Right section */}
+            <View style={{ width: '60%', backgroundColor: '#E8EAED', padding: 50, paddingLeft: 60, justifyContent: 'center' }}>
+              {/* Header */}
+              <View style={{ marginBottom: 40 }}>
+                <Text style={{ fontSize: 56, fontWeight: '800', color: '#4A6B82', marginBottom: 8, letterSpacing: 1 }} numberOfLines={1}>
+                  {shareCard?.full_name}
+                </Text>
+                <Text style={{ fontSize: 20, fontWeight: '600', color: '#7A8A99', letterSpacing: 2 }} numberOfLines={1}>
+                  {[shareCard?.company_name, shareCard?.job_title].filter(Boolean).join('  |  ')}
+                </Text>
+              </View>
+              {/* Contact rows */}
+              <View style={{ gap: 22 }}>
+                {shareCard?.phone ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#6B7280', justifyContent: 'center', alignItems: 'center' }}>
+                      <Phone size={16} color="#FFFFFF" />
+                    </View>
+                    <Text style={{ fontSize: 20, color: '#4A6B82', fontWeight: '500', flex: 1 }}>{shareCard.phone}</Text>
+                  </View>
+                ) : null}
+                {shareCard?.email ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#4A6B82', justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 15, color: '#FFFFFF' }}>✉</Text>
+                    </View>
+                    <Text style={{ fontSize: 20, color: '#4A6B82', fontWeight: '500', flex: 1 }}>{shareCard.email}</Text>
+                  </View>
+                ) : null}
+                {shareCard?.company_website ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#4A6B82', justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 15, color: '#FFFFFF' }}>⦿</Text>
+                    </View>
+                    <Text style={{ fontSize: 20, color: '#4A6B82', fontWeight: '500', flex: 1 }}>{shareCard.company_website}</Text>
+                  </View>
+                ) : null}
+                {shareCard?.location ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#4A6B82', justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 15, color: '#FFFFFF' }}>⌖</Text>
+                    </View>
+                    <Text style={{ fontSize: 20, color: '#4A6B82', fontWeight: '500', flex: 1 }}>{shareCard.location}</Text>
+                  </View>
+                ) : null}
+              </View>
+              {/* Watermark */}
+              <View style={{ position: 'absolute', bottom: 12, right: 15, backgroundColor: 'rgba(255,255,255,0.95)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 }}>
+                <Image source={require('../../assets/logo.png')} style={{ width: 24, height: 24 }} resizeMode="contain" />
+                <Text style={{ fontSize: 13, fontWeight: '700' }}>
+                  <Text style={{ color: '#FF8C00' }}>Instant</Text><Text style={{ color: '#4A6B82' }}>lly</Text>
+                </Text>
+              </View>
+            </View>
+          </View>
+
           <View className="items-center gap-4 py-4">
             {shareCard ? (
               <QRCode value={`${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantlly.lovable.app'}/card/${shareCard.id}`} size={160} />
