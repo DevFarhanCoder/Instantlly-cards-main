@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Share, Text, View, Linking } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import * as Clipboard from "expo-clipboard";
@@ -6,6 +7,8 @@ import { Button } from "./ui/button";
 import { toast } from "../lib/toast";
 import { useAuth } from "../hooks/useAuth";
 import { useGetReferralStatsQuery } from "../store/api/referralApi";
+import { generateAndShareCardImage } from "../utils/cardImageGenerator";
+import BusinessCardTemplate from "./BusinessCardTemplate";
 
 export type ShareCardData = {
   fullName: string;
@@ -28,6 +31,7 @@ export type ShareCardData = {
   offer?: string | null;
   services?: string[] | null;
   logoUrl?: string | null;
+  profilePhotoUrl?: string | null;
   facebook?: string | null;
   instagram?: string | null;
   youtube?: string | null;
@@ -126,6 +130,7 @@ const ShareCardModal = ({ open, onOpenChange, data }: ShareCardModalProps) => {
   const { data: referralStats } = useGetReferralStatsQuery(undefined, { skip: !user });
   const referralCode = referralStats?.referralCode || fallbackCode(user?.id);
   const referralPlayStoreLink = buildReferralPlayStoreLink(referralCode === "------" ? null : referralCode);
+  const cardViewRef = useRef<View>(null);
 
   const handleCopy = async () => {
     await Clipboard.setStringAsync(data.shareUrl);
@@ -146,17 +151,21 @@ const ShareCardModal = ({ open, onOpenChange, data }: ShareCardModalProps) => {
   };
 
   const handleWhatsApp = async () => {
-    const message = buildWhatsAppMessage(data, referralPlayStoreLink);
-    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
     try {
-      const canOpen = await Linking.canOpenURL(whatsappUrl);
-      if (canOpen) {
-        await Linking.openURL(whatsappUrl);
-      } else {
-        await Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
+      const result = await generateAndShareCardImage(cardViewRef, data, "whatsapp");
+      if (!result.success && result.error !== "native_module_not_available") {
+        // Fallback to text-only if image capture fails
+        const message = buildWhatsAppMessage(data, referralPlayStoreLink);
+        const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+        const canOpen = await Linking.canOpenURL(whatsappUrl);
+        if (canOpen) {
+          await Linking.openURL(whatsappUrl);
+        } else {
+          await Linking.openURL(`https://wa.me/?text=${encodeURIComponent(message)}`);
+        }
       }
     } catch {
-      toast.error("Unable to open WhatsApp");
+      toast.error("Unable to share card");
     }
   };
 
@@ -166,6 +175,37 @@ const ShareCardModal = ({ open, onOpenChange, data }: ShareCardModalProps) => {
         <DialogHeader>
           <DialogTitle>Share Business Card</DialogTitle>
         </DialogHeader>
+
+        {/* Hidden off-screen card view — captured as image when sharing */}
+        <View
+          ref={cardViewRef}
+          collapsable={false}
+          style={{ position: 'absolute', left: -9999, top: 0 }}
+        >
+          <BusinessCardTemplate
+            name={data.fullName}
+            designation={data.jobTitle ?? ""}
+            companyName={data.companyName ?? ""}
+            personalPhone={data.phone ?? undefined}
+            companyPhone={data.companyPhone ?? undefined}
+            email={data.email ?? undefined}
+            companyEmail={data.companyEmail ?? undefined}
+            website={data.website ?? undefined}
+            address={data.location ?? undefined}
+            companyAddress={data.companyAddress ?? undefined}
+            profilePhoto={data.profilePhotoUrl ?? undefined}
+            companyPhoto={data.logoUrl ?? undefined}
+            mapsLink={data.mapsLink ?? undefined}
+            companyMapsLink={data.companyMapsLink ?? undefined}
+            linkedin={data.linkedin ?? undefined}
+            twitter={data.twitter ?? undefined}
+            instagram={data.instagram ?? undefined}
+            facebook={data.facebook ?? undefined}
+            youtube={data.youtube ?? undefined}
+            whatsapp={data.whatsapp ?? undefined}
+          />
+        </View>
+
         <View className="items-center gap-3 py-2">
           <QRCode value={data.shareUrl} size={160} />
           <Text className="text-xs text-muted-foreground text-center">
@@ -176,11 +216,8 @@ const ShareCardModal = ({ open, onOpenChange, data }: ShareCardModalProps) => {
           </Text>
         </View>
         <View className="gap-2">
-          <Button className="w-full rounded-xl" onPress={handleShare}>
-            Share
-          </Button>
-          <Button variant="outline" className="w-full rounded-xl" onPress={handleWhatsApp}>
-            Share on WhatsApp
+          <Button className="w-full rounded-xl bg-[#25D366]" onPress={handleWhatsApp}>
+            <Text className="text-white font-bold text-base">📲 Share on WhatsApp</Text>
           </Button>
           <Button variant="outline" className="w-full rounded-xl" onPress={handleCopy}>
             Copy Link
