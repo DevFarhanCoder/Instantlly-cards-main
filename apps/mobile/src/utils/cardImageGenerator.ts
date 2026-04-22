@@ -155,20 +155,20 @@ function buildCardDetails(cardData: any): string {
   let details = "*This is My Instantlly Digital Visiting Card*\n\n";
 
   // === Personal Information ===
-  if (d.full_name) details += `▪️ *👤 Name:* ${d.full_name}\n`;
+  if (d.full_name) details += `*👤 Name:* ${d.full_name}\n`;
 
   const personalPhone = d.personal_phone || d.phone;
   if (personalPhone) {
     const fullPersonalPhone = d.personal_country_code
       ? `+${d.personal_country_code}${personalPhone}`
       : personalPhone;
-    details += `▪️ *📱 Personal Phone:* ${fullPersonalPhone}\n`;
-    details += `▪️ *💬 Personal WhatsApp:* ${fullPersonalPhone}\n`;
+    details += `*📱 Personal Phone:* ${fullPersonalPhone}\n`;
+    details += `*💬 Personal WhatsApp:* ${fullPersonalPhone}\n`;
   }
 
-  if (d.email) details += `▪️ *📧 Personal Email:* ${d.email}\n`;
-  if (d.location) details += `▪️ *🏭 Address:* ${d.location}\n`;
-  if (d.maps_link) details += `▪️ *📍 Google Maps Link:* ${d.maps_link}\n`;
+  if (d.email) details += `*📧 Personal Email:* ${d.email}\n`;
+  if (d.location) details += `*🏭 Address:* ${d.location}\n`;
+  if (d.maps_link) details += `*📍 Google Maps Link:* ${d.maps_link}\n`;
 
   // === Company / Business Information ===
   details += "\n";
@@ -294,7 +294,7 @@ export async function generateAndShareCardImage(
       case "whatsapp": {
         const whatsappMessage =
           buildCardDetails(cardData) +
-          `\nMake your FREE Instantlly Digital Visiting Card Download the Mobile App\nReferral Link : ${referralLink}\nVisit Website : www.Instantlly.com`;
+          `\nMake your FREE Instantlly Digital Visiting Card Download the *Mobile App* to create and share your own card!\n\n*Referral Link :* ${referralLink}\n\n🌐 *Visit Website :* www.Instantlly.com`;
 
         const filePrefix = Platform.OS === "android" ? "file://" : "";
         const shareUrl = shareableUri.startsWith("file://") ? shareableUri : filePrefix + shareableUri;
