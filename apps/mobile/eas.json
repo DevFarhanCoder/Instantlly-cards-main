@@ -7,6 +7,9 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://backend.instantllycards.com"
+      },
       "cache": {
         "disabled": false
       }
@@ -15,6 +18,9 @@
       "channel": "preview",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://backend.instantllycards.com"
       },
       "cache": {
         "disabled": false
@@ -25,6 +31,9 @@
       "android": {
         "buildType": "app-bundle",
         "credentialsSource": "local"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://backend.instantllycards.com"
       },
       "cache": {
         "disabled": false
