@@ -111,6 +111,7 @@ const Auth = ({ navigation }: Props) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [roleTab, setRoleTab] = useState<RoleTab>("customer");
+  const [businessName, setBusinessName] = useState("");
   const [countryCode, setCountryCode] = useState("+91");
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [showRoleSelection, setShowRoleSelection] = useState(false);
@@ -159,7 +160,12 @@ const Auth = ({ navigation }: Props) => {
 
     if (isSignUp) {
       if (!name.trim()) {
-        toast.error(roleTab === "customer" ? "Full name is required" : "Business name is required");
+        toast.error("Full name is required");
+        return;
+      }
+
+      if (roleTab === "business" && !businessName.trim()) {
+        toast.error("Business name / Company name is required");
         return;
       }
 
@@ -181,7 +187,7 @@ const Auth = ({ navigation }: Props) => {
 
       if (isSignUp) {
         console.log('[Auth Screen] Calling signUp...');
-        const { error } = await signUp(fullPhone, password, name.trim() || undefined, undefined, roleTab, referralCode.trim() || undefined);
+        const { error } = await signUp(fullPhone, password, name.trim() || undefined, undefined, roleTab, referralCode.trim() || undefined, roleTab === 'business' ? businessName.trim() || undefined : undefined);
         if (error) {
           console.warn('[Auth Screen] signUp error:', error);
           toast.error(error);
@@ -256,10 +262,16 @@ const Auth = ({ navigation }: Props) => {
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-gray-50"
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
     >
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled" className="p-6">
-        <View className="flex-1 items-center justify-center py-8">
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        className="p-6"
+      >
+        <View className="flex-1 items-center py-8">
           {/* Logo Section */}
           <View className="mb-3 items-center">
             <Image source={iconImg} style={{ width: 70, height: 70, marginBottom: 12, backgroundColor: 'transparent' }} resizeMode="contain" />
@@ -270,54 +282,22 @@ const Auth = ({ navigation }: Props) => {
           {/* Login Card */}
           <Card className="w-full max-w-md border-0 shadow-xl rounded-3xl bg-white">
             <CardContent className="p-6 gap-4">
-              {/* Customer/Business Toggle */}
-              <View className="flex-row gap-2">
-                <Pressable
-                  onPress={() => setRoleTab("customer")}
-                  style={[
-                    styles.roleTab,
-                    roleTab === "customer" ? styles.roleTabActive : styles.roleTabInactive
-                  ]}
-                >
-                  <Users size={18} color={roleTab === "customer" ? "#ffffff" : "#1f2937"} />
-                  <Text style={[styles.roleTabText, roleTab === "customer" ? styles.roleTabTextActive : styles.roleTabTextInactive]}>
-                    Customer
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => setRoleTab("business")}
-                  style={[
-                    styles.roleTab,
-                    roleTab === "business" ? styles.roleTabActive : styles.roleTabInactive
-                  ]}
-                >
-                  <Store size={18} color={roleTab === "business" ? "#ffffff" : "#1f2937"} />
-                  <Text style={[styles.roleTabText, roleTab === "business" ? styles.roleTabTextActive : styles.roleTabTextInactive]}>
-                    Business
-                  </Text>
-                </Pressable>
-              </View>
-
               {/* Subtitle Text */}
               <View className="items-center mt-1 mb-3">
                 <Text className="text-base text-gray-700 font-medium">
-                  {isSignUp
-                    ? `Sign up as ${roleTab}`
-                    : `Sign in as ${roleTab}`}
+                  {isSignUp ? "Create your account" : "Sign in to your account"}
                 </Text>
               </View>
 
               {/* Form Fields */}
               <View className="gap-3">
-                {/* Name Field (Sign Up Only) */}
+                {/* Full Name Field (Sign Up Only) */}
                 {isSignUp && (
                   <View className="gap-1.5">
-                    <Text className="text-sm font-bold text-gray-900">
-                      {roleTab === 'business' ? 'Business Name' : 'Full Name'}
-                    </Text>
+                    <Text className="text-sm font-bold text-gray-900">Full Name</Text>
                     <View className="relative">
                       <Input
-                        placeholder={roleTab === 'business' ? 'Enter your business name' : 'Enter your full name'}
+                        placeholder="Enter your full name"
                         value={name}
                         onChangeText={setName}
                         autoCapitalize="words"
@@ -357,6 +337,61 @@ const Auth = ({ navigation }: Props) => {
                     </Text>
                   )}
                 </View>
+
+                {/* Account Type Toggle (Sign Up Only) */}
+                {isSignUp && (
+                  <View className="gap-1.5">
+                    <Text className="text-sm font-bold text-gray-900">Account Type</Text>
+                    <View className="flex-row gap-2">
+                      <Pressable
+                        onPress={() => { setRoleTab("customer"); setBusinessName(""); }}
+                        style={[
+                          styles.roleTab,
+                          roleTab === "customer" ? styles.roleTabActive : styles.roleTabInactive
+                        ]}
+                      >
+                        <Users size={18} color={roleTab === "customer" ? "#ffffff" : "#1f2937"} />
+                        <Text style={[styles.roleTabText, roleTab === "customer" ? styles.roleTabTextActive : styles.roleTabTextInactive]}>
+                          Customer
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => setRoleTab("business")}
+                        style={[
+                          styles.roleTab,
+                          roleTab === "business" ? styles.roleTabActive : styles.roleTabInactive
+                        ]}
+                      >
+                        <Store size={18} color={roleTab === "business" ? "#ffffff" : "#1f2937"} />
+                        <Text style={[styles.roleTabText, roleTab === "business" ? styles.roleTabTextActive : styles.roleTabTextInactive]}>
+                          Business
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
+
+                {/* Business Name Field (Sign Up + Business only) */}
+                {isSignUp && roleTab === "business" && (
+                  <View className="gap-1.5">
+                    <Text className="text-sm font-bold text-gray-900">
+                      Business Name / Company Name <Text className="text-red-500">*</Text>
+                    </Text>
+                    <View className="relative">
+                      <Input
+                        placeholder="Enter your business or company name"
+                        value={businessName}
+                        onChangeText={setBusinessName}
+                        autoCapitalize="words"
+                        className="pl-4 h-12 rounded-2xl text-sm border-0 bg-gray-100"
+                        placeholderTextColor="#9ca3af"
+                      />
+                    </View>
+                    {businessName.length === 0 && (
+                      <Text className="text-xs text-gray-500">This field is required for business accounts</Text>
+                    )}
+                  </View>
+                )}
 
                 {/* Password Field */}
                 <View className="gap-1.5">
@@ -454,6 +489,8 @@ const Auth = ({ navigation }: Props) => {
                   setPhone("");
                   setPassword("");
                   setConfirmPassword("");
+                  setBusinessName("");
+                  setRoleTab("customer");
                 }}
                 style={styles.toggleButton}
               >

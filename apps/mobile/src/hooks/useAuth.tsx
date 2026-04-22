@@ -23,7 +23,7 @@ interface AuthContextType {
   user: ReturnType<typeof selectCurrentUser>;
   accessToken: string | null;
   signIn: (phoneOrEmail: string, password: string, isEmail?: boolean, loginType?: 'customer' | 'business') => Promise<{ error?: string; user?: AuthUser }>;
-  signUp: (phone: string, password: string, name?: string, email?: string, role?: 'customer' | 'business', referralCode?: string) => Promise<{ error?: string; user?: AuthUser }>;
+  signUp: (phone: string, password: string, name?: string, email?: string, role?: 'customer' | 'business', referralCode?: string, businessName?: string) => Promise<{ error?: string; user?: AuthUser }>;
   signOut: () => Promise<void>;
 }
 
@@ -175,10 +175,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email?: string,
     role: 'customer' | 'business' = 'customer',
     referralCode?: string,
+    businessName?: string,
   ): Promise<{ error?: string; user?: AuthUser }> => {
     console.log(`[SIGNUP] Attempt — phone: ${phone}, name: ${name ?? 'N/A'}, email: ${email ?? 'N/A'}, role: ${role}, ref: ${referralCode ?? 'none'}`);
     try {
-      const data = await signupMutation({ phone, password, name, email, role, referralCode }).unwrap();
+      const data = await signupMutation({ phone, password, name, email, role, referralCode, businessName }).unwrap();
       dispatch(setCredentials(data));
       await SecureStore.setItemAsync('accessToken', data.accessToken);
       await SecureStore.setItemAsync('refreshToken', data.refreshToken);
