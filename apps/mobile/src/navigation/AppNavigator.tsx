@@ -601,11 +601,17 @@ const AppNavigator = () => {
   useEffect(() => {
     notifListenerRef.current = ExpoNotifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as any;
-      if (data?.screen === 'GroupChat' && data?.groupId && navigationRef.isReady()) {
+      if (!navigationRef.isReady()) return;
+
+      if (data?.screen === 'GroupChat' && data?.groupId) {
         navigationRef.navigate('GroupChat', {
           groupId: data.groupId,
           groupName: data.groupName ?? 'Group Chat',
         });
+      } else if (data?.screen === 'Chat' || data?.screen === 'Messaging') {
+        // DM push notification tapped — open the Inbox (Messaging screen).
+        // The user can then tap the specific conversation.
+        navigationRef.navigate('Messaging');
       }
     });
     return () => { notifListenerRef.current?.remove(); };

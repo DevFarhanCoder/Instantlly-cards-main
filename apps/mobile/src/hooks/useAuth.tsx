@@ -16,6 +16,7 @@ import {
 } from '../store/authSlice';
 import { useLoginMutation, useSignupMutation, useLogoutMutation, useLazyGetMeQuery } from '../store/api/authApi';
 import { baseApi } from '../store/api/baseApi';
+import { getAndRegisterToken } from '../contexts/PushNotificationContext';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -159,6 +160,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dispatch(setCredentials(data));
       await SecureStore.setItemAsync('accessToken', data.accessToken);
       await SecureStore.setItemAsync('refreshToken', data.refreshToken);
+      // Re-register push token so the backend maps it to this specific user.
+      // Fire-and-forget — never block the sign-in flow.
+      getAndRegisterToken().catch(() => {});
       console.log(`[SIGNIN] Success — userId: ${data.user.id}, roles: [${data.user.roles.join(', ')}]`);
       return { user: data.user };
     } catch (e: any) {
@@ -182,6 +186,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dispatch(setCredentials(data));
       await SecureStore.setItemAsync('accessToken', data.accessToken);
       await SecureStore.setItemAsync('refreshToken', data.refreshToken);
+      // Re-register push token so the backend maps it to this specific user.
+      getAndRegisterToken().catch(() => {});
       console.log(`[SIGNUP] Success — userId: ${data.user.id}, roles: [${data.user.roles.join(', ')}]`);
       return { user: data.user };
     } catch (e: any) {
