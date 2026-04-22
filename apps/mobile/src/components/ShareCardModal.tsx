@@ -66,12 +66,12 @@ export function buildWhatsAppMessage(data: ShareCardData, referralPlayStoreLink?
   const lines: string[] = ["*This is My Instantlly Digital Visiting Card* 📇\n"];
 
   // Personal details
-  if (data.fullName) lines.push(`👤 *Name:* ${data.fullName}`);
-  if (data.phone) lines.push(`📱 *Personal Phone:* ${data.phone}`);
-  if (data.whatsapp) lines.push(`💬 *Personal WhatsApp:* ${data.whatsapp}`);
-  if (data.email) lines.push(`📧 *Personal Email:* ${data.email}`);
-  if (data.location) lines.push(`🏠 *Address:* ${data.location}`);
-  if (data.mapsLink) lines.push(`📍 *Google Maps:* ${data.mapsLink}`);
+  if (data.fullName) lines.push(`*Name:* ${data.fullName}`);
+  if (data.phone) lines.push(`*Personal Phone:* ${data.phone}`);
+  if (data.whatsapp) lines.push(`*Personal WhatsApp:* ${data.whatsapp}`);
+  if (data.email) lines.push(`*Personal Email:* ${data.email}`);
+  if (data.location) lines.push(`*Address:* ${data.location}`);
+  if (data.mapsLink) lines.push(`*Google Maps:* ${data.mapsLink}`);
 
   // Company details
   const hasCompany = data.companyName || data.companyPhone || data.companyEmail || data.companyAddress;
@@ -111,10 +111,11 @@ export function buildWhatsAppMessage(data: ShareCardData, referralPlayStoreLink?
   // lines.push(`🔗 *View My Card:* ${data.shareUrl}`);
 
   lines.push("");
-  lines.push("Make your FREE Instantly Digital Visiting Card Download the *Mobile App* to create and share your own card!");
+  lines.push("Make your FREE Instantlly Digital Visiting Card Download the *Mobile App* to create and share your own card!");
   lines.push("");
-  lines.push(`Referrall Link : ${resolvedReferralLink}`);
-  lines.push("Visit Website : www.Instantlly.com");
+  lines.push(`*Referral Link :* ${resolvedReferralLink}`);
+  lines.push("");
+  lines.push("🌐 *Visit Website :* www.Instantlly.com");
 
   return lines.join("\n");
 }
