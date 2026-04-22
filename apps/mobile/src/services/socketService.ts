@@ -62,6 +62,35 @@ type SocketEvents = {
     recipient_id: string;
     sent_at: string;
   }) => void;
+  // Chat notifications
+  'chat:notification': (data: { chatId: number; message: { senderName?: string; sender?: { name?: string }; content: string; messageType?: string } }) => void;
+  // Group membership events
+  'group:member_joined': (data: { groupId: number; groupName: string; joinerName: string; joinedViaLink?: boolean; isJoiner?: boolean }) => void;
+  'group:welcome_back': (data: { groupId: number; groupName: string }) => void;
+  'group:added': (data: { groupId: number; groupName: string }) => void;
+  'group:members_added': (data: { groupId: number; groupName: string; addedBy: string }) => void;
+  'group:removed': (data: { groupId: number; groupName: string }) => void;
+  'group:member_left': (data: { groupId: number; groupName: string; userName: string }) => void;
+  'group:sharing_stopped': (data: { groupId: number }) => void;
+  // Welcome / auth events
+  welcome: (data: { title: string; body: string }) => void;
+  welcome_back: (data: { title: string; body: string }) => void;
+  // Booking events
+  'booking:created': (data: { customerName?: string; businessName?: string }) => void;
+  'booking:updated': (data: { status: string }) => void;
+  // Review events
+  'review:created': (data: { reviewerName?: string; businessName?: string; rating?: number }) => void;
+  // Voucher events
+  'voucher:claimed': (data: { voucherTitle?: string; claimerName?: string }) => void;
+  'voucher:transferred': (data: { voucherTitle?: string; fromName?: string }) => void;
+  // Event registration
+  'event:registered': (data: { eventName?: string; userName?: string }) => void;
+  // Promotion / ad / card admin events
+  'promotion:rejected': (data: { title?: string; reason?: string }) => void;
+  'ad:approved': (data: { title?: string }) => void;
+  'ad:rejected': (data: { title?: string }) => void;
+  'card:approved': (data: { cardName?: string }) => void;
+  'card:rejected': (data: { cardName?: string }) => void;
 };
 
 const listeners = new Map<string, Set<(...args: any[]) => void>>();
@@ -131,13 +160,13 @@ function disconnect() {
   listeners.clear();
 }
 
-function on<K extends keyof SocketEvents>(event: K, handler: SocketEvents[K]) {
+function on(event: string, handler: (...args: any[]) => void) {
   if (!listeners.has(event)) listeners.set(event, new Set());
   listeners.get(event)!.add(handler);
   if (socket) socket.on(event, handler as any);
 }
 
-function off<K extends keyof SocketEvents>(event: K, handler: SocketEvents[K]) {
+function off(event: string, handler: (...args: any[]) => void) {
   listeners.get(event)?.delete(handler);
   if (socket) socket.off(event, handler as any);
 }

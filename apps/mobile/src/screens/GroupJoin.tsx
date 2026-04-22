@@ -4,7 +4,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { useJoinGroupMutation } from '../store/api/chatApi';
-import type { RootStackParamList } from './routes';
+import type { RootStackParamList } from '../navigation/routes';
 
 type GroupJoinRoute = RouteProp<RootStackParamList, 'GroupJoin'>;
 

@@ -3,6 +3,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 export interface CarouselAd {
   id: number;
   title: string;
+  description?: string;
   creative_url?: string;
   image_url?: string;
   cta_url?: string;

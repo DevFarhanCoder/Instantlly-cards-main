@@ -43,7 +43,8 @@ async function registerTokenWithBackend(token: string) {
   }
 }
 
-async function getAndRegisterToken(): Promise<string | null> {
+// Exported so auth flows can re-register the token after a fresh login.
+export async function getAndRegisterToken(): Promise<string | null> {
   if (!isDevice) return null;
 
   // Set up Android channels

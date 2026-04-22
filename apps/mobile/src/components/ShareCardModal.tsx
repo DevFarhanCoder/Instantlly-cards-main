@@ -124,6 +124,8 @@ interface ShareCardModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   data: ShareCardData;
+  cardId?: number;
+  cardName?: string;
 }
 
 const ShareCardModal = ({ open, onOpenChange, data }: ShareCardModalProps) => {
