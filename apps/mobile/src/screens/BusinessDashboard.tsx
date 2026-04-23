@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
-  Switch,
   Text,
   View,
 } from "react-native";
@@ -26,10 +24,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useAuth } from "../hooks/useAuth";
-import { useBusinessCards } from "../hooks/useBusinessCards";
 import { usePromotionContext } from "../contexts/PromotionContext";
 import { supabase } from "../integrations/supabase/client";
-import { useListBusinessBookingsQuery, useUpdateBookingStatusMutation } from "../store/api/bookingsApi";
+import { useListBusinessBookingsQuery, useListPromotionBookingsQuery, useUpdateBookingStatusMutation } from "../store/api/bookingsApi";
+import { useGetCardReviewsQuery, useGetPromotionReviewsQuery } from "../store/api/reviewsApi";
+import { useListBusinessLeadsQuery, useListPromotionLeadsQuery } from "../store/api/leadsApi";
 import { useListMyEventsQuery } from "../store/api/eventsApi";
 import { useGetMyCreatedVouchersQuery, useUpdateVoucherStatusMutation } from "../store/api/vouchersApi";
 import BookingCalendar from "../components/business/BookingCalendar";
@@ -42,36 +41,47 @@ import ReviewModeration from "../components/business/ReviewModeration";
 import ServicePricingManager from "../components/business/ServicePricingManager";
 import StaffManager from "../components/business/StaffManager";
 import { AppHeader } from "../components/ui/AppHeader";
+import { NoPromotionCTA } from "../components/business/NoPromotionCTA";
 import { toast } from "../lib/toast";
 
 const BusinessDashboard = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { cards, isLoading, updateCard } = useBusinessCards();
-  const { selectedPromotionId, selectedPromotion } = usePromotionContext();
+  const { selectedPromotionId, selectedPromotion, promotions } = usePromotionContext();
+  const hasAnyPromotion = (promotions?.length ?? 0) > 0;
   const businessName = selectedPromotion?.business_name || "Business";
   const queryClient = useQueryClient();
 
-  const selectedCard = cards.find((c: any) => Number(c.id) === Number(selectedPromotion?.business_card_id));
-  const cardIds = selectedCard ? [selectedCard.id] : [];
-  const primaryCard = selectedCard;
+  const selectedCardIdNum = selectedPromotion?.business_card_id ? Number(selectedPromotion.business_card_id) : null;
+  const selectedCardId = selectedCardIdNum ? String(selectedCardIdNum) : null;
+  const cardIdsNum = selectedCardIdNum ? [selectedCardIdNum] : [];
+  const cardIds = selectedCardId ? [selectedCardId] : [];
 
   useEffect(() => {
-    if (user && !selectedPromotionId) {
+    if (user && !selectedPromotionId && hasAnyPromotion) {
       navigation.navigate("BusinessSelectorScreen");
     }
-  }, [user, selectedPromotionId, navigation]);
+  }, [user, selectedPromotionId, hasAnyPromotion, navigation]);
 
-  const primaryCardId = primaryCard?.id;
-  const numericCardId = typeof primaryCardId === 'string' ? parseInt(primaryCardId, 10) : primaryCardId;
-  const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useListBusinessBookingsQuery(
-    { businessId: numericCardId! },
+  const numericCardId = selectedCardIdNum;
+  const promoIdForBookings = selectedPromotionId ? Number(selectedPromotionId) : null;
+  const cardBookingsQuery = useListBusinessBookingsQuery(
+    numericCardId ? { businessId: numericCardId, promotionId: promoIdForBookings ?? undefined } : ({} as any),
     { skip: !numericCardId }
   );
+  const promoBookingsQuery = useListPromotionBookingsQuery(
+    promoIdForBookings ? { promotionId: promoIdForBookings } : ({} as any),
+    { skip: !promoIdForBookings || !!numericCardId }
+  );
+  const bookingsData = numericCardId ? cardBookingsQuery.data : promoBookingsQuery.data;
+  const bookingsLoading = numericCardId ? cardBookingsQuery.isLoading : promoBookingsQuery.isLoading;
+  const refetchBookings = numericCardId ? cardBookingsQuery.refetch : promoBookingsQuery.refetch;
   const incomingBookings: any[] = bookingsData?.data ?? [];
 
   const { data: myEvents = [], refetch: refetchEvents } = useListMyEventsQuery(undefined, { skip: !user });
-  const scopedEvents = (myEvents as any[]).filter((e: any) => Number(e.business_card_id) === Number(primaryCard?.id));
+  const scopedEvents = (myEvents as any[]).filter((e: any) =>
+    selectedPromotionId ? Number(e.business_promotion_id) === Number(selectedPromotionId) : false
+  );
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -103,50 +113,57 @@ const BusinessDashboard = () => {
   );
   const scopedVouchers = scopedVouchersRaw as any[];
 
-  const { data: reviews = [] } = useQuery({
-    queryKey: ["business-reviews", cardIds],
-    queryFn: async () => {
-      if (cardIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("reviews")
-        .select("*")
-        .in("business_id", cardIds)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: cardIds.length > 0,
-  });
+  const { data: reviewsCard = [] } = useGetCardReviewsQuery(selectedCardIdNum ?? 0, { skip: !selectedCardIdNum });
+  const { data: reviewsPromo = [] } = useGetPromotionReviewsQuery(promotionIdNum ?? 0, { skip: !promotionIdNum || !!selectedCardIdNum });
+  const reviews: any[] = selectedCardIdNum ? (reviewsCard as any[]) : (reviewsPromo as any[]);
+
+  const leadsCardQuery = useListBusinessLeadsQuery(
+    selectedCardIdNum ? { businessId: selectedCardIdNum, promotionId: promotionIdNum ?? undefined } : ({} as any),
+    { skip: !selectedCardIdNum }
+  );
+  const leadsPromoQuery = useListPromotionLeadsQuery(
+    promotionIdNum ? { promotionId: promotionIdNum } : ({} as any),
+    { skip: !promotionIdNum || !!selectedCardIdNum }
+  );
+  const leadsData = selectedCardIdNum ? leadsCardQuery.data : leadsPromoQuery.data;
+  const leads: any[] = leadsData?.data ?? [];
 
   const { data: conversations = [] } = useQuery({
-    queryKey: ["business-conversations", cardIds],
+    queryKey: ["business-conversations", cardIdsNum, selectedPromotionId],
     queryFn: async () => {
-      if (cardIds.length === 0) return [];
+      if (cardIdsNum.length === 0) return [];
       const { data, error } = await supabase
         .from("conversations")
         .select("*")
-        .in("business_id", cardIds)
+        .in("business_id", cardIdsNum)
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return data as any[];
     },
-    enabled: !!user && cardIds.length > 0,
+    enabled: !!user && cardIdsNum.length > 0,
   });
 
   const { data: analyticsData = [] } = useQuery({
-    queryKey: ["business-analytics-summary", cardIds],
+    queryKey: ["business-analytics-summary", selectedPromotionId, cardIdsNum],
     queryFn: async () => {
-      if (cardIds.length === 0) return [];
-      const { data, error } = await supabase
+      if (!promotionIdNum && cardIdsNum.length === 0) return [];
+      let query = supabase
         .from("card_analytics")
         .select("*")
-        .in("business_card_id", cardIds)
         .order("created_at", { ascending: false })
         .limit(500);
+      if (promotionIdNum && cardIdsNum.length > 0) {
+        query = query.or(`business_promotion_id.eq.${promotionIdNum},business_card_id.in.(${cardIdsNum.join(",")})`);
+      } else if (promotionIdNum) {
+        query = query.eq("business_promotion_id", promotionIdNum);
+      } else {
+        query = query.in("business_card_id", cardIdsNum);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as any[];
     },
-    enabled: !!user && cardIds.length > 0,
+    enabled: !!user && (!!promotionIdNum || cardIdsNum.length > 0),
   });
 
   const [updateBookingStatusTrigger] = useUpdateBookingStatusMutation();
@@ -217,63 +234,35 @@ const BusinessDashboard = () => {
     );
   }
 
-  if (isLoading) {
-    return (
-      <View className="flex-1 bg-background">
-        {header}
-        <View className="items-center justify-center px-6 pt-24">
-          <Text className="text-sm text-muted-foreground">Loading your business cards...</Text>
-          <Text className="text-xs text-muted-foreground mt-2">Please check console logs for details</Text>
-        </View>
-      </View>
-    );
-  }
-
   if (!selectedPromotionId) {
     return (
       <View className="flex-1 bg-background">
         {header}
-        <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-sm text-muted-foreground text-center">Opening business selector...</Text>
-        </View>
+        {hasAnyPromotion ? (
+          <View className="flex-1 items-center justify-center px-6">
+            <Text className="text-sm text-muted-foreground text-center">Opening business selector...</Text>
+          </View>
+        ) : (
+          <NoPromotionCTA
+            title="Your dashboard awaits"
+            description="Promote your business to manage bookings, reviews, leads and ads from one place."
+            ctaLabel="Promote Business"
+            featurePills={["📅 Bookings", "⭐ Reviews", "🎯 Leads", "📣 Ads"]}
+          />
+        )}
       </View>
     );
   }
 
-  if (cards.length === 0) {
-    return (
-      <View className="flex-1 bg-background">
-        {header}
-        <View className="items-center justify-center px-6 pt-24">
-          <Text className="text-4xl mb-4">🏪</Text>
-          <Text className="text-lg font-bold text-foreground">No business card yet</Text>
-          <Text className="text-sm text-muted-foreground mt-1">
-            Create a business card to access your dashboard
-          </Text>
-          <Text className="text-xs text-muted-foreground mt-2 text-center">
-            Check console logs or try "My Cards" tab to see if cards exist
-          </Text>
-          <Button className="mt-6 rounded-xl" onPress={() => navigation.navigate("CardCreate")}>
-            Create Business Card
-          </Button>
-          <Button 
-            variant="outline" 
-            className="mt-3 rounded-xl" 
-            onPress={() => navigation.navigate("MyCards")}
-          >
-            View My Cards
-          </Button>
-        </View>
-      </View>
-    );
-  }
-
-  if (!selectedCard) {
+  if (!selectedCardId && !selectedPromotionId) {
     return (
       <View className="flex-1 bg-background">
         {header}
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-sm text-muted-foreground text-center">No business card linked to this listing</Text>
+          <Text className="text-lg font-bold text-foreground">No Promotion Selected</Text>
+          <Text className="text-sm text-muted-foreground text-center mt-1">
+            Select a promoted business from the business selector to view its dashboard.
+          </Text>
         </View>
       </View>
     );
@@ -295,52 +284,6 @@ const BusinessDashboard = () => {
       <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-4" refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
         }>
-        {/* Live/Offline Toggle + Approval Status */}
-        {primaryCard && (
-          <View className="rounded-xl border border-border bg-card p-4 mb-4">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text className="text-sm font-bold text-foreground">
-                  {(primaryCard as any).is_live ? "Live" : "Offline"}
-                </Text>
-                <Text className="text-xs text-muted-foreground">
-                  {(primaryCard as any).is_live
-                    ? "Your card appears in search results"
-                    : "Your card is hidden from search results"}
-                </Text>
-              </View>
-              <Switch
-                value={(primaryCard as any).is_live ?? true}
-                onValueChange={(val) => {
-                  updateCard.mutateAsync({ id: primaryCard.id, is_live: val } as any);
-                }}
-                trackColor={{ false: "#d1d5db", true: "#22c55e" }}
-                thumbColor="#ffffff"
-              />
-            </View>
-            {(primaryCard as any).approval_status === "pending" && (
-              <View className="mt-3 rounded-lg bg-amber-50 p-3">
-                <Text className="text-xs font-semibold text-amber-700">
-                  Pending Approval
-                </Text>
-                <Text className="text-xs text-amber-600 mt-0.5">
-                  Your card is under review. It will appear in search results once approved.
-                </Text>
-              </View>
-            )}
-            {(primaryCard as any).approval_status === "rejected" && (
-              <View className="mt-3 rounded-lg bg-red-50 p-3">
-                <Text className="text-xs font-semibold text-red-700">
-                  Card Rejected
-                </Text>
-                <Text className="text-xs text-red-600 mt-0.5">
-                  Your card was not approved. Please edit and resubmit.
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
           <View className="flex-row gap-2">
             {[
@@ -579,11 +522,11 @@ const BusinessDashboard = () => {
           </TabsContent>
 
           <TabsContent value="leads" className="gap-3 mt-3">
-            {primaryCard ? (
-              <LeadsManager businessCardId={primaryCard.id} />
+            {selectedCardId || selectedPromotionId ? (
+              <LeadsManager businessCardId={selectedCardId ?? undefined} promotionId={selectedPromotionId} />
             ) : (
               <View className="rounded-xl border border-dashed border-border bg-muted/30 p-8 items-center">
-                <Text className="text-sm text-muted-foreground">No business card yet</Text>
+                <Text className="text-sm text-muted-foreground">No listing selected</Text>
               </View>
             )}
           </TabsContent>
@@ -598,10 +541,10 @@ const BusinessDashboard = () => {
                 <QrCode size={16} color="#2563eb" />
                 <Text className="text-sm font-bold text-foreground">QR Code for Print</Text>
               </View>
-              {primaryCard && (
+              {selectedCardId && (
                 <View className="items-center gap-3">
                   <View className="bg-white p-4 rounded-xl">
-                    <QRCode value={`https://instantlly.lovable.app/card/${primaryCard.id}`} size={160} />
+                    <QRCode value={`https://instantlly.lovable.app/card/${selectedCardId}`} size={160} />
                   </View>
                   <Text className="text-xs text-muted-foreground text-center">
                     Scan to view your business card
@@ -610,18 +553,18 @@ const BusinessDashboard = () => {
               )}
             </View>
 
-            {primaryCard ? (
+            {selectedCardId ? (
               <View className="gap-3">
-                <BusinessHoursEditor businessCardId={primaryCard.id} />
-                <ServicePricingManager businessCardId={primaryCard.id} />
-                <PhotoGalleryManager businessCardId={primaryCard.id} />
-                <LocationManager businessCardId={primaryCard.id} />
-                <StaffManager businessCardId={primaryCard.id} />
-                <PushCampaigns businessCardId={primaryCard.id} />
+                <BusinessHoursEditor businessCardId={selectedCardId} />
+                <ServicePricingManager businessCardId={selectedCardId} />
+                <PhotoGalleryManager businessCardId={selectedCardId} />
+                <LocationManager businessCardId={selectedCardId} />
+                <StaffManager businessCardId={selectedCardId} />
+                <PushCampaigns businessCardId={selectedCardId} />
               </View>
             ) : (
               <View className="rounded-xl border border-dashed border-border bg-muted/30 p-8 items-center">
-                <Text className="text-sm text-muted-foreground">Create a business card to access tools</Text>
+                <Text className="text-sm text-muted-foreground">Complete promotion profile setup to access tools</Text>
               </View>
             )}
           </TabsContent>

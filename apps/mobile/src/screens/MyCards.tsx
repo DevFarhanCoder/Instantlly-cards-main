@@ -44,7 +44,7 @@ import { useBusinessCards, type BusinessCardRow } from "../hooks/useBusinessCard
 import { useDirectoryCards } from "../hooks/useDirectoryCards";
 import { useAppDispatch } from "../store";
 import { setActiveRole } from "../store/authSlice";
-import { useGetMyPromotionsQuery, useUpdatePromotionMutation } from "../store/api/promotionsApi";
+import { useDeletePromotionMutation, useGetMyPromotionsQuery, useUpdatePromotionMutation } from "../store/api/promotionsApi";
 import BusinessOnboarding from "../components/business/BusinessOnboarding";
 import { toast } from "../lib/toast";
 import { getTierLabel, getTierColor, type Tier } from "../utils/tierFeatures";
@@ -65,7 +65,19 @@ const MyCards = () => {
   const { cards, isLoading, deleteCard, refetch: refetchCards } = useBusinessCards() as any;
   const { data: directoryCards = [], isLoading: isFetchingNetwork, refetch: refetchDirectory } = useDirectoryCards();
   const { data: myPromotions = [], refetch: refetchPromotions } = useGetMyPromotionsQuery(undefined, { skip: !user });
+  const visiblePromotions = [...(myPromotions as any[])].sort((a: any, b: any) => {
+    const aCancelled = a?.status === 'cancelled' ? 0 : 1;
+    const bCancelled = b?.status === 'cancelled' ? 0 : 1;
+    if (aCancelled !== bCancelled) return aCancelled - bCancelled;
+    const aTime = new Date(a?.updated_at || a?.created_at || 0).getTime();
+    const bTime = new Date(b?.updated_at || b?.created_at || 0).getTime();
+    return bTime - aTime;
+  });
   const [updatePromotion] = useUpdatePromotionMutation();
+  const [deletePromotion] = useDeletePromotionMutation();
+  const [promotionToDelete, setPromotionToDelete] = useState<any | null>(null);
+  const [promotionToPermanentDelete, setPromotionToPermanentDelete] = useState<any | null>(null);
+  const [isDeletingPromotion, setIsDeletingPromotion] = useState(false);
 
   // Build a map from business_card_id → promotion info
   const promoByCardId = (myPromotions as any[]).reduce((acc: Record<number, any>, p: any) => {
@@ -164,6 +176,85 @@ const MyCards = () => {
     
     setShareCard(null);
   };
+
+  const handleConfirmPromotionDelete = useCallback(async () => {
+    if (!promotionToDelete) return;
+    try {
+      console.log('[MyCards][DeletePromotion] confirm-start', {
+        promotionId: promotionToDelete.id,
+        businessName: promotionToDelete.business_name,
+        currentStatus: promotionToDelete.status,
+      });
+      setIsDeletingPromotion(true);
+      const result = await updatePromotion({ id: promotionToDelete.id, data: { status: 'cancelled' } }).unwrap();
+      console.log('[MyCards][DeletePromotion] api-success', {
+        promotionId: promotionToDelete.id,
+        returnedStatus: result?.status,
+      });
+      toast.success("Promotion deleted successfully");
+      setPromotionToDelete(null);
+      refetchPromotions();
+    } catch (e: any) {
+      console.error('[MyCards][DeletePromotion] api-failed', {
+        promotionId: promotionToDelete?.id,
+        error: e,
+        data: e?.data,
+        message: e?.message,
+        status: e?.status,
+      });
+      toast.error(e?.data?.error || "Failed to delete promotion");
+    } finally {
+      setIsDeletingPromotion(false);
+      console.log('[MyCards][DeletePromotion] confirm-end');
+    }
+  }, [promotionToDelete, refetchPromotions, updatePromotion]);
+
+  const handleUndoPromotionCancel = useCallback(async (promo: any) => {
+    try {
+      console.log('[MyCards][UndoCancelPromotion] start', {
+        promotionId: promo.id,
+        businessName: promo.business_name,
+        currentStatus: promo.status,
+      });
+      await updatePromotion({ id: promo.id, data: { status: 'active' } }).unwrap();
+      toast.success('Promotion restored');
+      refetchPromotions();
+    } catch (e: any) {
+      console.error('[MyCards][UndoCancelPromotion] failed', {
+        promotionId: promo?.id,
+        error: e,
+        data: e?.data,
+        message: e?.message,
+      });
+      toast.error(e?.data?.error || 'Failed to undo cancel');
+    }
+  }, [refetchPromotions, updatePromotion]);
+
+  const handleConfirmPermanentPromotionDelete = useCallback(async () => {
+    if (!promotionToPermanentDelete) return;
+    try {
+      setIsDeletingPromotion(true);
+      console.log('[MyCards][PermanentDeletePromotion] confirm-start', {
+        promotionId: promotionToPermanentDelete.id,
+        businessName: promotionToPermanentDelete.business_name,
+      });
+      await deletePromotion(promotionToPermanentDelete.id).unwrap();
+      toast.success('Promotion deleted permanently');
+      setPromotionToPermanentDelete(null);
+      refetchPromotions();
+    } catch (e: any) {
+      console.error('[MyCards][PermanentDeletePromotion] failed', {
+        promotionId: promotionToPermanentDelete?.id,
+        error: e,
+        data: e?.data,
+        message: e?.message,
+      });
+      toast.error(e?.data?.error || 'Failed to delete permanently');
+    } finally {
+      setIsDeletingPromotion(false);
+      console.log('[MyCards][PermanentDeletePromotion] confirm-end');
+    }
+  }, [deletePromotion, promotionToPermanentDelete, refetchPromotions]);
 
   if (!user) {
     return (
@@ -582,7 +673,7 @@ const MyCards = () => {
         )}
 
         {/* My Promotions Section */}
-        {(myPromotions as any[]).length > 0 && (
+        {visiblePromotions.length > 0 && (
           <View className="px-4 py-2">
             <View className="my-3 flex-row items-center gap-3">
               <View className="h-px flex-1 bg-border" />
@@ -590,7 +681,7 @@ const MyCards = () => {
               <View className="h-px flex-1 bg-border" />
             </View>
             <View className="gap-3">
-              {(myPromotions as any[]).map((promo: any) => {
+              {visiblePromotions.map((promo: any) => {
                 const tier = (promo.tier || 'free') as Tier;
                 const isPremium = tier !== 'free' && promo.status === 'active';
                 const statusColor = promo.status === 'active'
@@ -650,37 +741,50 @@ const MyCards = () => {
                           <DropdownMenuItem onPress={() => navigation.navigate("BusinessDetail", { id: `promo-${promo.id}` })}>
                             <Eye size={14} color="#111827" /> View
                           </DropdownMenuItem>
-                          <DropdownMenuItem onPress={() => navigation.navigate("BusinessPromotionForm", { promotionId: promo.id, editMode: true })}>
-                            <Edit size={14} color="#111827" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onPress={async () => {
-                              try {
-                                await updatePromotion({ id: promo.id, data: { status: 'cancelled' } }).unwrap();
-                                toast.success("Promotion cancelled");
-                                refetchPromotions();
-                              } catch (e: any) {
-                                toast.error(e?.data?.error || "Failed to cancel");
-                              }
-                            }}
-                          >
-                            <Trash2 size={14} color="#ef4343" /> Delete
-                          </DropdownMenuItem>
+                          {isBusiness && (
+                            <DropdownMenuItem onPress={() => navigation.navigate("BusinessPromotionForm", { promotionId: promo.id, editMode: true })}>
+                              <Edit size={14} color="#111827" /> Edit
+                            </DropdownMenuItem>
+                          )}
+                          {isBusiness && <DropdownMenuSeparator />}
+                          {isBusiness && promo.status !== 'cancelled' && (
+                            <DropdownMenuItem className="text-destructive" onPress={() => {
+                              console.log('[MyCards][DeletePromotion] menu-click', {
+                                promotionId: promo.id,
+                                businessName: promo.business_name,
+                                status: promo.status,
+                                tier: promo.tier,
+                              });
+                              setPromotionToDelete(promo);
+                            }}>
+                              <Trash2 size={14} color="#ef4343" /> Cancel
+                            </DropdownMenuItem>
+                          )}
+                          {isBusiness && promo.status === 'cancelled' && (
+                            <DropdownMenuItem onPress={() => handleUndoPromotionCancel(promo)}>
+                              <Edit size={14} color="#111827" /> Undo Cancel
+                            </DropdownMenuItem>
+                          )}
+                          {isBusiness && promo.status === 'cancelled' && (
+                            <DropdownMenuItem className="text-destructive" onPress={() => setPromotionToPermanentDelete(promo)}>
+                              <Trash2 size={14} color="#ef4343" /> Delete Permanently
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     }
                     actions={
-                      promo.status === 'pending_payment' ? (
-                        <Button
-                          size="sm"
-                          className="rounded-lg bg-amber-500"
-                          onPress={() => navigation.navigate("PremiumPlanSelection", { promotionId: promo.id, businessCardId: promo.business_card_id })}
-                        >
-                          <Text className="text-xs font-medium text-white">💳 Complete Payment</Text>
-                        </Button>
-                      ) : undefined
+                      <View className="gap-2">
+                        {promo.status === 'pending_payment' ? (
+                          <Button
+                            size="sm"
+                            className="rounded-lg bg-amber-500"
+                            onPress={() => navigation.navigate("PremiumPlanSelection", { promotionId: promo.id, businessCardId: promo.business_card_id })}
+                          >
+                            <Text className="text-xs font-medium text-white">💳 Complete Payment</Text>
+                          </Button>
+                        ) : null}
+                      </View>
                     }
                   />
                 );
@@ -849,6 +953,76 @@ const MyCards = () => {
               onPress={handleWhatsAppShare}
             >
               💬 Share via WhatsApp
+            </Button>
+          </View>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!promotionToDelete} onOpenChange={() => setPromotionToDelete(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cancel Promotion?</DialogTitle>
+          </DialogHeader>
+          <View className="gap-3 py-2">
+            <Text className="text-sm text-muted-foreground">
+              You are about to cancel
+              <Text className="font-semibold text-foreground"> {promotionToDelete?.business_name || "this promotion"}</Text>.
+            </Text>
+            <Text className="text-xs text-destructive">
+              This will hide this promotion from active lists. You can undo this later from the three-dot menu.
+            </Text>
+          </View>
+          <View className="mt-2 flex-row gap-2">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-xl"
+              disabled={isDeletingPromotion}
+              onPress={() => setPromotionToDelete(null)}
+            >
+              Keep
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1 rounded-xl"
+              disabled={isDeletingPromotion}
+              onPress={handleConfirmPromotionDelete}
+            >
+              {isDeletingPromotion ? "Cancelling..." : "Cancel Promotion"}
+            </Button>
+          </View>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!promotionToPermanentDelete} onOpenChange={() => setPromotionToPermanentDelete(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Permanently?</DialogTitle>
+          </DialogHeader>
+          <View className="gap-3 py-2">
+            <Text className="text-sm text-muted-foreground">
+              You are about to permanently delete
+              <Text className="font-semibold text-foreground"> {promotionToPermanentDelete?.business_name || "this promotion"}</Text>.
+            </Text>
+            <Text className="text-xs text-destructive">
+              This action is irreversible.
+            </Text>
+          </View>
+          <View className="mt-2 flex-row gap-2">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-xl"
+              disabled={isDeletingPromotion}
+              onPress={() => setPromotionToPermanentDelete(null)}
+            >
+              Keep
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1 rounded-xl"
+              disabled={isDeletingPromotion}
+              onPress={handleConfirmPermanentPromotionDelete}
+            >
+              {isDeletingPromotion ? "Deleting..." : "Delete Permanently"}
             </Button>
           </View>
         </DialogContent>

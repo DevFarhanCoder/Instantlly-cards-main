@@ -58,12 +58,27 @@ export function PromotionProvider({ children }: { children: React.ReactNode }) {
   console.log(`[PromotionContext] render: allPromos=${allPromos.length} selectedId=${selectedId} promos=${JSON.stringify(allPromos.map((p: any) => ({ id: p.id, name: p.business_name, tier: p.tier, status: p.status })))}`);
 
   const effectiveSelectedId = useMemo(() => {
-    // If user explicitly selected a promotion that exists, use it
+    // If still loading promotions, keep stored id so we don't flash empty state.
+    if (isLoading) return selectedId;
+    // If user explicitly selected a promotion that exists, use it.
     if (selectedId && allPromos.some((p: any) => p.id === selectedId)) return selectedId;
-    // Auto-select if only one promotion
+    // Auto-select if only one promotion.
     if (allPromos.length === 1) return allPromos[0].id;
-    return selectedId;
-  }, [selectedId, allPromos]);
+    // User has no promotions, or selection no longer exists → expose null so
+    // screens can render a "Promote Business" CTA instead of a stale upgrade prompt.
+    return null;
+  }, [selectedId, allPromos, isLoading]);
+
+  // Clear stale stored selection once promotions have loaded and the saved id is gone.
+  useEffect(() => {
+    if (isLoading) return;
+    if (!selectedId) return;
+    const stillExists = allPromos.some((p: any) => p.id === selectedId);
+    if (!stillExists) {
+      setSelectedId(null);
+      AsyncStorage.removeItem(SELECTED_PROMOTION_KEY).catch(() => {});
+    }
+  }, [isLoading, selectedId, allPromos]);
 
   const selectedPromotion = useMemo(
     () => (promotions as any[]).find((p: any) => p.id === effectiveSelectedId) ?? null,

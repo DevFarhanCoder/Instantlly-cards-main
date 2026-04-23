@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, Calendar, ChevronLeft, ChevronRight, Clock, MapPin, Users } from "lucide-react-native";
@@ -16,7 +16,7 @@ import {
 import { Switch } from "../components/ui/switch";
 import { useAuth } from "../hooks/useAuth";
 import { useUserRole } from "../hooks/useUserRole";
-import { useBusinessCards } from "../hooks/useBusinessCards";
+import { usePromotionContext } from "../contexts/PromotionContext";
 import { useCreateEvent } from "../hooks/useEvents";
 import { toast } from "../lib/toast";
 
@@ -47,7 +47,7 @@ const EventCreate = () => {
   const preselectedCardId = route?.params?.cardId || "";
   const { user } = useAuth();
   const { isBusiness } = useUserRole();
-  const { cards } = useBusinessCards();
+  const { selectedPromotion, selectedPromotionId } = usePromotionContext();
   const createEvent = useCreateEvent();
 
   // Block non-business users from accessing this screen
@@ -64,16 +64,8 @@ const EventCreate = () => {
     );
   }
 
-  const defaultCardId = useMemo(() => {
-    if (preselectedCardId) return preselectedCardId;
-    if (cards.length === 1) return cards[0].id;
-    return "";
-  }, [preselectedCardId, cards]);
-
-  const defaultOrganizer = useMemo(() => {
-    if (!defaultCardId) return "";
-    return cards.find((c) => c.id === defaultCardId)?.full_name || "";
-  }, [cards, defaultCardId]);
+  const defaultPromotionId = selectedPromotionId ? Number(selectedPromotionId) : 0;
+  const defaultOrganizer = selectedPromotion?.business_name || "";
 
   const [form, setForm] = useState({
     title: "",
@@ -85,15 +77,9 @@ const EventCreate = () => {
     is_free: true,
     price: 0,
     max_attendees: "",
-    business_card_id: defaultCardId,
+    business_promotion_id: defaultPromotionId,
     organizer_name: defaultOrganizer,
   });
-
-  const selectedCardLabel = useMemo(() => {
-    const card = cards.find((c) => c.id === form.business_card_id);
-    if (!card) return "";
-    return card.full_name + (card.company_name ? ` — ${card.company_name}` : "");
-  }, [cards, form.business_card_id]);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -133,9 +119,9 @@ const EventCreate = () => {
       return;
     }
 
-    const cardId = form.business_card_id || (cards.length > 0 ? cards[0].id : "");
-    if (!cardId) {
-      toast.error("No business card found. Please create a business card first.");
+    const promotionIdNum = form.business_promotion_id || (selectedPromotionId ? Number(selectedPromotionId) : 0);
+    if (!promotionIdNum) {
+      toast.error("Please select a promoted business first.");
       return;
     }
 
@@ -150,7 +136,7 @@ const EventCreate = () => {
         max_attendees: form.max_attendees
           ? parseInt(form.max_attendees, 10)
           : undefined,
-        business_id: parseInt(String(cardId), 10),
+        business_promotion_id: promotionIdNum,
       };
       console.log('[EventCreate] submitting payload:', JSON.stringify(payload));
       await createEvent.mutateAsync(payload);
@@ -177,28 +163,14 @@ const EventCreate = () => {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 16, gap: 16 }} className="px-4 py-5">
-        {cards.length > 0 && (
-          <View className="gap-2">
-            <Label>Link to Business Card</Label>
-            <Select
-              value={form.business_card_id}
-              onValueChange={(v) => update("business_card_id", v)}
-            >
-              <SelectTrigger className="rounded-xl">
-                <Text className={`text-sm ${selectedCardLabel ? "text-foreground" : "text-muted-foreground"}`}>
-                  {selectedCardLabel || "Select a business card"}
-                </Text>
-              </SelectTrigger>
-              <SelectContent>
-                {cards.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.full_name} {c.company_name ? `— ${c.company_name}` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </View>
-        )}
+        <View className="rounded-xl border border-border bg-card p-3">
+          <Text className="text-xs text-muted-foreground">
+            Event will be linked to selected promotion{selectedPromotion?.business_name ? `: ${selectedPromotion.business_name}` : ""}.
+          </Text>
+          {!selectedPromotionId && (
+            <Text className="text-xs text-destructive mt-1">Please select a promoted business first.</Text>
+          )}
+        </View>
 
         <View className="gap-2">
           <Label>Event Title *</Label>

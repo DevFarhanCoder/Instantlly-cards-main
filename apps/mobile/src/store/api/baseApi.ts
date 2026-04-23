@@ -35,7 +35,15 @@ const rawBaseQuery = fetchBaseQuery({
  * Base query with automatic JWT refresh on 401.
  * On 401: attempts refresh once, updates tokens in store + SecureStore, retries.
  * On refresh failure: clears credentials (forces logout).
+ *
+ * Singleflight: when many queries 401 in parallel (common when the access
+ * token expires while multiple screens are loading), only ONE /refresh is
+ * sent. The rest await the same promise and reuse the new token. Without
+ * this, parallel /refresh calls collide on the server's rotation logic and
+ * all but the first return 401 → mass logout.
  */
+let refreshPromise: Promise<{ accessToken: string; refreshToken: string } | null> | null = null;
+
 const baseQueryWithReauth: BaseQueryFn<
   string | FetchArgs,
   unknown,
@@ -69,22 +77,41 @@ const baseQueryWithReauth: BaseQueryFn<
       state?.refreshToken ?? (await SecureStore.getItemAsync('refreshToken'));
 
     if (storedRefresh) {
-      const refreshResult = await rawBaseQuery(
-        {
-          url: '/auth/refresh',
-          method: 'POST',
-          body: { refreshToken: storedRefresh },
-        },
-        api,
-        extraOptions
-      );
+      // Singleflight: if a refresh is already in progress, wait for it
+      // instead of starting a parallel one (which would race and fail).
+      if (!refreshPromise) {
+        refreshPromise = (async () => {
+          try {
+            const r = await rawBaseQuery(
+              {
+                url: '/auth/refresh',
+                method: 'POST',
+                body: { refreshToken: storedRefresh },
+              },
+              api,
+              extraOptions
+            );
+            if (r.data) {
+              const { accessToken, refreshToken } = r.data as any;
+              api.dispatch(updateTokens({ accessToken, refreshToken }));
+              await SecureStore.setItemAsync('accessToken', accessToken);
+              await SecureStore.setItemAsync('refreshToken', refreshToken);
+              return { accessToken, refreshToken };
+            }
+            return null;
+          } catch {
+            return null;
+          } finally {
+            // Clear after a short delay so near-simultaneous callers still
+            // hit the cached promise rather than starting a new refresh.
+            setTimeout(() => { refreshPromise = null; }, 500);
+          }
+        })();
+      }
 
-      if (refreshResult.data) {
-        const { accessToken, refreshToken } = refreshResult.data as any;
-        api.dispatch(updateTokens({ accessToken, refreshToken }));
-        await SecureStore.setItemAsync('accessToken', accessToken);
-        await SecureStore.setItemAsync('refreshToken', refreshToken);
+      const tokens = await refreshPromise;
 
+      if (tokens) {
         // Retry original request with new token
         result = await rawBaseQuery(args, api, extraOptions);
       } else {
@@ -121,6 +148,7 @@ export const baseApi = createApi({
     'GroupMessages',
     'Referral',
     'Credits',
+    'Lead',
   ],
   endpoints: () => ({}),
 });

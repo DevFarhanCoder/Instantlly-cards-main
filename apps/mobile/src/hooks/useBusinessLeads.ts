@@ -1,60 +1,87 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../integrations/supabase/client";
+﻿import {
+  useListBusinessLeadsQuery,
+  useListPromotionLeadsQuery,
+  useCreateLeadMutation,
+  useUpdateLeadStatusMutation,
+} from "../store/api/leadsApi";
 import { useAuth } from "./useAuth";
 import { toast } from "../lib/toast";
 
-export const useBusinessLeads = (businessCardId?: string) => {
+interface LeadInput {
+  business_card_id?: string | number;
+  business_promotion_id?: string | number;
+  full_name: string;
+  email?: string;
+  phone?: string;
+  message?: string;
+  source?: string;
+}
+
+export const useBusinessLeads = (
+  businessCardId?: string | number | null,
+  promotionId?: string | number | null
+) => {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
+  const cardId = businessCardId ? Number(businessCardId) : 0;
+  const promoId = promotionId ? Number(promotionId) : 0;
 
-  const { data: leads = [], isLoading } = useQuery({
-    queryKey: ["business-leads", businessCardId],
-    queryFn: async () => {
-      if (!businessCardId) return [];
-      const { data, error } = await supabase
-        .from("business_leads" as any)
-        .select("*")
-        .eq("business_card_id", businessCardId)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: !!user && !!businessCardId,
+  const cardQuery = useListBusinessLeadsQuery(
+    cardId ? { businessId: cardId, promotionId: promoId || undefined } : ({} as any),
+    { skip: !user || !cardId }
+  );
+  const promoQuery = useListPromotionLeadsQuery(
+    promoId ? { promotionId: promoId } : ({} as any),
+    { skip: !user || !promoId || !!cardId }
+  );
+  const active = cardId ? cardQuery : promoQuery;
+
+  const raw = (active.data?.data ?? []) as any[];
+  const leads = raw.map((l: any) => ({
+    id: String(l.id),
+    full_name: l.customer_name ?? l.full_name ?? "",
+    phone: l.customer_phone ?? l.phone ?? null,
+    email: l.customer_email ?? l.email ?? null,
+    message: l.message ?? null,
+    status: l.status,
+    source: l.source ?? null,
+    created_at: l.created_at,
+    business_id: l.business_id,
+    business_promotion_id: l.business_promotion_id,
+  }));
+
+  const [createLeadTrigger] = useCreateLeadMutation();
+  const buildPayload = (lead: LeadInput) => ({
+    business_id: lead.business_card_id ? Number(lead.business_card_id) : undefined,
+    business_promotion_id: lead.business_promotion_id
+      ? Number(lead.business_promotion_id)
+      : undefined,
+    customer_name: lead.full_name,
+    customer_phone: lead.phone,
+    customer_email: lead.email,
+    message: lead.message,
   });
 
-  const submitLead = useMutation({
-    mutationFn: async (lead: {
-      business_card_id: string;
-      full_name: string;
-      email?: string;
-      phone?: string;
-      message?: string;
-      source?: string;
-    }) => {
-      const { error } = await supabase.from("business_leads" as any).insert(lead);
-      if (error) throw error;
+  const submitLead = {
+    mutate: (lead: LeadInput) => {
+      createLeadTrigger(buildPayload(lead))
+        .unwrap()
+        .then(() => toast.success("Your inquiry has been sent!"))
+        .catch(() => toast.error("Failed to send inquiry"));
     },
-    onSuccess: () => {
-      toast.success("Your inquiry has been sent!");
+    mutateAsync: async (lead: LeadInput) => {
+      return createLeadTrigger(buildPayload(lead)).unwrap();
     },
-    onError: () => {
-      toast.error("Failed to send inquiry");
-    },
-  });
+  };
 
-  const updateLeadStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase
-        .from("business_leads" as any)
-        .update({ status })
-        .eq("id", id);
-      if (error) throw error;
+  const [updateStatusTrigger] = useUpdateLeadStatusMutation();
+  const updateLeadStatus = {
+    mutate: ({ id, status }: { id: string | number; status: string }) => {
+      updateStatusTrigger({ id: Number(id), status })
+        .unwrap()
+        .then(() => toast.success("Lead status updated!"))
+        .catch(() => toast.error("Failed to update lead"));
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["business-leads"] });
-      toast.success("Lead status updated!");
-    },
-  });
+  };
 
-  return { leads, isLoading, submitLead, updateLeadStatus };
+  return { leads, isLoading: active.isLoading, submitLead, updateLeadStatus };
 };
