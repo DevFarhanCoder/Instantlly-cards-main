@@ -27,10 +27,15 @@ const NotificationContext = createContext<NotificationContextType>({
 });
 
 async function registerTokenWithBackend(token: string) {
+  console.log("[PushNotifications] registerTokenWithBackend called, API_URL=", API_URL);
   try {
     const accessToken = await SecureStore.getItemAsync("accessToken");
-    if (!accessToken) return; // Not logged in yet — token will be registered after login
-    await fetch(`${API_URL}/api/users/push-token`, {
+    if (!accessToken) {
+      console.warn("[PushNotifications] No accessToken in SecureStore — skipping registration");
+      return; // Not logged in yet — token will be registered after login
+    }
+    console.log("[PushNotifications] Sending push token to backend...");
+    const res = await fetch(`${API_URL}/api/users/push-token`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -38,13 +43,19 @@ async function registerTokenWithBackend(token: string) {
       },
       body: JSON.stringify({ pushToken: token }),
     });
-  } catch {
-    // Non-fatal — will retry on next permission request
+    console.log("[PushNotifications] Backend responded:", res.status);
+    if (!res.ok) {
+      const text = await res.text();
+      console.warn("[PushNotifications] Backend error body:", text);
+    }
+  } catch (e) {
+    console.error("[PushNotifications] registerTokenWithBackend fetch failed:", e);
   }
 }
 
 // Exported so auth flows can re-register the token after a fresh login.
 export async function getAndRegisterToken(): Promise<string | null> {
+  console.log("[PushNotifications] getAndRegisterToken called, isDevice=", isDevice);
   if (!isDevice) return null;
 
   // Set up Android channels
@@ -82,13 +93,30 @@ export async function getAndRegisterToken(): Promise<string | null> {
     Constants.expoConfig?.extra?.eas?.projectId ??
     Constants.easConfig?.projectId;
 
+  console.log("[PushNotifications] projectId=", projectId);
+
   if (!projectId) {
     console.warn("[PushNotifications] No EAS project ID found in config");
     return null;
   }
 
+  // Check permission before trying
+  const { status: permStatus } = await ExpoNotifications.getPermissionsAsync();
+  console.log("[PushNotifications] notification permission status=", permStatus);
+  if (permStatus !== "granted") {
+    console.warn("[PushNotifications] Permission not granted, requesting...");
+    const { status: newStatus } = await ExpoNotifications.requestPermissionsAsync();
+    console.log("[PushNotifications] After request, status=", newStatus);
+    if (newStatus !== "granted") {
+      console.warn("[PushNotifications] Permission denied — cannot get push token");
+      return null;
+    }
+  }
+
   try {
+    console.log("[PushNotifications] Calling getExpoPushTokenAsync...");
     const { data: token } = await ExpoNotifications.getExpoPushTokenAsync({ projectId });
+    console.log("[PushNotifications] Got token:", token?.slice(0, 40));
     await registerTokenWithBackend(token);
     return token;
   } catch (e) {
