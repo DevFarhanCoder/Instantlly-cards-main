@@ -30,7 +30,7 @@
       "channel": "production",
       "android": {
         "buildType": "app-bundle",
-        "credentialsSource": "remote"
+        "credentialsSource": "local"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://backend.instantllycards.com"
