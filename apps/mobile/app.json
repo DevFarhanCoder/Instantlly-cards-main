@@ -2,7 +2,7 @@
   "expo": {
     "name": "Instantly Cards",
     "slug": "mobile",
-    "version": "1.0.85",
+    "version": "1.0.86",
     "scheme": "instantllycards",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -25,7 +25,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.instantllycards.www.twa",
-      "versionCode": 85,
+      "versionCode": 86,
       "intentFilters": [
         {
           "action": "VIEW",
