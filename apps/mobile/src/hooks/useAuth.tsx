@@ -162,7 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await SecureStore.setItemAsync('refreshToken', data.refreshToken);
       // Re-register push token so the backend maps it to this specific user.
       // Fire-and-forget — never block the sign-in flow.
-      getAndRegisterToken().catch(() => {});
+      console.log('[SIGNIN] Triggering getAndRegisterToken after login...');
+      getAndRegisterToken().then(t => console.log('[SIGNIN] Push token registered:', t?.slice(0, 30) ?? 'null')).catch(e => console.error('[SIGNIN] getAndRegisterToken threw:', e));
       console.log(`[SIGNIN] Success — userId: ${data.user.id}, roles: [${data.user.roles.join(', ')}]`);
       return { user: data.user };
     } catch (e: any) {
@@ -188,7 +189,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await SecureStore.setItemAsync('accessToken', data.accessToken);
       await SecureStore.setItemAsync('refreshToken', data.refreshToken);
       // Re-register push token so the backend maps it to this specific user.
-      getAndRegisterToken().catch(() => {});
+      console.log('[SIGNUP] Triggering getAndRegisterToken after signup...');
+      getAndRegisterToken().then(t => console.log('[SIGNUP] Push token registered:', t?.slice(0, 30) ?? 'null')).catch(e => console.error('[SIGNUP] getAndRegisterToken threw:', e));
       console.log(`[SIGNUP] Success — userId: ${data.user.id}, roles: [${data.user.roles.join(', ')}]`);
       return { user: data.user };
     } catch (e: any) {
