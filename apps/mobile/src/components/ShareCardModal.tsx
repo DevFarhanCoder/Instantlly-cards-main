@@ -156,8 +156,8 @@ const ShareCardModal = ({ open, onOpenChange, data }: ShareCardModalProps) => {
   const handleWhatsApp = async () => {
     try {
       const result = await generateAndShareCardImage(cardViewRef, data, "whatsapp");
-      if (!result.success && result.error !== "native_module_not_available") {
-        // Fallback to text-only if image capture fails
+      if (!result.success) {
+        // Fallback to text-only share when image generation fails or native module unavailable
         const message = buildWhatsAppMessage(data, referralPlayStoreLink);
         const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
         const canOpen = await Linking.canOpenURL(whatsappUrl);
