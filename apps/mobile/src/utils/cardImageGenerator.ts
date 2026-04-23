@@ -246,11 +246,6 @@ export async function generateAndShareCardImage(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!captureRef) {
-      Alert.alert(
-        "Feature Not Available",
-        "Card image sharing requires app rebuild.\n\nPlease rebuild the app with:\n\nnpx expo run:android",
-        [{ text: "OK" }],
-      );
       return { success: false, error: "native_module_not_available" };
     }
 
