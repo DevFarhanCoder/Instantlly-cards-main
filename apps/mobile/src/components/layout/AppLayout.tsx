@@ -40,6 +40,7 @@ const AppLayout = ({
     .reduce((sum, c) => sum + (c.unreadCount || 0), 0);
   const combinedUnreadCount = (unreadCount || 0) + chatUnreadCount;
   const combinedUnreadLabel = combinedUnreadCount > 99 ? "99+" : String(combinedUnreadCount);
+  const notifUnreadLabel = unreadCount > 99 ? "99+" : String(unreadCount);
   const chatUnreadLabel = chatUnreadCount > 99 ? "99+" : String(chatUnreadCount);
   const enterAnim = useRef(new Animated.Value(0)).current;
   const [showBulkSend, setShowBulkSend] = useState(false);
@@ -85,10 +86,10 @@ const AppLayout = ({
             style={[styles.iconButton, compactHeader && styles.iconButtonCompact]}
           >
             <Bell size={20} color={colors.foreground} />
-            {combinedUnreadCount > 0 && (
+            {unreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
-                  {combinedUnreadLabel}
+                  {notifUnreadLabel}
                 </Text>
               </View>
             )}
