@@ -62,7 +62,9 @@ const VoucherDetail = () => {
       setClaimedCode(result.code);
       setShowPurchase(false);
       setShowRedemption(true);
-    } catch {}
+    } catch (e: any) {
+      // error toast is handled by useClaimVoucher hook
+    }
   };
 
   return (
@@ -130,8 +132,8 @@ const VoucherDetail = () => {
       </div>
 
       <div className="fixed bottom-20 left-0 right-0 border-t border-border bg-card px-4 py-3">
-        <Button className="w-full gap-2 rounded-xl py-6 text-base" onClick={() => setShowPurchase(true)} disabled={claimVoucher.isPending}>
-          Buy Now — ₹{voucher.discounted_price.toLocaleString()}
+        <Button className="w-full gap-2 rounded-xl py-6 text-base" onClick={() => setShowPurchase(true)} disabled={claimVoucher.isPending || (expiryDays !== null && expiryDays < 0)}>
+          {expiryDays !== null && expiryDays < 0 ? "Voucher Expired" : `Buy Now — ₹${voucher.discounted_price.toLocaleString()}`}
         </Button>
       </div>
 

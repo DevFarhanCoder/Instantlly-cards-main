@@ -11,6 +11,7 @@ import { useAuth } from "../hooks/useAuth";
 import { usePromotionContext } from "../contexts/PromotionContext";
 import { hasFeature } from "../utils/tierFeatures";
 import { UpgradePrompt } from "../components/business/UpgradePrompt";
+import { NoPromotionCTA } from "../components/business/NoPromotionCTA";
 
 const statusColors: Record<string, string> = {
   active: "bg-green-500/10 text-green-600",
@@ -45,8 +46,9 @@ const demoAds = [
 const Ads = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { tier, selectedPromotionId, selectedPromotion } = usePromotionContext();
+  const { tier, selectedPromotionId, selectedPromotion, promotions } = usePromotionContext();
   const hasSelectedListing = Boolean(selectedPromotionId);
+  const hasAnyPromotion = (promotions?.length ?? 0) > 0;
   const canViewAds = hasSelectedListing && hasFeature(tier, "basic_ads");
   const canCreateAds = hasSelectedListing && hasFeature(tier, "ads");
   const promotionStatus = selectedPromotion?.status || "active";
@@ -55,10 +57,10 @@ const Ads = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (user && !selectedPromotionId) {
+    if (user && !selectedPromotionId && hasAnyPromotion) {
       navigation.navigate("BusinessSelectorScreen");
     }
-  }, [user, selectedPromotionId, navigation]);
+  }, [user, selectedPromotionId, hasAnyPromotion, navigation]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -74,6 +76,23 @@ const Ads = () => {
   const totalClicks = campaigns.reduce((s, a) => s + a.clicks, 0);
 
   if (user && !selectedPromotionId) {
+    if (!hasAnyPromotion) {
+      return (
+        <View className="flex-1 bg-background">
+          <AppHeader
+            title="Ads Manager"
+            className="bg-primary"
+            titleClassName="text-xl font-bold text-primary-foreground"
+          />
+          <NoPromotionCTA
+            title="Ads need a promoted business"
+            description="Promote your business first to launch banner, featured and sponsored ad campaigns."
+            ctaLabel="Promote Business"
+            featurePills={["📣 Banner Ads", "⭐ Featured", "🚀 Sponsored", "📊 Stats"]}
+          />
+        </View>
+      );
+    }
     return (
       <View className="flex-1 items-center justify-center">
         <Text className="text-sm text-muted-foreground">Opening business selector...</Text>

@@ -1,32 +1,25 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase, SUPABASE_CONFIG_OK } from "../integrations/supabase/client";
+import { useMemo } from "react";
+import { useVouchers } from "./useVouchers";
 
 export function useDealOfTheDay() {
-  return useQuery({
-    queryKey: ["deal-of-the-day"],
-    queryFn: async () => {
-      if (!SUPABASE_CONFIG_OK) return null;
-      const { data, error } = await supabase
-        .from("vouchers")
-        .select("*")
-        .eq("status", "active")
-        .gt("original_price", 0)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      if (!data || data.length === 0) return null;
+  const { vouchers, isLoading, error } = useVouchers();
 
-      const dayOfYear = Math.floor(
-        (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
-      );
-      const sorted = data.sort((a, b) => {
-        const discA = ((a.original_price - a.discounted_price) / a.original_price) * 100;
-        const discB = ((b.original_price - b.discounted_price) / b.original_price) * 100;
-        return discB - discA;
-      });
-      return sorted[dayOfYear % sorted.length];
-    },
-    staleTime: 60 * 60 * 1000,
-    enabled: SUPABASE_CONFIG_OK,
-  });
+  const data = useMemo(() => {
+    const active = (vouchers ?? []).filter(
+      (v: any) => v.status === "active" && v.original_price > 0
+    );
+    if (active.length === 0) return null;
+
+    const dayOfYear = Math.floor(
+      (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+    );
+    const sorted = [...active].sort((a: any, b: any) => {
+      const discA = ((a.original_price - a.discounted_price) / a.original_price) * 100;
+      const discB = ((b.original_price - b.discounted_price) / b.original_price) * 100;
+      return discB - discA;
+    });
+    return sorted[dayOfYear % sorted.length];
+  }, [vouchers]);
+
+  return { data, isLoading, error };
 }

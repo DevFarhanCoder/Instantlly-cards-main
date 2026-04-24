@@ -13,7 +13,8 @@ import {
 export interface Voucher {
   id: string;
   user_id: string;
-  business_card_id: string | null;
+  business_promotion_id: string | null;
+  business_id: string | null;
   title: string;
   subtitle: string | null;
   category: string;
@@ -25,6 +26,14 @@ export interface Voucher {
   max_claims: number | null;
   terms: string | null;
   status: string;
+  claimed_count: number;
+  promotion?: {
+    id: string;
+    business_name: string;
+    tier: string;
+    status: string;
+    payment_status: string;
+  } | null;
   created_at: string;
   updated_at: string;
 }
@@ -33,11 +42,9 @@ export interface ClaimedVoucher {
   id: string;
   user_id: string;
   voucher_id: string;
-  code: string;
   status: string;
-  purchased_at: string;
+  claimed_at: string;
   redeemed_at: string | null;
-  created_at: string;
   voucher?: Voucher;
 }
 
@@ -50,7 +57,8 @@ const mapVoucher = (v: any): Voucher => {
   return {
     id: String(v.id),
     user_id: String(v.owner_user_id ?? v.user_id ?? ""),
-    business_card_id: v.business_id ? String(v.business_id) : null,
+    business_promotion_id: v.business_promotion_id ? String(v.business_promotion_id) : null,
+    business_id: v.business_id ? String(v.business_id) : null,
     title: v.title,
     subtitle: v.description ?? null,
     category: v.category ?? "",
@@ -65,6 +73,16 @@ const mapVoucher = (v: any): Voucher => {
     max_claims: v.max_claims ?? null,
     terms: v.description ?? null,
     status: v.status ?? "active",
+    claimed_count: Number(v.claimed_count ?? 0),
+    promotion: v.business_promotion
+      ? {
+          id: String(v.business_promotion.id),
+          business_name: v.business_promotion.business_name,
+          tier: v.business_promotion.tier,
+          status: v.business_promotion.status,
+          payment_status: v.business_promotion.payment_status,
+        }
+      : null,
     created_at: v.created_at ?? new Date().toISOString(),
     updated_at: v.updated_at ?? new Date().toISOString(),
   };
@@ -92,7 +110,12 @@ export function useMyVouchers() {
   return {
     ...result,
     data: (result.data || []).map((c: any) => ({
-      ...c,
+      id: String(c.id),
+      user_id: String(c.user_id),
+      voucher_id: String(c.voucher_id),
+      status: c.status || (c.redeemed_at ? "redeemed" : "active"),
+      claimed_at: c.claimed_at,
+      redeemed_at: c.redeemed_at ?? null,
       voucher: c.voucher ? mapVoucher(c.voucher) : undefined,
     })) as ClaimedVoucher[],
   };
@@ -126,27 +149,33 @@ export function useClaimVoucher() {
 export function useCreateVoucher() {
   const [trigger, state] = useCreateVoucherMutation();
   return {
-    mutateAsync: async (
-      voucher: Omit<Voucher, "id" | "user_id" | "created_at" | "updated_at" | "status">
-    ) => {
+    mutateAsync: async (voucher: any) => {
       try {
-        const businessId = (voucher as any).business_card_id || (voucher as any).business_id;
+        const businessPromotionId = voucher.business_promotion_id ?? voucher.promotion_id;
+        if (!businessPromotionId) {
+          throw new Error("business_promotion_id is required");
+        }
+
         const original = (voucher as any).original_price ?? 0;
         const discounted = (voucher as any).discounted_price ?? 0;
-        const discountValue = Math.max(0, Number(original) - Number(discounted));
+        const discountValue =
+          voucher.discount_value !== undefined && voucher.discount_value !== null
+            ? Number(voucher.discount_value)
+            : Math.max(0, Number(original) - Number(discounted));
+
         const payload = {
-          business_id: businessId ? Number(businessId) : undefined,
+          business_promotion_id: Number(businessPromotionId),
           title: (voucher as any).title,
+          code: (voucher as any).code || undefined,
           description: (voucher as any).subtitle || (voucher as any).terms || undefined,
-          discount_type: "flat",
+          discount_type: (voucher as any).discount_type || "flat",
           discount_value: discountValue,
           max_claims: (voucher as any).max_claims,
           expires_at: (voucher as any).expires_at,
         } as any;
-        delete payload.business_card_id;
         const data = await trigger(payload).unwrap();
         toast.success("Voucher created!");
-        return data as Voucher;
+        return mapVoucher(data) as Voucher;
       } catch (e: any) {
         toast.error(e?.data?.error || e?.message || "Failed to create voucher");
         throw e;
@@ -189,19 +218,26 @@ export function useTransferVoucher() {
 
 export interface VoucherTransfer {
   id: string;
-  claimed_voucher_id: string;
   voucher_id: string;
   sender_id: string;
   recipient_id: string;
-  sender_phone: string | null;
-  recipient_phone: string | null;
-  created_at: string;
+  sender_phone: string;
+  recipient_phone: string;
+  transferred_at: string;
 }
 
 export function useVoucherTransfers() {
   const result = useGetVoucherTransfersQuery();
   return {
     ...result,
-    data: (result.data || []) as VoucherTransfer[],
+    data: (result.data || []).map((t: any) => ({
+      id: String(t.id),
+      voucher_id: String(t.voucher_id),
+      sender_id: String(t.sender_id),
+      recipient_id: String(t.recipient_id),
+      sender_phone: t.sender_phone,
+      recipient_phone: t.recipient_phone,
+      transferred_at: t.transferred_at,
+    })) as VoucherTransfer[],
   };
 }

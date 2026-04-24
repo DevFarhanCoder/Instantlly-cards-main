@@ -9,8 +9,6 @@ import { Input } from "../components/ui/input";
 import { Skeleton } from "../components/ui/skeleton";
 import { voucherCategories } from "../data/categories";
 import { useVouchers, type Voucher } from "../hooks/useVouchers";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "../integrations/supabase/client";
 import { cn } from "../lib/utils";
 import { colors } from "../theme/colors";
 import { differenceInDays, isValid } from "date-fns";
@@ -48,21 +46,6 @@ const Vouchers = () => {
     setRefreshing(true);
     try { await refetchVouchers(); } finally { setRefreshing(false); }
   }, [refetchVouchers]);
-
-  const { data: claimCounts = {} } = useQuery({
-    queryKey: ["voucher-claim-counts"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("claimed_vouchers")
-        .select("voucher_id");
-      if (error) throw error;
-      const counts: Record<string, number> = {};
-      (data || []).forEach((r: any) => {
-        counts[r.voucher_id] = (counts[r.voucher_id] || 0) + 1;
-      });
-      return counts;
-    },
-  });
 
   const filteredVouchers = useMemo(
     () =>
@@ -233,7 +216,7 @@ const Vouchers = () => {
                           <View className="flex-row items-center gap-1">
                             <Users size={12} color="#6a7181" />
                             <Text className="text-[10px] text-muted-foreground">
-                              {claimCounts[v.id] || 0} bought
+                              {v.claimed_count || 0} bought
                             </Text>
                           </View>
                         </View>
@@ -287,7 +270,7 @@ const Vouchers = () => {
                         <View className="ml-auto flex-row items-center gap-1">
                           <Users size={12} color="#6a7181" />
                           <Text className="text-[10px] text-muted-foreground">
-                            {claimCounts[d.id] || 0} bought
+                            {d.claimed_count || 0} bought
                           </Text>
                         </View>
                       </View>

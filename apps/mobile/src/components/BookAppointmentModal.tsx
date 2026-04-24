@@ -35,6 +35,7 @@ type BookingMode = "instant" | "scheduled";
 
 export interface BookingPayload {
   business_id: string;
+  business_promotion_id?: string;
   business_name: string;
   mode: BookingMode;
   booking_date?: string;
@@ -50,6 +51,7 @@ interface BookAppointmentModalProps {
   businessName: string;
   businessLogo?: string;
   businessId?: string;
+  promotionId?: string | number;
   isSignedIn?: boolean;
   onRequireAuth?: () => void;
   onSubmit?: (payload: BookingPayload) => Promise<void>;
@@ -72,6 +74,7 @@ const BookAppointmentModal = ({
   businessName,
   businessLogo = "",
   businessId = "",
+  promotionId,
   isSignedIn = true,
   onRequireAuth,
   onSubmit,
@@ -112,6 +115,7 @@ const BookAppointmentModal = ({
     try {
       const payload: BookingPayload = {
         business_id: businessId,
+        business_promotion_id: promotionId != null ? String(promotionId) : undefined,
         business_name: businessName,
         mode,
         booking_date: date,
