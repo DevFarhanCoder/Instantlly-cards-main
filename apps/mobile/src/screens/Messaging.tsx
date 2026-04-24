@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   ActivityIndicator,
+  FlatList,
   Image,
   Linking,
   Modal,
@@ -481,6 +482,12 @@ const TypingDot = ({ delay = 0 }: { delay?: number }) => {
   );
 };
 
+// Module-level cache — survives modal close/reopen within the same app session
+let _contactsCache: DeviceContact[] | null = null;
+let _appUserMapCache: Map<string, AppUser> | null = null;
+let _cacheTimestamp = 0;
+const CONTACTS_CACHE_STALE_MS = 5 * 60 * 1000; // background-refresh after 5 min
+
 const StartChatModal = ({
   visible,
   onClose,
@@ -490,9 +497,12 @@ const StartChatModal = ({
   onClose: () => void;
   onStartChat: (user: AppUser) => Promise<void>;
 }) => {
-  const [allContacts, setAllContacts] = useState<DeviceContact[]>([]);
-  const [appUserMap, setAppUserMap] = useState<Map<string, AppUser>>(new Map());
-  const [loading, setLoading] = useState(false);
+  const hasAnyCache = () => !!_contactsCache && !!_appUserMapCache;
+  const isCacheStale = () => Date.now() - _cacheTimestamp > CONTACTS_CACHE_STALE_MS;
+
+  const [allContacts, setAllContacts] = useState<DeviceContact[]>(_contactsCache ?? []);
+  const [appUserMap, setAppUserMap] = useState<Map<string, AppUser>>(_appUserMapCache ?? new Map());
+  const [loading, setLoading] = useState(!hasAnyCache());
   const [search, setSearch] = useState("");
   const [matchContacts] = useMatchContactsMutation();
   const isLoadingRef = useRef(false);
@@ -501,7 +511,8 @@ const StartChatModal = ({
     // Prevent concurrent calls triggered by parent re-renders during polling
     if (isLoadingRef.current) return;
     isLoadingRef.current = true;
-    setLoading(true);
+    // Only show spinner on first-ever load (no cache at all)
+    if (!hasAnyCache()) setLoading(true);
     try {
       const { status } = await Contacts.requestPermissionsAsync();
       if (status !== "granted") {
@@ -527,6 +538,8 @@ const StartChatModal = ({
         }
       }
 
+      _contactsCache = contacts;
+      _cacheTimestamp = Date.now();
       setAllContacts(contacts);
 
       if (contacts.length > 0) {
@@ -535,11 +548,11 @@ const StartChatModal = ({
         for (const u of matched) {
           map.set(normalizePhone(u.phone), u);
         }
+        _appUserMapCache = map;
         setAppUserMap(map);
       }
     } catch {
       toast.error("Failed to load contacts");
-      setAppUserMap(new Map());
     } finally {
       setLoading(false);
       isLoadingRef.current = false;
@@ -549,6 +562,14 @@ const StartChatModal = ({
   useEffect(() => {
     if (!visible) return;
     setSearch("");
+    // If we have any cache, show it instantly
+    if (hasAnyCache()) {
+      setAllContacts(_contactsCache!);
+      setAppUserMap(_appUserMapCache!);
+      // Silently refresh in background if stale (user sees old data, it updates quietly)
+      if (isCacheStale()) void loadContacts();
+      return;
+    }
     void loadContacts();
   }, [visible, loadContacts]);
 
@@ -608,54 +629,55 @@ const StartChatModal = ({
             <Text className="text-sm font-semibold text-foreground">No contacts found</Text>
           </View>
         ) : (
-          <ScrollView className="px-4 pt-2 pb-4">
-            <View className="gap-2">
-              {list.map((item: DeviceContact) => {
-                const appUser = appUserMap.get(item.phone);
-                const isAppUser = !!appUser;
-                return (
-                  <View
-                    key={`${item.phone}-${item.name}`}
-                    className={`flex-row items-center gap-3 rounded-xl border p-3 ${
-                      isAppUser ? "border-primary/30 bg-primary/5" : "border-border bg-card"
-                    }`}
-                  >
-                    <View className="h-11 w-11 items-center justify-center rounded-full bg-primary/10 overflow-hidden">
-                      {appUser?.profile_picture ? (
-                        <Image source={{ uri: appUser.profile_picture }} style={{ width: 44, height: 44 }} />
-                      ) : (
-                        <Text className="text-lg font-bold text-primary">{(item.name || item.phone)[0].toUpperCase()}</Text>
-                      )}
-                    </View>
-
-                    <View className="flex-1">
-                      <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-                        {item.name || item.phone}
-                      </Text>
-                      <Text className="text-xs text-muted-foreground">{item.phone}</Text>
-                    </View>
-
-                    {isAppUser && appUser ? (
-                      <Button
-                        size="sm"
-                        className="rounded-lg"
-                        onPress={async () => {
-                          await onStartChat(appUser);
-                          onClose();
-                        }}
-                      >
-                        <Text className="text-xs font-semibold text-white">Chat</Text>
-                      </Button>
+          <FlatList
+            data={list}
+            keyExtractor={(item) => `${item.phone}-${item.name}`}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 8 }}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => {
+              const appUser = appUserMap.get(item.phone);
+              const isAppUser = !!appUser;
+              return (
+                <View
+                  className={`flex-row items-center gap-3 rounded-xl border p-3 ${
+                    isAppUser ? "border-primary/30 bg-primary/5" : "border-border bg-card"
+                  }`}
+                >
+                  <View className="h-11 w-11 items-center justify-center rounded-full bg-primary/10 overflow-hidden">
+                    {appUser?.profile_picture ? (
+                      <Image source={{ uri: appUser.profile_picture }} style={{ width: 44, height: 44 }} />
                     ) : (
-                      <Button size="sm" variant="outline" className="rounded-lg" onPress={() => handleInvite(item)}>
-                        <Text className="text-xs font-semibold text-muted-foreground">Invite</Text>
-                      </Button>
+                      <Text className="text-lg font-bold text-primary">{(item.name || item.phone)[0].toUpperCase()}</Text>
                     )}
                   </View>
-                );
-              })}
-            </View>
-          </ScrollView>
+
+                  <View className="flex-1">
+                    <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                      {item.name || item.phone}
+                    </Text>
+                    <Text className="text-xs text-muted-foreground">{item.phone}</Text>
+                  </View>
+
+                  {isAppUser && appUser ? (
+                    <Button
+                      size="sm"
+                      className="rounded-lg"
+                      onPress={async () => {
+                        await onStartChat(appUser);
+                        onClose();
+                      }}
+                    >
+                      <Text className="text-xs font-semibold text-white">Chat</Text>
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" className="rounded-lg" onPress={() => handleInvite(item)}>
+                      <Text className="text-xs font-semibold text-muted-foreground">Invite</Text>
+                    </Button>
+                  )}
+                </View>
+              );
+            }}
+          />
         )}
       </View>
     </Modal>
