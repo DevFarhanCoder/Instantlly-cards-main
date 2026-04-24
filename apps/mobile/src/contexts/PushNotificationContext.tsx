@@ -1,16 +1,13 @@
 import { createContext, useContext, ReactNode, useCallback, useState, useEffect } from "react";
 import { Platform } from "react-native";
 import * as ExpoNotifications from "expo-notifications";
-import Constants, { ExecutionEnvironment } from "expo-constants";
+import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { API_URL } from "../store/api/baseApi";
 
-// Constants.isDevice is unreliable in some Play Store builds — use ExecutionEnvironment instead.
-// Storekit = real device from App/Play Store, Standalone = real device dev build.
-const isDevice =
-  Constants.executionEnvironment === ExecutionEnvironment.Storekit ||
-  Constants.executionEnvironment === ExecutionEnvironment.Standalone ||
-  !!Constants.isDevice;
+// Only skip push token on web — always attempt on Android/iOS regardless of
+// what Constants.isDevice says (it's unreliable in Play Store builds).
+const isDevice = Platform.OS !== "web";
 
 type PermissionState = "default" | "granted" | "denied" | "unsupported";
 
