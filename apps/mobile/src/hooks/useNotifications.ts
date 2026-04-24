@@ -1,5 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "../integrations/supabase/client";
+import { useCallback } from "react";
+import { useDispatch } from "react-redux";
+import { baseApi } from "../store/api/baseApi";
 import { useAuth } from "./useAuth";
 
 export interface Notification {
@@ -13,69 +14,72 @@ export interface Notification {
   created_at: string;
 }
 
+// RTK Query endpoints injected into baseApi
+const notificationsApi = baseApi.injectEndpoints({
+  endpoints: (build) => ({
+    getNotifications: build.query<{ notifications: Notification[]; unreadCount: number }, void>({
+      query: () => "/notifications",
+      providesTags: ["Notification"],
+    }),
+    markNotificationRead: build.mutation<void, string>({
+      query: (id) => ({ url: `/notifications/${id}/read`, method: "PATCH" }),
+      invalidatesTags: ["Notification"],
+    }),
+    markAllNotificationsRead: build.mutation<void, void>({
+      query: () => ({ url: "/notifications/read-all", method: "PATCH" }),
+      invalidatesTags: ["Notification"],
+    }),
+    deleteAllNotifications: build.mutation<void, void>({
+      query: () => ({ url: "/notifications", method: "DELETE" }),
+      invalidatesTags: ["Notification"],
+    }),
+  }),
+  overrideExisting: false,
+});
+
+export const {
+  useGetNotificationsQuery,
+  useMarkNotificationReadMutation,
+  useMarkAllNotificationsReadMutation,
+  useDeleteAllNotificationsMutation,
+} = notificationsApi;
+
 export function useNotifications() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
+  const dispatch = useDispatch();
 
-  const notificationsQuery = useQuery({
-    queryKey: ["notifications", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as Notification[];
-    },
-    enabled: !!user,
+  const { data, isLoading, refetch } = useGetNotificationsQuery(undefined, {
+    skip: !user,
+    pollingInterval: 10000,
+    refetchOnMountOrArgChange: true,
   });
 
-  const markRead = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read: true })
-        .eq("id", id)
-        .eq("user_id", user!.id);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-  });
+  const [markReadMutation] = useMarkNotificationReadMutation();
+  const [markAllReadMutation] = useMarkAllNotificationsReadMutation();
+  const [deleteAllMutation] = useDeleteAllNotificationsMutation();
 
-  const markAllRead = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ read: true })
-        .eq("user_id", user!.id)
-        .eq("read", false);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-  });
+  const markRead = useCallback(
+    async (id: string) => { await markReadMutation(id); },
+    [markReadMutation]
+  );
 
-  const deleteAll = useMutation({
-    mutationFn: async () => {
-      const ids = notificationsQuery.data?.map((n) => n.id) ?? [];
-      if (ids.length === 0) return;
-      const { error } = await supabase
-        .from("notifications")
-        .delete()
-        .in("id", ids)
-        .eq("user_id", user!.id);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
-  });
+  const markAllRead = useCallback(
+    async () => { await markAllReadMutation(); },
+    [markAllReadMutation]
+  );
+
+  const deleteAll = useCallback(
+    async () => { await deleteAllMutation(); },
+    [deleteAllMutation]
+  );
 
   return {
-    notifications: notificationsQuery.data ?? [],
-    isLoading: notificationsQuery.isLoading,
-    unreadCount: (notificationsQuery.data ?? []).filter((n) => !n.read).length,
-    markRead,
-    markAllRead,
-    deleteAll,
-    refetch: notificationsQuery.refetch,
+    notifications: data?.notifications ?? [],
+    isLoading,
+    unreadCount: data?.unreadCount ?? 0,
+    markRead: { mutate: (id: string) => markRead(id), mutateAsync: markRead },
+    markAllRead: { mutate: () => markAllRead(), mutateAsync: markAllRead },
+    deleteAll: { mutate: () => deleteAll(), mutateAsync: deleteAll },
+    refetch,
   };
 }

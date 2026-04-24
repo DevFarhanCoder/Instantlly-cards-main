@@ -55,11 +55,11 @@ export const BusinessCardItem = ({
     <View className="rounded-2xl border border-border bg-card p-4 shadow-sm" style={{ minHeight }}>
       <View className="flex-row items-start justify-between gap-2">
         <View className="flex-1 flex-row items-start gap-3 pr-1">
-          <View className="h-12 w-12 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+          <View className="h-14 w-14 items-center justify-center rounded-full bg-primary/10 overflow-hidden border-2 border-primary/20">
             {avatarUri ? (
               <Image source={{ uri: avatarUri }} className="h-full w-full" resizeMode="cover" />
             ) : (
-              <Text className="text-xl">{fallbackAvatar}</Text>
+              <Text className="text-2xl">{fallbackAvatar}</Text>
             )}
           </View>
           <View className="flex-1">

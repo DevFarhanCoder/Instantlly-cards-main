@@ -61,7 +61,7 @@ const API_URL =
 
 /** Current app version from app.json / app.config.ts */
 const APP_VERSION: string =
-  Constants.expoConfig?.version ?? Constants.manifest?.version ?? '0.0.0';
+  Constants.expoConfig?.version ?? (Constants.manifest as any)?.version ?? '0.0.0';
 
 export function useForceUpdate(): ForceUpdateState {
   const [checking, setChecking] = useState(true);

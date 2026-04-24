@@ -385,6 +385,7 @@ const Bubble = ({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) => {
     minute: '2-digit',
     hour12: true,
   });
+  const isJoinViaLinkSystem = (msg.metadata as any)?.systemEvent === 'group_join_via_link';
 
   const navigation = useNavigation<any>();
   const cardData = msg.messageType === 'card' ? parseSharedCardPayload(msg.content) : null;
@@ -397,6 +398,17 @@ const Bubble = ({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) => {
     }
     navigation.navigate('PublicCard', { id: cardId });
   };
+
+  if (isJoinViaLinkSystem) {
+    return (
+      <View style={styles.systemWrap}>
+        <View style={styles.systemPill}>
+          <Text style={styles.systemText}>{msg.content}</Text>
+        </View>
+        <Text style={styles.systemTime}>{time}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.bubbleWrap, isMe ? styles.bubbleRight : styles.bubbleLeft]}>
@@ -436,7 +448,16 @@ const Bubble = ({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) => {
         </View>
       )}
 
-      <Text style={[styles.timeLabel, isMe && styles.timeLabelRight]}>{time}</Text>
+      <View style={[styles.timeRow, isMe && styles.timeRowRight]}>
+        <Text style={[styles.timeLabel, isMe && styles.timeLabelRight]}>{time}</Text>
+        {isMe ? (
+          msg.isRead ? (
+            <Ionicons name="checkmark-done" size={12} color="#93c5fd" style={styles.tickIcon} />
+          ) : (
+            <Ionicons name="checkmark" size={12} color="#dbeafe" style={styles.tickIcon} />
+          )
+        ) : null}
+      </View>
     </View>
   );
 };
@@ -717,6 +738,33 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, color: '#9CA3AF' },
   messagesList: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
 
+  // System messages
+  systemWrap: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    marginVertical: 6,
+    maxWidth: '90%',
+  },
+  systemPill: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  systemText: {
+    fontSize: 12,
+    color: '#4B5563',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  systemTime: {
+    marginTop: 3,
+    fontSize: 10,
+    color: '#9CA3AF',
+  },
+
   // Upload banner
   uploadingBanner: {
     flexDirection: 'row',
@@ -738,8 +786,11 @@ const styles = StyleSheet.create({
   bubbleThem: { backgroundColor: '#FFFFFF', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#E5E7EB' },
   bubbleText: { fontSize: 14, color: '#111827', lineHeight: 20 },
   bubbleTextMe: { color: '#FFFFFF' },
-  timeLabel: { fontSize: 10, color: '#9CA3AF', marginTop: 2, marginLeft: 4 },
-  timeLabelRight: { marginLeft: 0, marginRight: 4 },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2, marginLeft: 4 },
+  timeRowRight: { marginLeft: 0, marginRight: 4 },
+  timeLabel: { fontSize: 10, color: '#9CA3AF' },
+  timeLabelRight: {},
+  tickIcon: { marginTop: 1 },
   bubbleImage: { width: 200, height: 200, borderRadius: 13 },
 
   // Card bubble

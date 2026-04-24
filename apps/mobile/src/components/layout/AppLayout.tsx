@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { Animated, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { Bell, MessageCircle, Send, User } from "lucide-react-native";
 import BottomNav from "./BottomNav";
 import BannerAdSlot from "../ads/BannerAdSlot";
@@ -11,16 +11,40 @@ import { useUserRole } from "../../hooks/useUserRole";
 import { useNotifications } from "../../hooks/useNotifications";
 import { FEATURES } from "../../lib/featureFlags";
 import BulkSendModal from "../BulkSendModal";
+import { useGetConversationsQuery } from "../../store/api/chatApi";
 
 const iconImg = require("../../../assets/icon.png");
 
-const AppLayout = ({ children, headerOnly }: { children: ReactNode; headerOnly?: boolean }) => {
+const AppLayout = ({
+  children,
+  headerOnly,
+  hideAdBar,
+}: {
+  children: ReactNode;
+  headerOnly?: boolean;
+  hideAdBar?: boolean;
+}) => {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const { width } = useWindowDimensions();
   const { user } = useAuth();
   const { activeRole } = useUserRole();
   const { unreadCount } = useNotifications();
+  const { data: conversations = [] } = useGetConversationsQuery(undefined, {
+    skip: !user,
+    pollingInterval: 5000,
+    refetchOnMountOrArgChange: true,
+  });
+  const chatUnreadCount = conversations
+    .filter((c) => !c.isGroup)
+    .reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+  const combinedUnreadCount = (unreadCount || 0) + chatUnreadCount;
+  const combinedUnreadLabel = combinedUnreadCount > 99 ? "99+" : String(combinedUnreadCount);
+  const chatUnreadLabel = chatUnreadCount > 99 ? "99+" : String(chatUnreadCount);
   const enterAnim = useRef(new Animated.Value(0)).current;
   const [showBulkSend, setShowBulkSend] = useState(false);
+  const compactHeader = width < 390;
+  const effectiveHideAdBar = Boolean(hideAdBar || route?.params?.hideAdBar);
 
   useEffect(() => {
     enterAnim.setValue(0);
@@ -33,49 +57,58 @@ const AppLayout = ({ children, headerOnly }: { children: ReactNode; headerOnly?:
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, compactHeader && styles.headerCompact]}>
         <View style={styles.brandCol}>
           <Pressable
             style={styles.brand}
             onPress={() => navigation.navigate("Home")}
           >
             <Image source={iconImg} style={styles.logo} />
-            <Text style={styles.brandText}>
+            <Text style={[styles.brandText, compactHeader && styles.brandTextCompact]} numberOfLines={1}>
               <Text style={styles.brandDark}>Instant</Text>
               <Text style={styles.brandBlue}>lly</Text>
               <Text style={styles.brandDark}> Cards</Text>
             </Text>
           </Pressable>
         </View>
-        <View style={styles.headerActions}>
+        <View style={[styles.headerActions, compactHeader && styles.headerActionsCompact]}>
           {user && activeRole === 'business' && (
-            <View style={styles.roleBadgeBusiness}>
+            <View style={[styles.roleBadgeBusiness, compactHeader && styles.roleBadgeBusinessCompact]}>
               <View style={styles.roleDotBusiness} />
-              <Text style={styles.roleBadgeTextBusiness}>BUSINESS</Text>
+              <Text style={[styles.roleBadgeTextBusiness, compactHeader && styles.roleBadgeTextBusinessCompact]}>
+                BUSINESS
+              </Text>
             </View>
           )}
           <Pressable
             onPress={() => navigation.navigate("Notifications")}
-            style={styles.iconButton}
+            style={[styles.iconButton, compactHeader && styles.iconButtonCompact]}
           >
             <Bell size={20} color={colors.foreground} />
-            {unreadCount > 0 && (
+            {combinedUnreadCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
-                  {unreadCount > 99 ? "99+" : unreadCount}
+                  {combinedUnreadLabel}
                 </Text>
               </View>
             )}
           </Pressable>
           <Pressable
             onPress={() => navigation.navigate("Messaging")}
-            style={styles.iconButton}
+            style={[styles.iconButton, compactHeader && styles.iconButtonCompact]}
           >
             <MessageCircle size={20} color={colors.foreground} />
+            {chatUnreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {chatUnreadLabel}
+                </Text>
+              </View>
+            )}
           </Pressable>
           <Pressable
             onPress={() => navigation.navigate(user ? "Profile" : "Auth")}
-            style={styles.iconButton}
+            style={[styles.iconButton, compactHeader && styles.iconButtonCompact]}
           >
             {user?.email ? (
               <Text style={styles.avatarText}>
@@ -109,9 +142,11 @@ const AppLayout = ({ children, headerOnly }: { children: ReactNode; headerOnly?:
 
       {!headerOnly && (
         <>
-          <View style={styles.adBar}>
-            <BannerAdSlot variant="sticky" />
-          </View>
+          {!effectiveHideAdBar && (
+            <View style={styles.adBar}>
+              <BannerAdSlot variant="sticky" />
+            </View>
+          )}
 
           <BottomNav />
 
@@ -119,7 +154,7 @@ const AppLayout = ({ children, headerOnly }: { children: ReactNode; headerOnly?:
           {FEATURES.BULK_SEND && (
             <Pressable
               onPress={() => setShowBulkSend(true)}
-              style={[styles.fab, { bottom: 175 }]}
+              style={[styles.fab, { bottom: effectiveHideAdBar ? 115 : 175 }]}
             >
               <Send size={20} color="#fff" />
               <Text style={styles.fabLabel}>Bulk Send</Text>
@@ -150,7 +185,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  headerCompact: {
+    paddingHorizontal: 10,
+  },
   brandCol: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: "column",
     gap: 4,
   },
@@ -158,6 +198,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexShrink: 1,
+    minWidth: 0,
   },
   logo: {
     height: 28,
@@ -167,6 +209,10 @@ const styles = StyleSheet.create({
   brandText: {
     fontSize: 16,
     fontWeight: "700",
+    flexShrink: 1,
+  },
+  brandTextCompact: {
+    fontSize: 14,
   },
   brandDark: {
     color: "#1a2b4a",
@@ -178,6 +224,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexShrink: 0,
+    marginLeft: 8,
+  },
+  headerActionsCompact: {
+    gap: 4,
+    marginLeft: 6,
   },
   iconButton: {
     height: 40,
@@ -186,6 +238,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.muted,
     alignItems: "center",
     justifyContent: "center",
+  },
+  iconButtonCompact: {
+    height: 36,
+    width: 36,
+    borderRadius: 18,
   },
   fab: {
     position: "absolute",
@@ -250,6 +307,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#2563eb",
     backgroundColor: "transparent",
+    flexShrink: 1,
+  },
+  roleBadgeBusinessCompact: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    gap: 3,
+    marginLeft: 4,
+    marginRight: 2,
   },
   roleDotBusiness: {
     width: 5,
@@ -263,6 +328,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textTransform: "uppercase",
     color: "#2563eb",
+  },
+  roleBadgeTextBusinessCompact: {
+    fontSize: 8,
+    letterSpacing: 0.4,
   },
 });
 

@@ -65,8 +65,7 @@ const ReferAndEarn = () => {
       return;
     }
     const playStoreUrl = `https://play.google.com/store/apps/details?id=com.instantllycards.www.twa&referrer=utm_source%3Dreferral%26utm_campaign%3D${referralCode}`;
-    const deepLink = `instantllycards://signup?ref=${referralCode}`;
-    const shareText = `Earn ₹1200 to ₹6000+ per day Without Investment\n▪️ Save Rs 10000 Printing Cost Use this Free App & Save per year visiting Card Printing Cost\n▪️ *I Got ₹300 Credit* On Self Download\n▪️ *Referral Bonus ₹300* On your Download you will get ₹300 Bonus\n\n📲 *Important Links*\n▪️ *Touch this link to Download the App from Play Store:\n${playStoreUrl}`;
+    const shareText = `Earn ₹1200 to ₹6000+ per day Without Investment\n▪️ Save Rs 10000 Printing Cost Use this Free App & Save per year visiting Card Printing Cost\n▪️ *I Got ₹300 Credit* On Self Download\n▪️ *Referral Bonus ₹300* On your Download you will get ₹300 Bonus\n\n📲 *Download from Play Store:*\n${playStoreUrl}`;
     try {
       await Share.share({
         title: "Join me on Instantlly!",

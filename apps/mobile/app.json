@@ -2,7 +2,7 @@
   "expo": {
     "name": "Instantly Cards",
     "slug": "mobile",
-    "version": "1.0.82",
+    "version": "1.0.86",
     "scheme": "instantllycards",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,6 +16,7 @@
       "supportsTablet": true
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -24,12 +25,16 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.instantllycards.www.twa",
-      "versionCode": 82,
+      "versionCode": 86,
       "intentFilters": [
         {
           "action": "VIEW",
           "autoVerify": true,
-          "data": [{ "scheme": "instantllycards" }],
+          "data": [
+            {
+              "scheme": "instantllycards"
+            }
+          ],
           "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
@@ -46,7 +51,20 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "plugins": ["expo-font", "expo-updates", "expo-contacts"],
+    "plugins": [
+      "expo-font",
+      "expo-updates",
+      "expo-contacts",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0F6FFF",
+          "defaultChannel": "default",
+          "sounds": []
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "ae117f79-1ff9-47e8-8741-b0a7c789566c"

@@ -143,7 +143,10 @@ export const chatApi = baseApi.injectEndpoints({
       invalidatesTags: ['Group'],
     }),
 
-    joinGroup: build.mutation<{ id: number; name: string; adminId: number; alreadyMember: boolean }, { joinCode: string }>({
+    joinGroup: build.mutation<
+      { id: number; name: string; adminId: number; alreadyMember: boolean },
+      { joinCode: string; source?: 'invite_link' | 'manual_code' }
+    >({
       query: (body) => ({ url: '/groups/join', method: 'POST', body }),
       invalidatesTags: ['Group'],
     }),

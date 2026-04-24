@@ -4,7 +4,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { useJoinGroupMutation } from '../store/api/chatApi';
-import type { RootStackParamList } from './routes';
+import type { RootStackParamList } from '../navigation/routes';
 
 type GroupJoinRoute = RouteProp<RootStackParamList, 'GroupJoin'>;
 
@@ -20,7 +20,7 @@ export default function GroupJoin() {
   const route = useRoute<GroupJoinRoute>();
   const { code } = route.params ?? {};
 
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [joinGroup] = useJoinGroupMutation();
 
   const [status, setStatus] = useState<'pending' | 'joining' | 'done' | 'error'>('pending');
@@ -49,7 +49,7 @@ export default function GroupJoin() {
     }
 
     setStatus('joining');
-    joinGroup({ joinCode: code })
+    joinGroup({ joinCode: code, source: 'invite_link' })
       .unwrap()
       .then((result) => {
         setStatus('done');
