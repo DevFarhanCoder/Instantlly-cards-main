@@ -22,14 +22,12 @@ import {
   CheckCheck,
   MessageCircle,
   Phone,
-  PhoneOff,
   Send,
   Sparkles,
   Lock,
 } from "lucide-react-native";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { toast } from "../lib/toast";
 import { useAuth } from "../hooks/useAuth";
 import {
@@ -693,9 +691,6 @@ const Messaging = () => {
   const [selectedConv, setSelectedConv] = useState<DbConversation | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [showCallDialog, setShowCallDialog] = useState(false);
-  const [callActive, setCallActive] = useState(false);
-  const [callTimer, setCallTimer] = useState(0);
   const [showStartChatModal, setShowStartChatModal] = useState(false);
   const [optimisticMessages, setOptimisticMessages] = useState<DbMessage[]>([]);
   const lastHideAdBarRef = useRef<boolean | null>(null);
@@ -817,23 +812,6 @@ const Messaging = () => {
     scrollToBottom();
   }, [combinedMessages, scrollToBottom]);
 
-  useEffect(() => {
-    if (callActive) {
-      callIntervalRef.current = setInterval(() => setCallTimer((t) => t + 1), 1000);
-    } else {
-      if (callIntervalRef.current) clearInterval(callIntervalRef.current);
-      setCallTimer(0);
-    }
-    return () => {
-      if (callIntervalRef.current) clearInterval(callIntervalRef.current);
-    };
-  }, [callActive]);
-
-  const formatCallTime = (s: number) =>
-    `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60)
-      .toString()
-      .padStart(2, "0")}`;
-
   const handleSend = async () => {
     if (!messageInput.trim() || !selectedConv || !user) return;
     const inputText = messageInput.trim();
@@ -870,15 +848,13 @@ const Messaging = () => {
     }
   };
 
-  const startCall = () => setShowCallDialog(true);
-  const connectCall = () => {
-    setCallActive(true);
-    toast.success("Call connected via masked number");
-  };
-  const endCall = () => {
-    setCallActive(false);
-    setShowCallDialog(false);
-    toast({ title: "Call ended", description: `Duration: ${formatCallTime(callTimer)}` });
+  const startCall = () => {
+    const phone = selectedConv?.business_phone;
+    if (!phone) {
+      toast.error("No phone number available for this contact");
+      return;
+    }
+    Linking.openURL(`tel:${phone}`).catch(() => toast.error("Unable to open dialer"));
   };
 
   const handleStartChatWithUser = async (targetUser: AppUser) => {
@@ -1123,66 +1099,6 @@ const Messaging = () => {
           </View>
         </View>
 
-        <Dialog
-          open={showCallDialog}
-          onOpenChange={(open) => {
-            if (!open && callActive) endCall();
-            else setShowCallDialog(open);
-          }}
-        >
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>{callActive ? "Call in Progress" : "Masked Call"}</DialogTitle>
-            </DialogHeader>
-            <View className="items-center py-4 gap-4">
-              <View className="h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-                <Text className="text-2xl font-bold text-primary">
-                  {selectedConv.business_avatar || "📇"}
-                </Text>
-              </View>
-              <View>
-                <Text className="text-base font-semibold text-foreground">
-                  {selectedConv.business_name}
-                </Text>
-                <Text className="mt-1 text-xs text-muted-foreground">
-                  Masked number: +91 XXXXX XX789
-                </Text>
-              </View>
-              {callActive ? (
-                <>
-                  <View className="flex-row items-center gap-2">
-                    <View className="h-2 w-2 rounded-full bg-success" />
-                    <Text className="text-lg font-mono font-bold text-foreground">
-                      {formatCallTime(callTimer)}
-                    </Text>
-                  </View>
-                  <Text className="text-[10px] text-muted-foreground">
-                    Your real number is hidden from the business
-                  </Text>
-                  <Button variant="destructive" className="w-full rounded-xl" onPress={endCall}>
-                    <PhoneOff size={16} color="#ffffff" /> End Call
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <View className="rounded-xl bg-muted p-3">
-                    <Text className="text-xs text-muted-foreground">🔒 Your real phone number will be hidden</Text>
-                    <Text className="text-xs text-muted-foreground">📞 A masked number will be used for this call</Text>
-                    <Text className="text-xs text-muted-foreground">⏱️ Call duration is tracked for your records</Text>
-                  </View>
-                  <View className="flex-row gap-2 w-full">
-                    <Button className="flex-1 rounded-xl" onPress={connectCall}>
-                      <Phone size={16} color="#ffffff" /> Connect Call
-                    </Button>
-                    <Button variant="outline" className="flex-1 rounded-xl" onPress={() => setShowCallDialog(false)}>
-                      Cancel
-                    </Button>
-                  </View>
-                </>
-              )}
-            </View>
-          </DialogContent>
-        </Dialog>
       </View>
     );
   }
