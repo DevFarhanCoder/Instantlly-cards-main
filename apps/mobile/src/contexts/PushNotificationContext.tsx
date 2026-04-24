@@ -5,8 +5,9 @@ import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { API_URL } from "../store/api/baseApi";
 
-// Use Constants.isDevice to detect whether running on a real device
-const isDevice = !!Constants.isDevice;
+// Only skip push token on web — always attempt on Android/iOS regardless of
+// what Constants.isDevice says (it's unreliable in Play Store builds).
+const isDevice = Platform.OS !== "web";
 
 type PermissionState = "default" | "granted" | "denied" | "unsupported";
 
