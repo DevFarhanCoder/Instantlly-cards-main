@@ -1,12 +1,16 @@
 import { createContext, useContext, ReactNode, useCallback, useState, useEffect } from "react";
 import { Platform } from "react-native";
 import * as ExpoNotifications from "expo-notifications";
-import Constants from "expo-constants";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { API_URL } from "../store/api/baseApi";
 
-// Use Constants.isDevice to detect whether running on a real device
-const isDevice = !!Constants.isDevice;
+// Constants.isDevice is unreliable in some Play Store builds — use ExecutionEnvironment instead.
+// Storekit = real device from App/Play Store, Standalone = real device dev build.
+const isDevice =
+  Constants.executionEnvironment === ExecutionEnvironment.Storekit ||
+  Constants.executionEnvironment === ExecutionEnvironment.Standalone ||
+  !!Constants.isDevice;
 
 type PermissionState = "default" | "granted" | "denied" | "unsupported";
 
