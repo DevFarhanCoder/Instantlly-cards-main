@@ -10,6 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import BannerAdSlot from "@/components/ads/BannerAdSlot";
+import StaticImageAd from "@/components/ads/StaticImageAd";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -407,6 +408,13 @@ const Events = () => {
           )}
         </motion.section>
       </div>
+
+      {/* Static sticky bottom ad (Wealthy & Life campaign) */}
+      <StaticImageAd
+        bannerSrc="/ads/wealthy-life-banner.jpg"
+        fullscreenSrc="/ads/wealthy-life-fullscreen.jpg"
+        alt="Wealthy & Life Seminar"
+      />
     </div>
   );
 };
