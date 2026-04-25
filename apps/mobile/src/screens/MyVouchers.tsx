@@ -30,6 +30,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
   active: { label: "Active", color: "bg-green-500/10 text-green-600", icon: Ticket },
   redeemed: { label: "Redeemed", color: "bg-primary/10 text-primary", icon: CheckCircle2 },
   expired: { label: "Expired", color: "bg-muted text-muted-foreground", icon: Clock },
+  transferred: { label: "Transferred", color: "bg-orange-500/10 text-orange-600", icon: Send },
 };
 
 const emojiMap: Record<string, string> = {
@@ -197,7 +198,7 @@ const MyVouchers = () => {
                             {isSent ? "Sent" : "Received"}
                           </Badge>
                           <Text className="mt-1 text-[10px] text-muted-foreground">
-                            {safeFormat(t.created_at, "MMM d, yyyy")}
+                            {safeFormat(t.transferred_at, "MMM d, yyyy")}
                           </Text>
                         </View>
                       </View>
@@ -269,9 +270,9 @@ const MyVouchers = () => {
                         <View className="mt-3 rounded-lg bg-muted px-3 py-2">
                           <View className="flex-row items-center justify-between">
                             <View>
-                              <Text className="text-[10px] text-muted-foreground">Voucher Code</Text>
+                              <Text className="text-[10px] text-muted-foreground">Voucher Reference</Text>
                               <Text className="text-sm font-mono font-bold text-foreground">
-                                {v.code}
+                                CLM-{v.id}
                               </Text>
                             </View>
                             <View className="flex-row gap-2">
@@ -288,8 +289,8 @@ const MyVouchers = () => {
                                 variant="outline"
                                 className="rounded-lg"
                                 onPress={async () => {
-                                  await Clipboard.setStringAsync(v.code);
-                                  toast.success("Code copied!");
+                                  await Clipboard.setStringAsync(`CLM-${v.id}`);
+                                  toast.success("Reference copied!");
                                 }}
                               >
                                 Copy
@@ -312,7 +313,7 @@ const MyVouchers = () => {
 
                       <View className="mt-2 flex-row items-center justify-between">
                         <Text className="text-[10px] text-muted-foreground">
-                          Purchased: {safeFormat(v.purchased_at, "MMM d, yyyy")}
+                          Claimed: {safeFormat(v.claimed_at, "MMM d, yyyy")}
                         </Text>
                         {voucher?.expires_at && (
                           <Text className="text-[10px] text-muted-foreground">
@@ -345,11 +346,11 @@ const MyVouchers = () => {
           {qrVoucher && (
             <View className="items-center py-4">
               <QRCode
-                value={`instantly://voucher/${qrVoucher.voucher_id}/redeem/${qrVoucher.code}`}
+                value={`instantly://voucher/${qrVoucher.voucher_id}/claim/${qrVoucher.id}`}
                 size={160}
               />
               <Text className="mt-3 text-sm font-mono font-bold text-foreground">
-                {qrVoucher.code}
+                CLM-{qrVoucher.id}
               </Text>
               <Text className="mt-1 text-xs text-muted-foreground">
                 Show this QR to the merchant
@@ -380,7 +381,7 @@ const MyVouchers = () => {
                   {transferVoucherTarget.voucher?.title || "Voucher"}
                 </Text>
                 <Text className="mt-0.5 text-xs text-muted-foreground">
-                  Code: {transferVoucherTarget.code}
+                  Reference: CLM-{transferVoucherTarget.id}
                 </Text>
               </View>
               <View className="gap-2">

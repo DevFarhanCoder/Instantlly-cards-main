@@ -10,7 +10,8 @@ export interface EventBusiness {
 
 export interface AppEvent {
   id: number;
-  business_id: number;
+  business_id?: number | null;
+  business_promotion_id: number;
   title: string;
   description: string | null;
   date: string;
@@ -23,6 +24,7 @@ export interface AppEvent {
   status: 'active' | 'cancelled' | 'completed';
   created_at: string;
   business?: EventBusiness;
+  business_promotion?: { id: number; business_name: string; business_card_id: number | null };
   _count?: { registrations: number };
 }
 
@@ -59,7 +61,7 @@ export interface EventPaymentPayload {
 }
 
 export interface CreateEventInput {
-  business_id: number;
+  business_promotion_id: number;
   title: string;
   description?: string;
   date: string;

@@ -22,7 +22,8 @@ export interface Booking {
 }
 
 export interface CreateBookingInput {
-  business_id: number;
+  business_id?: number;
+  business_promotion_id?: number;
   business_name?: string;
   mode?: 'visit' | 'call' | 'video';
   booking_date?: string;
@@ -38,9 +39,18 @@ export const bookingsApi = baseApi.injectEndpoints({
       query: ({ page = 1 } = {}) => `/bookings/my?page=${page}`,
       providesTags: ['Booking'],
     }),
-    listBusinessBookings: builder.query<{ data: Booking[] }, { businessId: number; status?: string; page?: number }>({
-      query: ({ businessId, status, page = 1 }) => {
+    listBusinessBookings: builder.query<{ data: Booking[] }, { businessId: number; promotionId?: number; status?: string; page?: number }>({
+      query: ({ businessId, promotionId, status, page = 1 }) => {
         let url = `/bookings/business/${businessId}?page=${page}`;
+        if (status) url += `&status=${status}`;
+        if (promotionId) url += `&promotion_id=${promotionId}`;
+        return url;
+      },
+      providesTags: ['Booking'],
+    }),
+    listPromotionBookings: builder.query<{ data: Booking[] }, { promotionId: number; status?: string; page?: number }>({
+      query: ({ promotionId, status, page = 1 }) => {
+        let url = `/bookings/promotion/${promotionId}?page=${page}`;
         if (status) url += `&status=${status}`;
         return url;
       },
@@ -64,6 +74,7 @@ export const bookingsApi = baseApi.injectEndpoints({
 export const {
   useListMyBookingsQuery,
   useListBusinessBookingsQuery,
+  useListPromotionBookingsQuery,
   useGetBookingQuery,
   useCreateBookingMutation,
   useUpdateBookingStatusMutation,

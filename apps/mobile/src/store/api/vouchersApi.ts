@@ -14,8 +14,11 @@ export const vouchersApi = baseApi.injectEndpoints({
       query: () => '/vouchers/my',
       providesTags: ['Voucher'],
     }),
-    getMyCreatedVouchers: builder.query<any[], void>({
-      query: () => '/vouchers/created',
+    getMyCreatedVouchers: builder.query<any[], { promotionId?: number } | void>({
+      query: (args) => {
+        const promotionId = args && 'promotionId' in args ? args.promotionId : undefined;
+        return promotionId ? `/vouchers/created?promotionId=${promotionId}` : '/vouchers/created';
+      },
       providesTags: ['Voucher'],
     }),
     claimVoucher: builder.mutation<any, number>({
@@ -34,6 +37,10 @@ export const vouchersApi = baseApi.injectEndpoints({
       query: (body) => ({ url: '/vouchers', method: 'POST', body }),
       invalidatesTags: ['Voucher'],
     }),
+    updateVoucherStatus: builder.mutation<any, { id: number; status: string }>({
+      query: ({ id, status }) => ({ url: `/vouchers/${id}/status`, method: 'PATCH', body: { status } }),
+      invalidatesTags: ['Voucher'],
+    }),
   }),
 });
 
@@ -46,4 +53,5 @@ export const {
   useTransferVoucherMutation,
   useGetVoucherTransfersQuery,
   useCreateVoucherMutation,
+  useUpdateVoucherStatusMutation,
 } = vouchersApi;

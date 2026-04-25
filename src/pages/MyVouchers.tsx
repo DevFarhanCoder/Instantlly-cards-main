@@ -18,6 +18,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
   active: { label: "Active", color: "bg-green-500/10 text-green-600", icon: Ticket },
   redeemed: { label: "Redeemed", color: "bg-primary/10 text-primary", icon: CheckCircle2 },
   expired: { label: "Expired", color: "bg-muted text-muted-foreground", icon: Clock },
+  transferred: { label: "Transferred", color: "bg-orange-500/10 text-orange-600", icon: Send },
 };
 
 const emojiMap: Record<string, string> = {

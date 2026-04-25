@@ -53,6 +53,7 @@ export interface CreateCampaignInput {
   daily_budget: number;
   duration_days: number;
   business_card_id?: number | string;
+  promotion_id?: number | string;
 }
 
 export const adsApi = baseApi.injectEndpoints({
