@@ -19,7 +19,6 @@ import { Textarea } from "../components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Slider } from "../components/ui/slider";
 import { useCreateAdCampaign } from "../hooks/useAds";
-import { useBusinessCards } from "../hooks/useBusinessCards";
 import { useAuth } from "../hooks/useAuth";
 import { useUploadAdCreativeMutation } from "../store/api/adsApi";
 import { usePromotionContext } from "../contexts/PromotionContext";
@@ -42,7 +41,6 @@ const AdCreate = () => {
   const preselectedCardId = route.params?.cardId || "";
   const { user } = useAuth();
   const { tier, selectedPromotionId, selectedPromotion } = usePromotionContext();
-  const { cards } = useBusinessCards();
   const createCampaign = useCreateAdCampaign();
   const [uploadAdCreative] = useUploadAdCreativeMutation();
   const [step, setStep] = useState(0);
@@ -57,7 +55,8 @@ const AdCreate = () => {
     targetInterests: "",
     budget: [1000],
     duration: "7",
-    business_card_id: preselectedCardId,
+    business_card_id: preselectedCardId || selectedPromotion?.business_card_id || "",
+    promotion_id: selectedPromotionId || "",
     creativeUrls: [] as string[],
   });
 
@@ -135,6 +134,7 @@ const AdCreate = () => {
         daily_budget: form.budget[0],
         duration_days: parseInt(form.duration, 10),
         business_card_id: form.business_card_id || undefined,
+        promotion_id: form.promotion_id || undefined,
         creative_url: form.creativeUrls[0] || undefined,
         creative_urls: form.creativeUrls,
       });
@@ -214,26 +214,11 @@ const AdCreate = () => {
               </Pressable>
             ))}
 
-            {cards.length > 0 && (
-              <View className="gap-2 pt-2">
-                <Label>Link to Business Card</Label>
-                <Select
-                  value={form.business_card_id}
-                  onValueChange={(v) => updateField("business_card_id", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a card (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cards.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.full_name} {c.company_name ? `— ${c.company_name}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </View>
-            )}
+            <View className="rounded-xl border border-border bg-card p-3">
+              <Text className="text-xs text-muted-foreground">
+                Campaign will be linked to selected promotion{selectedPromotion?.business_name ? `: ${selectedPromotion.business_name}` : ""}.
+              </Text>
+            </View>
           </View>
         )}
 

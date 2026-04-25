@@ -20,8 +20,12 @@ import { useAuth } from "../hooks/useAuth";
 import { usePromotionContext, useSelectedBusinessCardId } from "../contexts/PromotionContext";
 import { hasFeature } from "../utils/tierFeatures";
 import { UpgradePrompt } from "../components/business/UpgradePrompt";
+import { NoPromotionCTA } from "../components/business/NoPromotionCTA";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../integrations/supabase/client";
+import { useListPromotionBookingsQuery, useListBusinessBookingsQuery } from "../store/api/bookingsApi";
+import { useGetPromotionReviewsQuery, useGetCardReviewsQuery } from "../store/api/reviewsApi";
+import { useListPromotionLeadsQuery, useListBusinessLeadsQuery } from "../store/api/leadsApi";
 import { Button } from "../components/ui/button";
 import { Progress } from "../components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -30,83 +34,80 @@ import { AppHeader } from "../components/ui/AppHeader";
 const BusinessAnalytics = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { tier, selectedPromotionId, selectedPromotion } = usePromotionContext();
+  const { tier, selectedPromotionId, selectedPromotion, promotions } = usePromotionContext();
   const hasSelectedListing = Boolean(selectedPromotionId);
+  const hasAnyPromotion = (promotions?.length ?? 0) > 0;
   const businessName = selectedPromotion?.business_name || "Business";
   const selectedCardId = useSelectedBusinessCardId();
-  // Scope analytics to the selected promotion's business card only
+  // Promotion is the source of truth; business card linkage is optional.
+  const promotionIdNum = selectedPromotionId ? Number(selectedPromotionId) : null;
   const cardIds = selectedCardId ? [selectedCardId] : [];
+  const hasAnalyticsScope = Boolean(promotionIdNum);
   console.log(`[BusinessAnalytics] render: selectedPromotionId=${selectedPromotionId} tier=${tier} canAccess=${hasFeature(tier, 'analytics')} selectedCardId=${selectedCardId} cardIds=${JSON.stringify(cardIds)}`);
 
   useEffect(() => {
-    if (user && !selectedPromotionId) {
+    if (user && !selectedPromotionId && hasAnyPromotion) {
       navigation.navigate("BusinessSelectorScreen");
     }
-  }, [user, selectedPromotionId, navigation]);
+  }, [user, selectedPromotionId, hasAnyPromotion, navigation]);
 
   const { data: analytics = [], isLoading, refetch: refetchAnalytics } = useQuery({
-    queryKey: ["card-analytics-full", cardIds, selectedPromotionId],
+    queryKey: ["card-analytics-full", selectedPromotionId, cardIds],
     queryFn: async () => {
-      if (cardIds.length === 0) return [];
-      const { data, error } = await supabase
+      if (!promotionIdNum && cardIds.length === 0) return [];
+      let query = supabase
         .from("card_analytics")
         .select("*")
-        .in("business_card_id", cardIds)
         .order("created_at", { ascending: false })
         .limit(1000);
+      if (promotionIdNum && cardIds.length > 0) {
+        query = query.or(`business_promotion_id.eq.${promotionIdNum},business_card_id.in.(${cardIds.join(",")})`);
+      } else if (promotionIdNum) {
+        query = query.eq("business_promotion_id", promotionIdNum);
+      } else {
+        query = query.in("business_card_id", cardIds);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as any[];
     },
-    enabled: !!user && hasSelectedListing && cardIds.length > 0,
+    enabled: !!user && hasSelectedListing && hasAnalyticsScope,
   });
 
-  const { data: bookings = [], refetch: refetchBookings } = useQuery({
-    queryKey: ["analytics-bookings", cardIds, selectedPromotionId],
-    queryFn: async () => {
-      if (cardIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("bookings")
-        .select("*")
-        .in("business_id", cardIds)
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: !!user && hasSelectedListing && cardIds.length > 0,
-  });
+  const cardIdForBackend = cardIds.length > 0 ? Number(cardIds[0]) : null;
+  const promoIdForBackend = promotionIdNum ?? null;
 
-  const { data: reviews = [], refetch: refetchReviews } = useQuery({
-    queryKey: ["analytics-reviews", cardIds, selectedPromotionId],
-    queryFn: async () => {
-      if (cardIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("reviews")
-        .select("*")
-        .in("business_id", cardIds)
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return data as any[];
-    },
-    enabled: !!user && hasSelectedListing && cardIds.length > 0,
-  });
+  // Bookings: prefer card-scoped query (OR-includes promotion) when a card exists, else promotion-scoped.
+  const bookingsCardQuery = useListBusinessBookingsQuery(
+    cardIdForBackend ? { businessId: cardIdForBackend, promotionId: promoIdForBackend ?? undefined } : ({} as any),
+    { skip: !cardIdForBackend }
+  );
+  const bookingsPromoQuery = useListPromotionBookingsQuery(
+    promoIdForBackend ? { promotionId: promoIdForBackend } : ({} as any),
+    { skip: !promoIdForBackend || !!cardIdForBackend }
+  );
+  const bookingsRaw = cardIdForBackend ? bookingsCardQuery.data : bookingsPromoQuery.data;
+  const refetchBookings = cardIdForBackend ? bookingsCardQuery.refetch : bookingsPromoQuery.refetch;
+  const bookings: any[] = bookingsRaw?.data ?? [];
 
-  const { data: leads = [], refetch: refetchLeads } = useQuery({
-    queryKey: ["analytics-leads", cardIds, selectedPromotionId],
-    queryFn: async () => {
-      if (cardIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from("business_leads" as any)
-        .select("*")
-        .in("business_card_id", cardIds)
-        .order("created_at", { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      return (data || []) as any[];
-    },
-    enabled: !!user && hasSelectedListing && cardIds.length > 0,
-  });
+  // Reviews via backend
+  const reviewsCardQuery = useGetCardReviewsQuery(cardIdForBackend ?? 0, { skip: !cardIdForBackend });
+  const reviewsPromoQuery = useGetPromotionReviewsQuery(promoIdForBackend ?? 0, { skip: !promoIdForBackend || !!cardIdForBackend });
+  const reviews: any[] = (cardIdForBackend ? reviewsCardQuery.data : reviewsPromoQuery.data) ?? [];
+  const refetchReviews = cardIdForBackend ? reviewsCardQuery.refetch : reviewsPromoQuery.refetch;
+
+  // Leads via backend
+  const leadsCardQuery = useListBusinessLeadsQuery(
+    cardIdForBackend ? { businessId: cardIdForBackend, promotionId: promoIdForBackend ?? undefined } : ({} as any),
+    { skip: !cardIdForBackend }
+  );
+  const leadsPromoQuery = useListPromotionLeadsQuery(
+    promoIdForBackend ? { promotionId: promoIdForBackend } : ({} as any),
+    { skip: !promoIdForBackend || !!cardIdForBackend }
+  );
+  const leadsRaw = cardIdForBackend ? leadsCardQuery.data : leadsPromoQuery.data;
+  const refetchLeads = cardIdForBackend ? leadsCardQuery.refetch : leadsPromoQuery.refetch;
+  const leads: any[] = leadsRaw?.data ?? [];
 
   const views = analytics.filter((a) => a.event_type === "view").length;
   const [refreshing, setRefreshing] = useState(false);
@@ -164,23 +165,28 @@ const BusinessAnalytics = () => {
   const isPendingPayment = selectedPromotion?.status === "pending_payment";
   const isExpired = selectedPromotion?.status === "expired";
   const isTierLocked = !hasFeature(tier, "analytics");
-  const canShowAnalyticsBody = !!user && hasSelectedListing && cardIds.length > 0 && !isPendingPayment && !isExpired && !isTierLocked;
+  const canShowAnalyticsBody = !!user && hasSelectedListing && hasAnalyticsScope && !isPendingPayment && !isExpired && !isTierLocked;
 
-  const body = !user || !hasSelectedListing || cardIds.length === 0 ? (
+  const body = !user ? (
     <View className="flex-1 items-center justify-center px-6">
       <BarChart3 size={48} color="#c0c4cc" />
-      <Text className="text-sm text-muted-foreground mt-3 mb-4">
-        {!user ? "Sign in to view analytics" : !hasSelectedListing ? "Opening business selector..." : "No business card linked to this listing"}
-      </Text>
-      {!user && (
-        <Button
-          onPress={() => navigation.navigate("Auth")}
-          className="rounded-xl"
-        >
-          Sign In
-        </Button>
-      )}
+      <Text className="text-sm text-muted-foreground mt-3 mb-4">Sign in to view analytics</Text>
+      <Button onPress={() => navigation.navigate("Auth")} className="rounded-xl">
+        Sign In
+      </Button>
     </View>
+  ) : !hasSelectedListing ? (
+    hasAnyPromotion ? (
+      <View className="flex-1 items-center justify-center px-6">
+        <Text className="text-sm text-muted-foreground">Opening business selector...</Text>
+      </View>
+    ) : (
+      <NoPromotionCTA
+        title="Analytics needs a promoted business"
+        description="Promote a business to unlock views, clicks, bookings and lead analytics."
+        ctaLabel="Promote Business"
+      />
+    )
   ) : isPendingPayment ? (
     <UpgradePrompt
       feature="analytics"

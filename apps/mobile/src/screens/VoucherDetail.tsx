@@ -34,7 +34,7 @@ const VoucherDetail = () => {
   const claimVoucher = useClaimVoucher();
   const [showPurchase, setShowPurchase] = useState(false);
   const [showRedemption, setShowRedemption] = useState(false);
-  const [claimedCode, setClaimedCode] = useState("");
+  const [claimReference, setClaimReference] = useState("");
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -85,10 +85,12 @@ const VoucherDetail = () => {
     }
     try {
       const result = await claimVoucher.mutateAsync(voucher.id);
-      setClaimedCode(result.code);
+      setClaimReference(`CLM-${result.id}`);
       setShowPurchase(false);
       setShowRedemption(true);
-    } catch {}
+    } catch (e: any) {
+      // error toast is handled by useClaimVoucher hook
+    }
   };
 
   return (
@@ -108,7 +110,7 @@ const VoucherDetail = () => {
         }>
         <View className="px-4 py-5 gap-5">
           <View className="relative h-48 items-center justify-center rounded-2xl bg-muted overflow-hidden">
-            <Text className="text-7xl">{emojiMap[voucher.category] || "🎁"}</Text>
+            <Text className="text-7xl">{emojiMap[voucher.category] || "🎁"}</Text>
             {voucher.discount_label && (
               <Badge className="absolute left-3 top-3 bg-primary text-primary-foreground border-none text-sm px-3 py-1">
                 {voucher.discount_label}
@@ -168,8 +170,8 @@ const VoucherDetail = () => {
             <Text className="text-sm font-semibold text-foreground">How to Redeem</Text>
             <View className="gap-2">
               {[
-                "Purchase the voucher",
-                "Receive voucher code via app",
+                "Claim the voucher",
+                "Receive voucher reference via app",
                 "Show the QR code at the merchant",
                 "Enjoy your discount!",
               ].map((step, idx) => (
@@ -186,10 +188,10 @@ const VoucherDetail = () => {
         <Button
           className="w-full rounded-xl py-4"
           onPress={() => setShowPurchase(true)}
-          disabled={claimVoucher.isPending}
+          disabled={claimVoucher.isPending || (expiryDays !== null && expiryDays < 0)}
         >
           <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: "700" }}>
-            Buy Now — ₹{voucher.discounted_price.toLocaleString()}
+            {expiryDays !== null && expiryDays < 0 ? "Voucher Expired" : `Claim Voucher — ₹${voucher.discounted_price.toLocaleString()}`}
           </Text>
         </Button>
       </View>
@@ -197,9 +199,9 @@ const VoucherDetail = () => {
       <Dialog open={showPurchase} onOpenChange={setShowPurchase}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Confirm Purchase</DialogTitle>
+            <DialogTitle>Confirm Claim</DialogTitle>
             <DialogDescription>
-              You're about to purchase {voucher.title} for ₹{voucher.discounted_price.toLocaleString()}
+              You're about to claim {voucher.title} for ₹{voucher.discounted_price.toLocaleString()}
             </DialogDescription>
           </DialogHeader>
           <View className="rounded-xl bg-muted p-3 flex-row items-center justify-between">
@@ -211,7 +213,7 @@ const VoucherDetail = () => {
           <DialogFooter>
             <View className="gap-2">
               <Button className="w-full rounded-xl" onPress={handlePurchase} disabled={claimVoucher.isPending}>
-                {claimVoucher.isPending ? "Processing..." : "Confirm & Pay"}
+                {claimVoucher.isPending ? "Processing..." : "Confirm Claim"}
               </Button>
               <Button variant="outline" className="w-full rounded-xl" onPress={() => setShowPurchase(false)}>
                 Cancel
@@ -230,9 +232,9 @@ const VoucherDetail = () => {
             </DialogDescription>
           </DialogHeader>
           <View className="items-center py-4">
-            <QRCode value={`instantly://voucher/${voucher.id}/redeem/${claimedCode}`} size={160} />
+            <QRCode value={`instantly://voucher/${voucher.id}/claim/${claimReference}`} size={160} />
             <Text className="mt-3 text-sm font-mono font-bold text-foreground">
-              CODE: {claimedCode}
+              REF: {claimReference}
             </Text>
             <Text className="mt-1 text-xs text-muted-foreground">Valid until expiry</Text>
           </View>

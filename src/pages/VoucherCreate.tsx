@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useCreateVoucher } from "@/hooks/useVouchers";
-import { useBusinessCards } from "@/hooks/useBusinessCards";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const voucherCategories = ["food", "beauty", "travel", "shopping", "entertainment", "health", "activities", "education", "general"];
@@ -17,18 +18,31 @@ const voucherCategories = ["food", "beauty", "travel", "shopping", "entertainmen
 const VoucherCreate = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const preselectedCardId = searchParams.get("cardId") || "";
+  const preselectedPromotionId = searchParams.get("promotionId") || "";
   const { user } = useAuth();
-  const { cards } = useBusinessCards();
   const createVoucher = useCreateVoucher();
 
-  const defaultCardId = preselectedCardId || (cards.length === 1 ? cards[0].id : "");
-  const defaultCategory = defaultCardId ? cards.find(c => c.id === defaultCardId)?.category?.toLowerCase() || "general" : "general";
+  const { data: promotions = [] } = useQuery({
+    queryKey: ["my-promotions", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("business_promotions" as any)
+        .select("id, business_name, tier, status")
+        .eq("user_id", user!.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as { id: string; business_name: string; tier: string; status: string }[];
+    },
+    enabled: !!user,
+  });
+
+  const defaultPromotionId = preselectedPromotionId || (promotions.length === 1 ? String(promotions[0].id) : "");
 
   const [form, setForm] = useState({
     title: "",
     subtitle: "",
-    category: voucherCategories.includes(defaultCategory) ? defaultCategory : "general",
+    category: "general",
     original_price: "",
     discounted_price: "",
     discount_label: "",
@@ -36,13 +50,17 @@ const VoucherCreate = () => {
     max_claims: "",
     expires_at: "",
     is_popular: false,
-    business_card_id: defaultCardId,
+    business_promotion_id: defaultPromotionId,
   });
 
   const update = (field: string, value: any) => setForm((p) => ({ ...p, [field]: value }));
 
   const handleSubmit = async () => {
     if (!user) { toast.error("Please sign in"); navigate("/auth"); return; }
+    if (!form.business_promotion_id) {
+      toast.error("Please select a business listing");
+      return;
+    }
     if (!form.title || !form.original_price || !form.discounted_price) {
       toast.error("Please fill title and pricing");
       return;
@@ -58,7 +76,7 @@ const VoucherCreate = () => {
       max_claims: form.max_claims ? parseInt(form.max_claims) : null,
       expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null,
       is_popular: form.is_popular,
-      business_card_id: form.business_card_id || null,
+      business_promotion_id: form.business_promotion_id,
     });
     navigate("/vouchers");
   };
@@ -75,19 +93,21 @@ const VoucherCreate = () => {
       </div>
 
       <div className="px-4 py-5 space-y-4">
-        {cards.length > 0 && (
-          <div className="space-y-2">
-            <Label>Link to Business Card</Label>
-            <Select value={form.business_card_id} onValueChange={(v) => update("business_card_id", v)}>
-              <SelectTrigger><SelectValue placeholder="Select a card (optional)" /></SelectTrigger>
+        <div className="space-y-2">
+          <Label>Business Listing *</Label>
+          {promotions.length === 0 ? (
+            <p className="text-sm text-destructive">No active promotions found. Create a business listing first.</p>
+          ) : (
+            <Select value={form.business_promotion_id} onValueChange={(v) => update("business_promotion_id", v)}>
+              <SelectTrigger><SelectValue placeholder="Select a listing" /></SelectTrigger>
               <SelectContent>
-                {cards.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.full_name} {c.company_name ? `— ${c.company_name}` : ""}</SelectItem>
+                {promotions.map((p) => (
+                  <SelectItem key={p.id} value={String(p.id)}>{p.business_name} ({p.tier})</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="space-y-2">
           <Label>Voucher Title *</Label>
