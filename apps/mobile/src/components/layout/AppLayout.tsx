@@ -11,7 +11,7 @@ import { useUserRole } from "../../hooks/useUserRole";
 import { useNotifications } from "../../hooks/useNotifications";
 import { FEATURES } from "../../lib/featureFlags";
 import BulkSendModal from "../BulkSendModal";
-import { useGetConversationsQuery } from "../../store/api/chatApi";
+import { useGetConversationsQuery, useGetGroupsQuery } from "../../store/api/chatApi";
 
 const iconImg = require("../../../assets/icon.png");
 
@@ -35,12 +35,18 @@ const AppLayout = ({
     pollingInterval: 5000,
     refetchOnMountOrArgChange: true,
   });
+  const { data: groups = [] } = useGetGroupsQuery(undefined, {
+    skip: !user,
+    pollingInterval: 5000,
+    refetchOnMountOrArgChange: true,
+  });
   const chatUnreadCount = conversations
     .filter((c) => !c.isGroup)
     .reduce((sum, c) => sum + (c.unreadCount || 0), 0);
-  const combinedUnreadCount = (unreadCount || 0) + chatUnreadCount;
+  const groupUnreadCount = groups.reduce((sum, g) => sum + (g.unreadCount || 0), 0);
+  const combinedUnreadCount = (unreadCount || 0) + chatUnreadCount + groupUnreadCount;
   const combinedUnreadLabel = combinedUnreadCount > 99 ? "99+" : String(combinedUnreadCount);
-  const chatUnreadLabel = chatUnreadCount > 99 ? "99+" : String(chatUnreadCount);
+  const chatUnreadLabel = (chatUnreadCount + groupUnreadCount) > 99 ? "99+" : String(chatUnreadCount + groupUnreadCount);
   const enterAnim = useRef(new Animated.Value(0)).current;
   const [showBulkSend, setShowBulkSend] = useState(false);
   const compactHeader = width < 390;

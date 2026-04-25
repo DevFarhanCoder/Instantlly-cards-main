@@ -149,6 +149,7 @@ export const baseApi = createApi({
     'Referral',
     'Credits',
     'Lead',
+    'Notification',
   ],
   endpoints: () => ({}),
 });

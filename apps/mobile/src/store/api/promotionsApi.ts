@@ -69,6 +69,10 @@ export const promotionsApi = baseApi.injectEndpoints({
       query: ({ id, data }) => ({ url: `/promotions/${id}`, method: 'PUT', body: data }),
       invalidatesTags: (_r, _e, { id }) => [{ type: 'Promotion', id }, 'Promotion'],
     }),
+    deletePromotion: builder.mutation<{ success: boolean; id: number }, number>({
+      query: (id) => ({ url: `/promotions/${id}`, method: 'DELETE' }),
+      invalidatesTags: (_r, _e, id) => [{ type: 'Promotion', id }, 'Promotion'],
+    }),
     listPricingPlans: builder.query<any[], void>({
       query: () => '/promotions/pricing-plans',
     }),
@@ -105,6 +109,7 @@ export const {
   useGetMyPromotionsQuery,
   useCreatePromotionMutation,
   useUpdatePromotionMutation,
+  useDeletePromotionMutation,
   useListPricingPlansQuery,
   useCreatePromotionPaymentIntentMutation,
   useVerifyPromotionPaymentMutation,

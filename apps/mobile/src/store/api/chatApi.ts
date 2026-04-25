@@ -49,6 +49,7 @@ export interface GroupInfo {
   memberCount: number;
   myRole: string;
   isMuted: boolean;
+  unreadCount: number;
   lastMessage: {
     id: number;
     content: string;

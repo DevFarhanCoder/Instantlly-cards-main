@@ -22,7 +22,8 @@ import {
 } from "../ui/dropdown-menu";
 
 interface LeadsManagerProps {
-  businessCardId: string;
+  businessCardId?: string | null;
+  promotionId?: string | number | null;
 }
 
 const statusConfig: Record<
@@ -35,8 +36,8 @@ const statusConfig: Record<
   closed: { label: "Closed", color: "#b91c1c", bg: "#fee2e2", icon: XCircle },
 };
 
-const LeadsManager = ({ businessCardId }: LeadsManagerProps) => {
-  const { leads, isLoading, updateLeadStatus } = useBusinessLeads(businessCardId);
+const LeadsManager = ({ businessCardId, promotionId }: LeadsManagerProps) => {
+  const { leads, isLoading, updateLeadStatus } = useBusinessLeads(businessCardId, promotionId);
   const [filter, setFilter] = useState("all");
 
   const filteredLeads = useMemo(

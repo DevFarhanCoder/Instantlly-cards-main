@@ -2,6 +2,7 @@ import { supabase } from "../integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import {
   useGetCardReviewsQuery,
+  useGetPromotionReviewsQuery,
   useCreateReviewMutation,
 } from "../store/api/reviewsApi";
 
@@ -17,20 +18,25 @@ export interface Review {
   business_reply_at: string | null;
 }
 
-export function useReviews(businessId: string) {
+export function useReviews(businessId: string, promotionId?: number | null) {
   const { user } = useAuth();
-  const cardId = Number(businessId);
-  const reviewsQuery = useGetCardReviewsQuery(cardId, { skip: !cardId });
+  const cardId = Number(businessId) || 0;
+  const promoId = promotionId ? Number(promotionId) : 0;
+
+  const cardQuery = useGetCardReviewsQuery(cardId, { skip: !!promoId || !cardId });
+  const promoQuery = useGetPromotionReviewsQuery(promoId, { skip: !promoId });
+  const reviewsQuery = promoId ? promoQuery : cardQuery;
 
   const [createTrigger, createState] = useCreateReviewMutation();
   const createReview = {
     mutateAsync: async (review: { rating: number; comment?: string; photo_urls?: string[] }) => {
-      const payload = {
-        business_id: cardId,
+      const payload: any = {
         rating: review.rating,
         comment: review.comment,
         photo_url: review.photo_urls?.[0],
       };
+      if (promoId) payload.business_promotion_id = promoId;
+      if (cardId) payload.business_id = cardId;
       const data = await createTrigger(payload).unwrap();
       return data;
     },

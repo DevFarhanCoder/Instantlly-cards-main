@@ -42,7 +42,7 @@ import { useBookings } from "../hooks/useBookings";
 import { useCreateConversation } from "../hooks/useMessages";
 import { useDirectoryCard } from "../hooks/useDirectoryCards";
 import { Skeleton } from "../components/ui/skeleton";
-import { trackCardEvent } from "../lib/analytics";
+import { trackCardEvent, trackPromotionEvent } from "../lib/analytics";
 import { useBusinessFollows } from "../hooks/useBusinessFollows";
 import { useDisputes, useReportBusiness } from "../hooks/useReports";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
@@ -66,8 +66,20 @@ const BusinessDetail = () => {
   const { createBooking } = useBookings();
   const createConversation = useCreateConversation();
   const { data: card, isLoading, refetch: refetchCard } = useDirectoryCard(id || "0");
-  const businessId = card?.business_card_id || (card?._numericId ? String(card._numericId) : "");
-  const { reviews, createReview, uploadReviewPhoto } = useReviews(businessId);
+  const businessId = card
+    ? card._source === "promotion"
+      ? (card.business_card_id ? String(card.business_card_id) : "")
+      : (card._numericId ? String(card._numericId) : "")
+    : "";
+  const promotionId = card && card._source === "promotion" ? card._numericId : null;
+  const trackEvent = (eventType: "view" | "phone_click" | "message_click" | "direction_click" | "website_click" | "share") => {
+    if (promotionId) {
+      trackPromotionEvent(promotionId, eventType, businessId || undefined);
+    } else if (businessId) {
+      trackCardEvent(businessId, eventType);
+    }
+  };
+  const { reviews, createReview, uploadReviewPhoto } = useReviews(businessId, promotionId ?? undefined);
   const { followersCount, isFollowing, toggleFollow } = useBusinessFollows(businessId);
   const reportBusiness = useReportBusiness();
   const { createDispute } = useDisputes();
@@ -79,10 +91,11 @@ const BusinessDetail = () => {
   const [disputeDescription, setDisputeDescription] = useState("");
 
   useEffect(() => {
-    if (businessId && card) {
-      trackCardEvent(businessId, "view");
+    if (card && (promotionId || businessId)) {
+      trackEvent("view");
     }
-  }, [businessId, card]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId, promotionId, card]);
 
   const allReviews = useMemo(
     () =>
@@ -427,7 +440,7 @@ const BusinessDetail = () => {
           <Pressable
             className="rounded-xl border border-border bg-muted h-40 items-center justify-center mt-4"
             onPress={() => {
-            trackCardEvent(businessId, "direction_click");
+            trackEvent("direction_click");
               Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(card.location!)}`);
             }}
           >
@@ -504,7 +517,7 @@ const BusinessDetail = () => {
           <Button
             className="flex-1 gap-1.5 rounded-xl py-3.5"
             onPress={async () => {
-              trackCardEvent(businessId, "message_click");
+              trackEvent("message_click");
               if (!user) {
                 toast.error("Please sign in to message");
                 navigation.navigate("Auth");
@@ -525,7 +538,7 @@ const BusinessDetail = () => {
             variant="outline"
             className="flex-1 gap-1.5 rounded-xl py-3.5"
             onPress={() => {
-              trackCardEvent(businessId, "phone_click");
+              trackEvent("phone_click");
               Linking.openURL(`tel:${card.phone}`);
             }}
           >
@@ -661,11 +674,17 @@ const BusinessDetail = () => {
         businessName={card.full_name}
         businessLogo={card.logo_url || "🏢"}
         businessId={businessId}
+        promotionId={promotionId ?? undefined}
         isSignedIn={!!user}
         onRequireAuth={() => navigation.navigate("Auth")}
         onSubmit={async (payload) => {
           await createBooking({
-            business_id: typeof payload.business_id === 'string' ? parseInt(payload.business_id, 10) : payload.business_id,
+            business_id: payload.business_id
+              ? (typeof payload.business_id === 'string' ? parseInt(payload.business_id, 10) : payload.business_id)
+              : undefined,
+            business_promotion_id: payload.business_promotion_id
+              ? parseInt(payload.business_promotion_id, 10)
+              : undefined,
             business_name: payload.business_name,
             mode: payload.mode as any,
             booking_date: payload.booking_date,
