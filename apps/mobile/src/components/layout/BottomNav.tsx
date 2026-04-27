@@ -24,7 +24,7 @@ import {
   ShieldCheck,
   TrendingUp,
 } from "lucide-react-native";
-import { colors } from "../../theme/colors";
+import { colors as defaultColors, useColors } from "../../theme/colors";
 import { useUserRole } from "../../hooks/useUserRole";
 import { useAdminPendingCounts } from "../../hooks/useAdminData";
 import { useAppDispatch } from "../../store";
@@ -149,6 +149,8 @@ const businessMoreSections: MoreSection[] = [
 ];
 
 const BottomNav = () => {
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const navigation = useNavigation<any>();
   const currentRoute = useNavigationState(
     (state) => state.routes[state.index]
@@ -405,7 +407,7 @@ const BottomNav = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: typeof defaultColors) => StyleSheet.create({
   nav: {
     backgroundColor: colors.card,
     borderTopWidth: 1,

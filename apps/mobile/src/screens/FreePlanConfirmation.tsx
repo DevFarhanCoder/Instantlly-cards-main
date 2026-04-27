@@ -4,6 +4,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, ArrowRight, Check, CreditCard, LayoutList, Gift } from "lucide-react-native";
 import { useAuth } from "../hooks/useAuth";
 import { toast } from "../lib/toast";
+import { useIconColor } from "../theme/colors";
 
 const freeFeatures = [
   {
@@ -21,6 +22,7 @@ const freeFeatures = [
 ];
 
 const FreePlanConfirmation = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user } = useAuth();
@@ -42,7 +44,7 @@ const FreePlanConfirmation = () => {
       {/* Header */}
       <View style={{ borderBottomWidth: 1, borderBottomColor: "#e5e7eb", backgroundColor: "#fff", paddingHorizontal: 16, paddingVertical: 16, flexDirection: "row", alignItems: "center", gap: 12 }}>
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text style={{ fontSize: 18, fontWeight: "700", color: "#111827" }}>Free Plan</Text>
       </View>

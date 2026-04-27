@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { View, ScrollView, Pressable, Text, Modal, StyleSheet, Image, KeyboardAvoidingView, Platform } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Users, Store, Shield, ChevronDown, Eye, EyeOff } from "lucide-react-native";
@@ -11,6 +11,7 @@ import { Input } from "../components/ui/input";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { toast } from "../lib/toast";
+import { colors as defaultColors, useColors } from "../theme/colors";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/routes";
 
@@ -128,6 +129,8 @@ const Auth = ({ navigation }: Props) => {
   /** Roles returned by the login response — used to populate the role selection modal. */
   const [loginRoles, setLoginRoles] = useState<string[]>([]);
   const { signIn, signUp } = useAuth();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
 
   const validatePhone = (phone: string): boolean => {
     return /^\d{10}$/.test(phone);
@@ -261,7 +264,7 @@ const Auth = ({ navigation }: Props) => {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-gray-50"
+      className="flex-1 bg-background"
       behavior="padding"
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
     >
@@ -275,16 +278,16 @@ const Auth = ({ navigation }: Props) => {
           {/* Logo Section */}
           <View className="mb-3 items-center">
             <Image source={iconImg} style={{ width: 70, height: 70, marginBottom: 12, backgroundColor: 'transparent' }} resizeMode="contain" />
-            <Text className="text-3xl font-bold text-gray-900 mb-2 tracking-tight">Instantlly Cards</Text>
-            <Text className="text-sm text-gray-600 font-medium tracking-wide">Business, Growth, Platform</Text>
+            <Text className="text-3xl font-bold text-foreground mb-2 tracking-tight">Instantlly Cards</Text>
+            <Text className="text-sm text-muted-foreground font-medium tracking-wide">Business, Growth, Platform</Text>
           </View>
 
           {/* Login Card */}
-          <Card className="w-full max-w-md border-0 shadow-xl rounded-3xl bg-white">
+          <Card className="w-full max-w-md border-0 shadow-xl rounded-3xl bg-card">
             <CardContent className="p-6 gap-4">
               {/* Subtitle Text */}
               <View className="items-center mt-1 mb-3">
-                <Text className="text-base text-gray-700 font-medium">
+                <Text className="text-base text-muted-foreground font-medium">
                   {isSignUp ? "Create your account" : "Sign in to your account"}
                 </Text>
               </View>
@@ -294,15 +297,15 @@ const Auth = ({ navigation }: Props) => {
                 {/* Full Name Field (Sign Up Only) */}
                 {isSignUp && (
                   <View className="gap-1.5">
-                    <Text className="text-sm font-bold text-gray-900">Full Name</Text>
+                    <Text className="text-sm font-bold text-foreground">Full Name</Text>
                     <View className="relative">
                       <Input
                         placeholder="Enter your full name"
                         value={name}
                         onChangeText={setName}
                         autoCapitalize="words"
-                        className="pl-4 h-12 rounded-2xl text-sm border-0 bg-gray-100"
-                        placeholderTextColor="#9ca3af"
+                        className="pl-4 h-12 rounded-2xl text-sm border-0 bg-muted text-foreground"
+                        placeholderTextColor={colors.mutedForeground}
                       />
                     </View>
                   </View>
@@ -310,7 +313,7 @@ const Auth = ({ navigation }: Props) => {
 
                 {/* Phone Number Field */}
                 <View className="gap-1.5">
-                  <Text className="text-sm font-bold text-gray-900">Phone Number</Text>
+                  <Text className="text-sm font-bold text-foreground">Phone Number</Text>
                   <View className="relative">
                     <Input
                       placeholder="1234567890"
@@ -318,8 +321,8 @@ const Auth = ({ navigation }: Props) => {
                       onChangeText={setPhone}
                       keyboardType="phone-pad"
                       maxLength={10}
-                      className="pl-32 pr-4 h-12 rounded-2xl text-sm border-0 bg-gray-100"
-                      placeholderTextColor="#9ca3af"
+                      className="pl-32 pr-4 h-12 rounded-2xl text-sm border-0 bg-muted text-foreground"
+                      placeholderTextColor={colors.mutedForeground}
                     />
                     <Pressable
                       onPress={() => setShowCountryPicker(true)}
@@ -328,7 +331,7 @@ const Auth = ({ navigation }: Props) => {
                       <Text style={styles.countryCodeButtonText}>
                         {COUNTRY_CODES.find(c => c.code === countryCode)?.flag} {dialCode(countryCode)}
                       </Text>
-                      <ChevronDown size={14} color="#6b7280" />
+                      <ChevronDown size={14} color={colors.mutedForeground} />
                     </Pressable>
                   </View>
                   {phone.length > 0 && !validatePhone(phone) && (
@@ -341,7 +344,7 @@ const Auth = ({ navigation }: Props) => {
                 {/* Account Type Toggle (Sign Up Only) */}
                 {isSignUp && (
                   <View className="gap-1.5">
-                    <Text className="text-sm font-bold text-gray-900">Account Type</Text>
+                    <Text className="text-sm font-bold text-foreground">Account Type</Text>
                     <View className="flex-row gap-2">
                       <Pressable
                         onPress={() => { setRoleTab("customer"); setBusinessName(""); }}
@@ -350,7 +353,7 @@ const Auth = ({ navigation }: Props) => {
                           roleTab === "customer" ? styles.roleTabActive : styles.roleTabInactive
                         ]}
                       >
-                        <Users size={18} color={roleTab === "customer" ? "#ffffff" : "#1f2937"} />
+                        <Users size={18} color={roleTab === "customer" ? "#ffffff" : colors.foreground} />
                         <Text style={[styles.roleTabText, roleTab === "customer" ? styles.roleTabTextActive : styles.roleTabTextInactive]}>
                           Customer
                         </Text>
@@ -362,7 +365,7 @@ const Auth = ({ navigation }: Props) => {
                           roleTab === "business" ? styles.roleTabActive : styles.roleTabInactive
                         ]}
                       >
-                        <Store size={18} color={roleTab === "business" ? "#ffffff" : "#1f2937"} />
+                        <Store size={18} color={roleTab === "business" ? "#ffffff" : colors.foreground} />
                         <Text style={[styles.roleTabText, roleTab === "business" ? styles.roleTabTextActive : styles.roleTabTextInactive]}>
                           Business
                         </Text>
@@ -374,7 +377,7 @@ const Auth = ({ navigation }: Props) => {
                 {/* Business Name Field (Sign Up + Business only) */}
                 {isSignUp && roleTab === "business" && (
                   <View className="gap-1.5">
-                    <Text className="text-sm font-bold text-gray-900">
+                    <Text className="text-sm font-bold text-foreground">
                       Business Name / Company Name <Text className="text-red-500">*</Text>
                     </Text>
                     <View className="relative">
@@ -383,27 +386,27 @@ const Auth = ({ navigation }: Props) => {
                         value={businessName}
                         onChangeText={setBusinessName}
                         autoCapitalize="words"
-                        className="pl-4 h-12 rounded-2xl text-sm border-0 bg-gray-100"
-                        placeholderTextColor="#9ca3af"
+                        className="pl-4 h-12 rounded-2xl text-sm border-0 bg-muted text-foreground"
+                        placeholderTextColor={colors.mutedForeground}
                       />
                     </View>
                     {businessName.length === 0 && (
-                      <Text className="text-xs text-gray-500">This field is required for business accounts</Text>
+                      <Text className="text-xs text-muted-foreground">This field is required for business accounts</Text>
                     )}
                   </View>
                 )}
 
                 {/* Password Field */}
                 <View className="gap-1.5">
-                  <Text className="text-sm font-bold text-gray-900">Password</Text>
+                  <Text className="text-sm font-bold text-foreground">Password</Text>
                   <View className="relative">
                     <Input
                       secureTextEntry={!showPassword}
                       placeholder="••••••••"
                       value={password}
                       onChangeText={setPassword}
-                      className="pl-4 pr-14 h-12 rounded-2xl text-sm border-0 bg-gray-100"
-                      placeholderTextColor="#9ca3af"
+                      className="pl-4 pr-14 h-12 rounded-2xl text-sm border-0 bg-muted text-foreground"
+                      placeholderTextColor={colors.mutedForeground}
                     />
                     <Pressable
                       onPress={() => setShowPassword(!showPassword)}
@@ -411,8 +414,8 @@ const Auth = ({ navigation }: Props) => {
                       accessibilityLabel={showPassword ? "Hide password" : "Show password"}
                     >
                       {showPassword
-                        ? <EyeOff size={18} color="#6b7280" />
-                        : <Eye size={18} color="#6b7280" />
+                        ? <EyeOff size={18} color={colors.mutedForeground} />
+                        : <Eye size={18} color={colors.mutedForeground} />
                       }
                     </Pressable>
                   </View>
@@ -438,15 +441,15 @@ const Auth = ({ navigation }: Props) => {
                 {/* Confirm Password Field (Sign Up Only) */}
                 {isSignUp && (
                   <View className="gap-1.5">
-                    <Text className="text-sm font-bold text-gray-900">Confirm Password</Text>
+                    <Text className="text-sm font-bold text-foreground">Confirm Password</Text>
                     <View className="relative">
                       <Input
                         secureTextEntry={!showConfirmPassword}
                         placeholder="••••••••"
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
-                        className="pl-4 pr-14 h-12 rounded-2xl text-sm border-0 bg-gray-100"
-                        placeholderTextColor="#9ca3af"
+                        className="pl-4 pr-14 h-12 rounded-2xl text-sm border-0 bg-muted text-foreground"
+                        placeholderTextColor={colors.mutedForeground}
                       />
                       <Pressable
                         onPress={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -454,8 +457,8 @@ const Auth = ({ navigation }: Props) => {
                         accessibilityLabel={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                       >
                         {showConfirmPassword
-                          ? <EyeOff size={18} color="#6b7280" />
-                          : <Eye size={18} color="#6b7280" />
+                          ? <EyeOff size={18} color={colors.mutedForeground} />
+                          : <Eye size={18} color={colors.mutedForeground} />
                         }
                       </Pressable>
                     </View>
@@ -619,7 +622,7 @@ const Auth = ({ navigation }: Props) => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: typeof defaultColors) => StyleSheet.create({
   roleTab: {
     flex: 1,
     flexDirection: 'row',
@@ -638,9 +641,9 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   roleTabInactive: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
   },
   roleTabText: {
     fontSize: 13,
@@ -650,7 +653,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   roleTabTextInactive: {
-    color: '#1f2937',
+    color: colors.foreground,
   },
   submitButton: {
     width: '100%',
@@ -735,7 +738,7 @@ const styles = StyleSheet.create({
   countryCodeButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1f2937',
+    color: colors.foreground,
   },
   eyeButton: {
     position: 'absolute',
@@ -753,7 +756,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     height: '70%',
@@ -769,10 +772,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: colors.border,
   },
   countryItemSelected: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.muted,
   },
   countryFlag: {
     fontSize: 24,
@@ -781,15 +784,15 @@ const styles = StyleSheet.create({
   countryName: {
     flex: 1,
     fontSize: 16,
-    color: '#1f2937',
+    color: colors.foreground,
   },
   countryCodeInList: {
     fontSize: 14,
-    color: '#6b7280',
+    color: colors.mutedForeground,
     fontWeight: '600',
   },
   roleSelectionModal: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 24,
@@ -800,13 +803,13 @@ const styles = StyleSheet.create({
   roleSelectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: colors.foreground,
     marginBottom: 8,
     textAlign: 'center',
   },
   roleSelectionSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: colors.mutedForeground,
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -815,9 +818,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   roleSelectionButton: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: colors.muted,
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: colors.border,
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 16,
@@ -828,11 +831,11 @@ const styles = StyleSheet.create({
   roleSelectionButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: colors.foreground,
   },
   roleSelectionButtonDesc: {
     fontSize: 12,
-    color: '#6b7280',
+    color: colors.mutedForeground,
     fontWeight: '500',
   },
 });

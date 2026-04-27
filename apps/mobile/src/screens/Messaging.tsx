@@ -46,6 +46,7 @@ import { useGetSharedCardsQuery } from "../store/api/businessCardsApi";
 import { useGetGroupsQuery, type GroupInfo } from "../store/api/chatApi";
 import { useMatchContactsMutation, type AppUser } from "../store/api/usersApi";
 import { socketService, type MessagePayload } from "../services/socketService";
+import { useIconColor } from "../theme/colors";
 
 const demoReceivedCards: never[] = [];
 
@@ -467,6 +468,7 @@ function getAIReply(userMessage: string): string | null {
 }
 
 const TypingDot = ({ delay = 0 }: { delay?: number }) => {
+  const iconColor = useIconColor();
   const scale = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
@@ -504,6 +506,7 @@ const StartChatModal = ({
   onClose: () => void;
   onStartChat: (user: AppUser) => Promise<void>;
 }) => {
+  const iconColor = useIconColor();
   const hasAnyCache = () => !!_contactsCache && !!_appUserMapCache;
   const isCacheStale = () => Date.now() - _cacheTimestamp > CONTACTS_CACHE_STALE_MS;
 
@@ -608,7 +611,7 @@ const StartChatModal = ({
       <View className="flex-1 bg-background">
         <View className="border-b border-border bg-card px-4 pt-12 pb-4 flex-row items-center gap-3">
           <Pressable onPress={onClose} className="p-1">
-            <ArrowLeft size={20} color="#111827" />
+            <ArrowLeft size={20} color={iconColor} />
           </Pressable>
           <View className="flex-1">
             <Text className="text-lg font-bold text-foreground">Start New Chat</Text>
@@ -692,6 +695,7 @@ const StartChatModal = ({
 };
 
 const Messaging = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { permission, requestPermission, sendPushNotification } = usePushNotifications();
@@ -974,7 +978,7 @@ const Messaging = () => {
       <View className="flex-1 bg-background">
         <View className="flex-row items-center gap-3 border-b border-border bg-card px-4 py-3">
           <Pressable onPress={() => setSelectedConv(null)}>
-            <ArrowLeft size={20} color="#111827" />
+            <ArrowLeft size={20} color={iconColor} />
           </Pressable>
           <View className="h-9 w-9 items-center justify-center rounded-full bg-primary/10">
             <Text className="text-xs font-bold text-primary">
@@ -988,7 +992,7 @@ const Messaging = () => {
             <Text className="text-[10px] text-muted-foreground">Online</Text>
           </View>
           <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full" onPress={startCall}>
-            <Phone size={16} color="#111827" />
+            <Phone size={16} color={iconColor} />
           </Button>
         </View>
 

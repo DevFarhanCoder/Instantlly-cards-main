@@ -5,8 +5,10 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Heart, MapPin } from "lucide-react-native";
 import { useFavorites } from "../contexts/FavoritesContext";
 import { supabase } from "../integrations/supabase/client";
+import { useIconColor } from "../theme/colors";
 
 const MyFavourites = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { favorites, toggleFavorite } = useFavorites();
 
@@ -34,7 +36,7 @@ const MyFavourites = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">My Favourites</Text>
         <Text className="ml-auto text-xs text-muted-foreground">{favorites.length} saved</Text>
@@ -51,7 +53,7 @@ const MyFavourites = () => {
           </View>
         ) : cards.length === 0 ? (
           <View className="items-center justify-center py-16">
-            <Text className="text-5xl mb-3">❤️</Text>
+            <Text className="text-5xl mb-3">Ã¢ÂÂ¤Ã¯Â¸Â</Text>
             <Text className="text-base font-semibold text-foreground">No favourites yet</Text>
             <Text className="text-sm text-muted-foreground mt-1 text-center">
               Tap the heart icon on any business card to save it here
@@ -71,7 +73,7 @@ const MyFavourites = () => {
                   {card.logo_url ? (
                     <Image source={{ uri: card.logo_url }} style={{ height: "100%", width: "100%" }} />
                   ) : (
-                    <Text className="text-xl">🏢</Text>
+                    <Text className="text-xl">Ã°Å¸ÂÂ¢</Text>
                   )}
                 </Pressable>
                 <Pressable

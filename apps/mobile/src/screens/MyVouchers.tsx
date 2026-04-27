@@ -18,6 +18,7 @@ import { toast } from "../lib/toast";
 import QRCode from "react-native-qrcode-svg";
 import { format, isValid } from "date-fns";
 import * as Clipboard from "expo-clipboard";
+import { useIconColor } from "../theme/colors";
 
 /** Safely format a date string — returns fallback on invalid input */
 const safeFormat = (dateStr: any, fmt: string, fallback = "N/A") => {
@@ -48,6 +49,7 @@ const emojiMap: Record<string, string> = {
 const tabs = ["All", "Active", "Redeemed", "Expired", "Transfers"];
 
 const MyVouchers = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { data: claimedVouchers = [], isLoading, refetch: refetchVouchers } = useMyVouchers();
@@ -96,7 +98,7 @@ const MyVouchers = () => {
     <View className="flex-1 bg-background">
       <View className="flex-row items-center gap-3 border-b border-border bg-card px-4 py-4">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">My Vouchers</Text>
       </View>
@@ -282,7 +284,7 @@ const MyVouchers = () => {
                                 className="rounded-lg"
                                 onPress={() => setQrVoucher(v)}
                               >
-                                <QrCode size={14} color="#111827" /> QR
+                                <QrCode size={14} color={iconColor} /> QR
                               </Button>
                               <Button
                                 size="sm"
@@ -304,7 +306,7 @@ const MyVouchers = () => {
                                   setTransferPhone("");
                                 }}
                               >
-                                <Send size={14} color="#111827" /> Transfer
+                                <Send size={14} color={iconColor} /> Transfer
                               </Button>
                             </View>
                           </View>

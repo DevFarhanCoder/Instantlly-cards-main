@@ -10,6 +10,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RouteProp as RNRouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from "../navigation/routes";
 import Constants from 'expo-constants';
+import { useIconColor } from "../theme/colors";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
 const iconImg = require("../../assets/Instantlly_Logo-removebg.png");
@@ -18,6 +19,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, "ForgotPassw
 type RouteProps = RNRouteProp<RootStackParamList, "ForgotPasswordOTP">;
 
 const ForgotPasswordOTP = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteProps>();
   const phone = route.params?.phone || "";
@@ -114,7 +116,7 @@ const ForgotPasswordOTP = () => {
           {/* Header */}
           <View className="flex-row items-center mb-6">
             <Pressable onPress={() => navigation.goBack()} className="mr-3">
-              <ArrowLeft size={24} color="#111827" />
+              <ArrowLeft size={24} color={iconColor} />
             </Pressable>
             <Text className="text-2xl font-bold text-gray-900">Verify OTP</Text>
           </View>

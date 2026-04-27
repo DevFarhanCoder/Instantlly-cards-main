@@ -33,6 +33,7 @@ import {
 } from '../../services/groupSharingService';
 import { useCreateGroupMutation, useJoinGroupMutation } from '../../store/api/chatApi';
 import GroupSettingsModal from './GroupSettingsModal';
+import { useIconColor } from "../../theme/colors";
 
 export type GSModalMode = 'create' | 'join';
 
@@ -289,6 +290,7 @@ export default function GroupSharingModal({
   onClose,
   onOpenConnection,
 }: Props) {
+  const iconColor = useIconColor();
   const { user } = useAuth();
   const [createGroupApi] = useCreateGroupMutation();
   const [joinGroupApi] = useJoinGroupMutation();
@@ -426,7 +428,7 @@ export default function GroupSharingModal({
             {/* ── Header ─────────────────────────────────────────────── */}
             <View style={styles.header}>
               <Pressable onPress={handleClose} hitSlop={8} style={styles.headerBtn}>
-                <Ionicons name="close" size={22} color="#111827" />
+                <Ionicons name="close" size={22} color={iconColor} />
               </Pressable>
               <Text style={styles.title}>{titleText}</Text>
               <View style={styles.headerBtn} />

@@ -26,6 +26,7 @@ import type { GroupParticipant, GroupSession } from '../../services/groupSharing
 import { useGetGroupDetailQuery, useStartGroupSharingMutation } from '../../store/api/chatApi';
 import { useGroupToast } from './GroupSharingToast';
 import * as socketService from '../../services/socketService';
+import { useIconColor } from "../../theme/colors";
 
 const logoImg = require('../../../assets/icon.png');
 
@@ -161,6 +162,7 @@ export default function GroupConnectionScreen({
   onClose,
   onStartSharing,
 }: Props) {
+  const iconColor = useIconColor();
   const { user } = useAuth();
   const { showToast, ToastRenderer } = useGroupToast();
   const [session, setSession] = useState<GroupSession>(initialSession);
@@ -260,7 +262,7 @@ export default function GroupConnectionScreen({
         {/* ── Header ─────────────────────────────────────────────────── */}
         <View style={styles.topBar}>
           <Pressable style={styles.closeCircle} onPress={handleClose} hitSlop={8}>
-            <Ionicons name="close" size={20} color="#111827" />
+            <Ionicons name="close" size={20} color={iconColor} />
           </Pressable>
           <View style={styles.timerBadge}>
             <Ionicons name="time-outline" size={15} color="#EF4444" />

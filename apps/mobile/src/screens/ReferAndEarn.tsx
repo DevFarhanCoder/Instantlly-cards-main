@@ -15,6 +15,7 @@ import * as Clipboard from "expo-clipboard";
 import { useGetReferralStatsQuery, useGetCreditConfigQuery } from "../store/api/referralApi";
 import { useAuth } from "../hooks/useAuth";
 import { toast } from "../lib/toast";
+import { useIconColor } from "../theme/colors";
 
 /** Generate a stable 6-char code from a user id (fallback when backend hasn't assigned one yet) */
 function fallbackCode(userId: number | string | undefined): string {
@@ -30,6 +31,7 @@ function fallbackCode(userId: number | string | undefined): string {
 }
 
 const ReferAndEarn = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
   const isFocused = useIsFocused();
@@ -81,7 +83,7 @@ const ReferAndEarn = () => {
     <View className="flex-1 bg-white">
       <View className="border-b border-gray-200 bg-white px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-gray-900">Refer & Earn</Text>
       </View>

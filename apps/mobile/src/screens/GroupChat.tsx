@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -35,6 +35,7 @@ import {
 } from '../store/api/chatApi';
 import { toast } from '../lib/toast';
 import type { RootStackParamList } from '../navigation/routes';
+import { useIconColor } from "../theme/colors";
 
 type GroupChatRoute = RouteProp<RootStackParamList, 'GroupChat'>;
 
@@ -52,6 +53,7 @@ function parseSharedCardPayload(content: string): Record<string, any> | null {
 }
 
 function extractSharedCardId(cardData: Record<string, any> | null): string | null {
+  const iconColor = useIconColor();
   if (!cardData) return null;
   const explicitId = cardData.detail_id ?? cardData.route_id;
   if (explicitId !== null && explicitId !== undefined) {
@@ -145,6 +147,7 @@ const GroupInfoScreen = ({
   onCopyCode: () => void;
   groupId: number;
 }) => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const [tab, setTab] = useState<'members' | 'media'>('members');
   const [editingName, setEditingName] = useState(false);
@@ -189,7 +192,7 @@ const GroupInfoScreen = ({
         {/* Header */}
         <View style={styles.infoHeader}>
           <Pressable onPress={handleRequestClose} hitSlop={8} style={styles.infoBackBtn}>
-            <Ionicons name="arrow-back" size={22} color="#111827" />
+            <Ionicons name="arrow-back" size={22} color={iconColor} />
           </Pressable>
           <Text style={styles.infoHeaderTitle}>Group Info</Text>
           {detail.myRole === 'admin' ? (
@@ -465,6 +468,7 @@ const Bubble = ({ msg, isMe }: { msg: ChatMessage; isMe: boolean }) => {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function GroupChat() {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const route = useRoute<GroupChatRoute>();
   const { groupId, groupName } = route.params;
@@ -607,7 +611,7 @@ export default function GroupChat() {
       {/* Header */}
       <Pressable style={styles.header} onPress={() => setShowInfo(true)}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#111827" />
+          <Ionicons name="arrow-back" size={22} color={iconColor} />
         </Pressable>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>{detail?.name ?? groupName}</Text>

@@ -19,6 +19,7 @@ import { Skeleton } from "../components/ui/skeleton";
 import { Progress } from "../components/ui/progress";
 import { useAdCampaigns, useUpdateAdCampaign, useDeleteAdCampaign, type AdCampaign } from "../hooks/useAds";
 import { useAdVariants } from "../hooks/useActiveAds";
+import { useIconColor } from "../theme/colors";
 
 const statusColors: Record<string, string> = {
   active: "bg-green-500/10 text-green-600",
@@ -80,6 +81,7 @@ const VariantStats = ({ campaignId }: { campaignId: number }) => {
 };
 
 const AdDashboard = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { data: campaigns = [], isLoading, refetch: refetchCampaigns } = useAdCampaigns();
   const updateCampaign = useUpdateAdCampaign();
@@ -119,7 +121,7 @@ const AdDashboard = () => {
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center justify-between">
         <View className="flex-row items-center gap-3">
           <Pressable onPress={() => navigation.goBack()}>
-            <ArrowLeft size={20} color="#111827" />
+            <ArrowLeft size={20} color={iconColor} />
           </Pressable>
           <Text className="text-lg font-bold text-foreground">Ad Dashboard</Text>
         </View>
@@ -246,11 +248,11 @@ const AdDashboard = () => {
                         >
                           {ad.status === "active" ? (
                             <>
-                              <Pause size={12} color="#111827" /> Pause
+                              <Pause size={12} color={iconColor} /> Pause
                             </>
                           ) : (
                             <>
-                              <Play size={12} color="#111827" /> Resume
+                              <Play size={12} color={iconColor} /> Resume
                             </>
                           )}
                         </Button>

@@ -1,4 +1,4 @@
-﻿import { useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, Clock, Share2, ShieldCheck } from "lucide-react-native";
@@ -12,6 +12,7 @@ import { toast } from "../lib/toast";
 import QRCode from "react-native-qrcode-svg";
 import { differenceInDays, isValid } from "date-fns";
 import { colors } from "../theme/colors";
+import { useIconColor } from "../theme/colors";
 
 const emojiMap: Record<string, string> = {
   travel: "🏖️",
@@ -26,6 +27,7 @@ const emojiMap: Record<string, string> = {
 };
 
 const VoucherDetail = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const id = route?.params?.id as string;
@@ -97,7 +99,7 @@ const VoucherDetail = () => {
     <View className="flex-1 bg-background">
       <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-4">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Voucher Details</Text>
         <Pressable>
@@ -117,7 +119,7 @@ const VoucherDetail = () => {
               </Badge>
             )}
             <View className="absolute bottom-3 left-3 flex-row items-center gap-1 rounded-full bg-background/80 px-3 py-1">
-              <Clock size={12} color="#111827" />
+              <Clock size={12} color={iconColor} />
               <Text className="text-xs font-medium text-foreground">{expiryLabel}</Text>
             </View>
           </View>

@@ -15,6 +15,7 @@ import { Badge } from "../components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { useAuth } from "../hooks/useAuth";
 import { toast } from "../lib/toast";
+import { useIconColor } from "../theme/colors";
 
 const demoMethods = [
   { id: "upi-1", type: "upi", label: "UPI", detail: "user@paytm", icon: "📱", isDefault: true },
@@ -29,6 +30,7 @@ const demoMethods = [
 ];
 
 const PaymentMethods = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const [methods, setMethods] = useState(demoMethods);
@@ -93,7 +95,7 @@ const PaymentMethods = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Payment Methods</Text>
       </View>
@@ -127,7 +129,7 @@ const PaymentMethods = () => {
               className="rounded-lg text-xs gap-1"
               onPress={() => setShowAdd(true)}
             >
-              <Plus size={14} color="#111827" /> Add New
+              <Plus size={14} color={iconColor} /> Add New
             </Button>
           </View>
 

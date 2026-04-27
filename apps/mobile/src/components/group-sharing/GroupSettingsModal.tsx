@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useIconColor } from "../../theme/colors";
 
 interface Props {
   visible: boolean;
@@ -30,6 +31,7 @@ export default function GroupSettingsModal({
   onCreate,
   creating,
 }: Props) {
+  const iconColor = useIconColor();
   const [participantSharing, setParticipantSharing] = useState(false);
 
   return (
@@ -39,7 +41,7 @@ export default function GroupSettingsModal({
           {/* ── Header ─────────────────────────────────────────────────── */}
           <View style={styles.header}>
             <Pressable onPress={onBack} hitSlop={8} style={styles.headerBtn}>
-              <Ionicons name="arrow-back" size={22} color="#111827" />
+              <Ionicons name="arrow-back" size={22} color={iconColor} />
             </Pressable>
             <Text style={styles.title}>Group Settings</Text>
             <View style={styles.headerBtn} />

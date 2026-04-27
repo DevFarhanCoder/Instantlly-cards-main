@@ -4,6 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import { ArrowLeft, Search, RefreshCw } from "lucide-react-native";
 import { usePromotionContext } from "../contexts/PromotionContext";
 import { effectiveTier, getTierColor, getTierLabel, type Tier } from "../utils/tierFeatures";
+import { useIconColor } from "../theme/colors";
 
 const statusLabel: Record<string, string> = {
   active: "Active",
@@ -20,6 +21,7 @@ const statusClassName: Record<string, string> = {
 };
 
 const BusinessSelectorScreen = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { promotions, selectedPromotionId, selectPromotion } = usePromotionContext();
   const [query, setQuery] = useState("");
@@ -36,7 +38,7 @@ const BusinessSelectorScreen = () => {
     <View className="flex-1 bg-background px-4 py-4">
       <View className="mb-3 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()} className="rounded-lg border border-border p-2">
-          <ArrowLeft size={18} color="#111827" />
+          <ArrowLeft size={18} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Switch Business</Text>
       </View>

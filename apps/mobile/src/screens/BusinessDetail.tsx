@@ -48,8 +48,10 @@ import { useDisputes, useReportBusiness } from "../hooks/useReports";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { toast } from "../lib/toast";
 import { colors } from "../theme/colors";
+import { useIconColor } from "../theme/colors";
 
 const BusinessDetail = () => {
+  const iconColor = useIconColor();
   const route = useRoute<any>();
   const id = route.params?.id as string | undefined;
   const navigation = useNavigation<any>();
@@ -202,7 +204,7 @@ const BusinessDetail = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center justify-between">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Business Details</Text>
         <View className="flex-row items-center gap-3">

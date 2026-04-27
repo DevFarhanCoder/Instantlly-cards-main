@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { ArrowLeft, ChevronDown } from "lucide-react-native";
+import { useIconColor } from "../../theme/colors";
 
 type AppHeaderProps = {
   title: string;
@@ -29,6 +30,7 @@ export const AppHeader = ({
   switchIcon,
   switchClassName,
 }: AppHeaderProps) => {
+  const iconColor = useIconColor();
   return (
     <View className={className}>
       <View className="flex-row items-center px-4 py-3">
@@ -39,7 +41,7 @@ export const AppHeader = ({
               className="h-11 w-11 items-start justify-center"
               hitSlop={8}
             >
-              <ArrowLeft size={20} color="#111827" />
+              <ArrowLeft size={20} color={iconColor} />
             </Pressable>
           ) : (
             <View className="h-11 w-11" />

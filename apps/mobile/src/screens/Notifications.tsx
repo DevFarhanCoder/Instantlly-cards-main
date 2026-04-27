@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { useNotifications } from "../hooks/useNotifications";
 import { useAuth } from "../hooks/useAuth";
 import { colors } from "../theme/colors";
+import { useIconColor } from "../theme/colors";
 
 const typeIcon: Record<string, any> = {
   reminder: Bell,
@@ -40,6 +41,7 @@ const notifTypes = [
 const PREF_KEY = "notif-prefs";
 
 const Notifications = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { notifications, unreadCount, markRead, markAllRead, deleteAll, isLoading, refetch: refetchNotifications } =
@@ -96,7 +98,7 @@ const Notifications = () => {
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center justify-between">
         <View className="flex-row items-center gap-3">
           <Pressable onPress={() => navigation.goBack()}>
-            <ArrowLeft size={20} color="#111827" />
+            <ArrowLeft size={20} color={iconColor} />
           </Pressable>
           <Text className="text-lg font-bold text-foreground">Notifications</Text>
           {unreadCount > 0 && (

@@ -21,10 +21,13 @@ import {
   LayoutDashboard,
   LifeBuoy,
   LogOut,
+  Monitor,
+  Moon,
   Send,
   Shield,
   ShieldCheck,
   Store,
+  Sun,
   User,
 } from "lucide-react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -48,6 +51,48 @@ import { useGetProfileQuery } from "../store/api/usersApi";
 import { useGetMyCardsQuery } from "../store/api/businessCardsApi";
 import { useGetMyVouchersQuery } from "../store/api/vouchersApi";
 import { toast } from "../lib/toast";
+import { useIconColor } from "../theme/colors";
+import { useTheme, type ThemePreference } from "../contexts/ThemeContext";
+
+const ThemeToggleRow = () => {
+  const { preference, setPreference } = useTheme();
+  const iconColor = useIconColor();
+  const options: { key: ThemePreference; label: string; Icon: any }[] = [
+    { key: "light", label: "Light", Icon: Sun },
+    { key: "dark", label: "Dark", Icon: Moon },
+    { key: "system", label: "System", Icon: Monitor },
+  ];
+  return (
+    <View className="px-4 py-3.5">
+      <View className="flex-row items-center gap-3 mb-3">
+        <View className="h-9 w-9 items-center justify-center rounded-lg bg-muted">
+          <Moon size={16} color={iconColor} />
+        </View>
+        <View className="flex-1">
+          <Text className="text-sm font-semibold text-foreground">Appearance</Text>
+          <Text className="text-xs text-muted-foreground">Choose light, dark, or follow system</Text>
+        </View>
+      </View>
+      <View className="flex-row rounded-lg bg-muted p-1 gap-1">
+        {options.map((opt) => {
+          const active = preference === opt.key;
+          return (
+            <Pressable
+              key={opt.key}
+              onPress={() => setPreference(opt.key)}
+              className={`flex-1 flex-row items-center justify-center gap-1.5 py-2 rounded-md ${active ? "bg-card" : ""}`}
+            >
+              <opt.Icon size={14} color={active ? "#3b82f6" : iconColor} />
+              <Text className={`text-xs ${active ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+};
 
 const ProfileCompletion = ({ authUser, profile, stats }: { authUser: any; profile: any; stats: any }) => {
   const navigation = useNavigation<any>();
@@ -276,6 +321,7 @@ const SupportTicketSection = ({ userId }: { userId: string | number }) => {
 };
 
 const Profile = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { user, signOut } = useAuth();
   const { isBusiness, isAdmin } = useUserRole();
@@ -360,7 +406,7 @@ const Profile = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Profile</Text>
       </View>
@@ -407,6 +453,10 @@ const Profile = () => {
         </View>
 
         <View className="mt-5 rounded-xl border border-border bg-card overflow-hidden">
+          <ThemeToggleRow />
+        </View>
+
+        <View className="mt-5 rounded-xl border border-border bg-card overflow-hidden">
           {menuItems.map((item, i) => (
             <Pressable
               key={item.label}
@@ -419,7 +469,7 @@ const Profile = () => {
               }`}
             >
               <View className="h-9 w-9 items-center justify-center rounded-lg bg-muted">
-                <item.icon size={16} color="#111827" />
+                <item.icon size={16} color={iconColor} />
               </View>
               <View className="flex-1">
                 <Text className="text-sm font-medium text-foreground">{item.label}</Text>

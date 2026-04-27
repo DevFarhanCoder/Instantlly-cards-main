@@ -3,8 +3,10 @@ import { Text, View, Pressable, ScrollView } from "react-native";
 import { useNavigation, useIsFocused } from "@react-navigation/native";
 import { ArrowLeft, Trophy, Gift, Users } from "lucide-react-native";
 import { useGetCreditConfigQuery } from "../store/api/referralApi";
+import { useIconColor } from "../theme/colors";
 
 const PerReferralInfo = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
   const { data: config, refetch: refetchConfig } = useGetCreditConfigQuery();
@@ -18,7 +20,7 @@ const PerReferralInfo = () => {
     <View className="flex-1 bg-white">
       <View className="border-b border-gray-200 bg-white px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-gray-900">Rewards Per Referral</Text>
       </View>
