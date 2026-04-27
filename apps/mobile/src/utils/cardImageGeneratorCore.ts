@@ -94,10 +94,6 @@ export async function generateAndShareCardImage(
 ): Promise<{ success: boolean; error?: string }> {
   // 1. Check captureRef availability
   if (!captureRef) {
-    Alert?.alert(
-      'Feature Not Available',
-      'Card image sharing requires app rebuild.\n\nPlease rebuild the app with:\n\nnpx expo run:android',
-    );
     return { success: false, error: 'native_module_not_available' };
   }
 
@@ -108,7 +104,10 @@ export async function generateAndShareCardImage(
   }
 
   try {
-    // 3. Capture
+    // 3. Wait for remote images to load before capturing
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    // 4. Capture
     const uri: string = await captureRef(view, { format: 'png', quality: 1, result: 'tmpfile' });
 
     // 4. Copy to cache if FileSystem is available

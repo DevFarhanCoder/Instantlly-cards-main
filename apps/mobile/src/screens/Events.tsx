@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -16,6 +18,7 @@ import {
   Search,
   Ticket,
   Users,
+  X,
 } from "lucide-react-native";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -26,9 +29,30 @@ import { useAuth } from "../hooks/useAuth";
 import { useUserRole } from "../hooks/useUserRole";
 import { useMyRegistrations } from "../hooks/useEvents";
 import { useListEventsQuery } from "../store/api/eventsApi";
+import { useUserLocation } from "../hooks/useUserLocation";
 import { cn } from "../lib/utils";
 
 const PAGE_SIZE = 20;
+
+async function reverseGeocodeCity(lat: number, lon: number): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+      { headers: { 'Accept-Language': 'en' } }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (
+      json.address?.city ||
+      json.address?.town ||
+      json.address?.village ||
+      json.address?.county ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
 
 const Events = () => {
   const navigation = useNavigation<any>();
@@ -39,12 +63,33 @@ const Events = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const isFirstLoad = useRef(true);
 
+  // Location-based filtering
+  const userLocation = useUserLocation();
+  const [detectedCity, setDetectedCity] = useState<string | null>(null);
+  const [cityFilter, setCityFilter] = useState<string | null>(null);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [cityInput, setCityInput] = useState("");
+
+  // Reverse geocode when location is available
+  useEffect(() => {
+    if (!userLocation || detectedCity) return;
+    reverseGeocodeCity(userLocation.latitude, userLocation.longitude).then((city) => {
+      if (city) {
+        setDetectedCity(city);
+        setCityFilter(city);
+      }
+    });
+  }, [userLocation]);
+
   const {
     data,
     isLoading,
     isFetching,
     refetch,
-  } = useListEventsQuery({ page, limit: PAGE_SIZE, search: searchQuery || undefined }, { refetchOnMountOrArgChange: true });
+  } = useListEventsQuery(
+    { page, limit: PAGE_SIZE, search: searchQuery || undefined, city: (!searchQuery && cityFilter) ? cityFilter : undefined },
+    { refetchOnMountOrArgChange: true }
+  );
 
   const { user } = useAuth();
   const { isBusiness } = useUserRole();
@@ -70,13 +115,13 @@ const Events = () => {
     setLoadingMore(false);
   }, [data]);
 
-  // Reset when search changes
+  // Reset when search or city filter changes
   useEffect(() => {
     setPage(1);
     setAllEvents([]);
     setHasMore(true);
     isFirstLoad.current = true;
-  }, [searchQuery]);
+  }, [searchQuery, cityFilter]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -218,13 +263,40 @@ const Events = () => {
             onChangeText={setSearchQuery}
             className="pl-10 pr-10 bg-card"
           />
-          <Pressable className="absolute right-2 top-2.5 h-8 w-8 items-center justify-center rounded-full">
-            <Filter size={16} color="#9aa2b1" />
+          <Pressable
+            onPress={() => { setCityInput(cityFilter || ""); setFilterModalVisible(true); }}
+            className="absolute right-2 top-2.5 h-8 w-8 items-center justify-center rounded-full"
+          >
+            <Filter size={16} color={cityFilter ? "#2563eb" : "#9aa2b1"} />
           </Pressable>
         </View>
 
+        {/* Location filter chip */}
+        {cityFilter ? (
+          <View className="flex-row items-center gap-1.5">
+            <MapPin size={13} color="#2563eb" />
+            <Text className="text-sm text-primary font-medium flex-1">
+              Events in {cityFilter}
+            </Text>
+            <Pressable
+              onPress={() => setCityFilter(null)}
+              className="p-1"
+            >
+              <X size={13} color="#6a7181" />
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => { setCityInput(""); setFilterModalVisible(true); }}
+            className="flex-row items-center gap-1.5"
+          >
+            <MapPin size={13} color="#9aa2b1" />
+            <Text className="text-sm text-muted-foreground">All locations</Text>
+          </Pressable>
+        )}
+
         <Text className="text-lg font-semibold text-foreground">
-          All Upcoming Events 📅{data?.total ? ` (${data.total})` : ""}
+          {cityFilter ? `Upcoming Events 📅` : `All Upcoming Events 📅`}{data?.total ? ` (${data.total})` : ""}
         </Text>
 
         {(isLoading && isFirstLoad.current) && (
@@ -243,7 +315,7 @@ const Events = () => {
         )}
       </View>
     </View>
-  ), [navigation, passCount, isBusiness, searchQuery, data?.total, isLoading]);
+  ), [navigation, passCount, isBusiness, searchQuery, data?.total, isLoading, cityFilter, detectedCity]);
 
   const ListFooter = useCallback(() => {
     if (!loadingMore && !isFetching) return null;
@@ -266,6 +338,82 @@ const Events = () => {
 
   return (
     <View className="flex-1 bg-background">
+      {/* Location Filter Modal */}
+      <Modal
+        visible={filterModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <Pressable
+          className="flex-1 bg-black/40"
+          onPress={() => setFilterModalVisible(false)}
+        />
+        <View className="bg-background rounded-t-2xl px-5 pt-5 pb-10">
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-base font-semibold text-foreground">Filter by Location</Text>
+            <Pressable onPress={() => setFilterModalVisible(false)}>
+              <X size={20} color="#6a7181" />
+            </Pressable>
+          </View>
+
+          {detectedCity && (
+            <Pressable
+              onPress={() => { setCityFilter(detectedCity); setFilterModalVisible(false); }}
+              className="flex-row items-center gap-2 py-3 border-b border-border"
+            >
+              <MapPin size={16} color="#2563eb" />
+              <View className="flex-1">
+                <Text className="text-sm font-medium text-foreground">Near me</Text>
+                <Text className="text-xs text-muted-foreground">{detectedCity}</Text>
+              </View>
+              {cityFilter === detectedCity && (
+                <View className="w-2 h-2 rounded-full bg-primary" />
+              )}
+            </Pressable>
+          )}
+
+          <Pressable
+            onPress={() => { setCityFilter(null); setFilterModalVisible(false); }}
+            className="flex-row items-center gap-2 py-3 border-b border-border"
+          >
+            <View className="w-4 h-4 items-center justify-center">
+              <Text className="text-sm">🌍</Text>
+            </View>
+            <Text className="text-sm font-medium text-foreground flex-1">All locations</Text>
+            {!cityFilter && (
+              <View className="w-2 h-2 rounded-full bg-primary" />
+            )}
+          </Pressable>
+
+          <View className="mt-4">
+            <Text className="text-xs text-muted-foreground mb-2 uppercase font-medium">Search by city</Text>
+            <View className="flex-row gap-2">
+              <TextInput
+                value={cityInput}
+                onChangeText={setCityInput}
+                placeholder="Enter city name..."
+                placeholderTextColor="#9aa2b1"
+                className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-sm text-foreground"
+                style={{ fontSize: 14 }}
+                autoCapitalize="words"
+              />
+              <Pressable
+                onPress={() => {
+                  if (cityInput.trim()) {
+                    setCityFilter(cityInput.trim());
+                    setFilterModalVisible(false);
+                  }
+                }}
+                className="bg-primary rounded-lg px-4 items-center justify-center"
+              >
+                <Text className="text-sm font-semibold text-primary-foreground">Apply</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <FlatList
         data={allEvents}
         keyExtractor={(item) => String(item.id)}

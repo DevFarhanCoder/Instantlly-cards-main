@@ -89,12 +89,13 @@ export const eventsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     listEvents: builder.query<
       { data: AppEvent[]; page: number; limit: number; total: number },
-      { page?: number; limit?: number; search?: string } | void
+      { page?: number; limit?: number; search?: string; city?: string } | void
     >({
       query: (params) => {
-        const { page = 1, limit = 20, search } = params || {};
+        const { page = 1, limit = 20, search, city } = params || {};
         let url = `/events?page=${page}&limit=${limit}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
+        else if (city) url += `&city=${encodeURIComponent(city)}`;
         console.log('[eventsApi.listEvents] url:', url);
         return url;
       },
