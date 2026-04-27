@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   ActivityIndicator,
+  FlatList,
   Image,
   Linking,
   Modal,
@@ -21,14 +22,12 @@ import {
   CheckCheck,
   MessageCircle,
   Phone,
-  PhoneOff,
   Send,
   Sparkles,
   Lock,
 } from "lucide-react-native";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { toast } from "../lib/toast";
 import { useAuth } from "../hooks/useAuth";
 import {
@@ -490,6 +489,12 @@ const TypingDot = ({ delay = 0 }: { delay?: number }) => {
   );
 };
 
+// Module-level cache — survives modal close/reopen within the same app session
+let _contactsCache: DeviceContact[] | null = null;
+let _appUserMapCache: Map<string, AppUser> | null = null;
+let _cacheTimestamp = 0;
+const CONTACTS_CACHE_STALE_MS = 5 * 60 * 1000; // background-refresh after 5 min
+
 const StartChatModal = ({
   visible,
   onClose,
@@ -499,9 +504,12 @@ const StartChatModal = ({
   onClose: () => void;
   onStartChat: (user: AppUser) => Promise<void>;
 }) => {
-  const [allContacts, setAllContacts] = useState<DeviceContact[]>([]);
-  const [appUserMap, setAppUserMap] = useState<Map<string, AppUser>>(new Map());
-  const [loading, setLoading] = useState(false);
+  const hasAnyCache = () => !!_contactsCache && !!_appUserMapCache;
+  const isCacheStale = () => Date.now() - _cacheTimestamp > CONTACTS_CACHE_STALE_MS;
+
+  const [allContacts, setAllContacts] = useState<DeviceContact[]>(_contactsCache ?? []);
+  const [appUserMap, setAppUserMap] = useState<Map<string, AppUser>>(_appUserMapCache ?? new Map());
+  const [loading, setLoading] = useState(!hasAnyCache());
   const [search, setSearch] = useState("");
   const [matchContacts] = useMatchContactsMutation();
   const isLoadingRef = useRef(false);
@@ -510,7 +518,8 @@ const StartChatModal = ({
     // Prevent concurrent calls triggered by parent re-renders during polling
     if (isLoadingRef.current) return;
     isLoadingRef.current = true;
-    setLoading(true);
+    // Only show spinner on first-ever load (no cache at all)
+    if (!hasAnyCache()) setLoading(true);
     try {
       const { status } = await Contacts.requestPermissionsAsync();
       if (status !== "granted") {
@@ -536,6 +545,8 @@ const StartChatModal = ({
         }
       }
 
+      _contactsCache = contacts;
+      _cacheTimestamp = Date.now();
       setAllContacts(contacts);
 
       if (contacts.length > 0) {
@@ -544,11 +555,11 @@ const StartChatModal = ({
         for (const u of matched) {
           map.set(normalizePhone(u.phone), u);
         }
+        _appUserMapCache = map;
         setAppUserMap(map);
       }
     } catch {
       toast.error("Failed to load contacts");
-      setAppUserMap(new Map());
     } finally {
       setLoading(false);
       isLoadingRef.current = false;
@@ -558,6 +569,14 @@ const StartChatModal = ({
   useEffect(() => {
     if (!visible) return;
     setSearch("");
+    // If we have any cache, show it instantly
+    if (hasAnyCache()) {
+      setAllContacts(_contactsCache!);
+      setAppUserMap(_appUserMapCache!);
+      // Silently refresh in background if stale (user sees old data, it updates quietly)
+      if (isCacheStale()) void loadContacts();
+      return;
+    }
     void loadContacts();
   }, [visible, loadContacts]);
 
@@ -617,54 +636,55 @@ const StartChatModal = ({
             <Text className="text-sm font-semibold text-foreground">No contacts found</Text>
           </View>
         ) : (
-          <ScrollView className="px-4 pt-2 pb-4">
-            <View className="gap-2">
-              {list.map((item: DeviceContact) => {
-                const appUser = appUserMap.get(item.phone);
-                const isAppUser = !!appUser;
-                return (
-                  <View
-                    key={`${item.phone}-${item.name}`}
-                    className={`flex-row items-center gap-3 rounded-xl border p-3 ${
-                      isAppUser ? "border-primary/30 bg-primary/5" : "border-border bg-card"
-                    }`}
-                  >
-                    <View className="h-11 w-11 items-center justify-center rounded-full bg-primary/10 overflow-hidden">
-                      {appUser?.profile_picture ? (
-                        <Image source={{ uri: appUser.profile_picture }} style={{ width: 44, height: 44 }} />
-                      ) : (
-                        <Text className="text-lg font-bold text-primary">{(item.name || item.phone)[0].toUpperCase()}</Text>
-                      )}
-                    </View>
-
-                    <View className="flex-1">
-                      <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-                        {item.name || item.phone}
-                      </Text>
-                      <Text className="text-xs text-muted-foreground">{item.phone}</Text>
-                    </View>
-
-                    {isAppUser && appUser ? (
-                      <Button
-                        size="sm"
-                        className="rounded-lg"
-                        onPress={async () => {
-                          await onStartChat(appUser);
-                          onClose();
-                        }}
-                      >
-                        <Text className="text-xs font-semibold text-white">Chat</Text>
-                      </Button>
+          <FlatList
+            data={list}
+            keyExtractor={(item) => `${item.phone}-${item.name}`}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 8 }}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => {
+              const appUser = appUserMap.get(item.phone);
+              const isAppUser = !!appUser;
+              return (
+                <View
+                  className={`flex-row items-center gap-3 rounded-xl border p-3 ${
+                    isAppUser ? "border-primary/30 bg-primary/5" : "border-border bg-card"
+                  }`}
+                >
+                  <View className="h-11 w-11 items-center justify-center rounded-full bg-primary/10 overflow-hidden">
+                    {appUser?.profile_picture ? (
+                      <Image source={{ uri: appUser.profile_picture }} style={{ width: 44, height: 44 }} />
                     ) : (
-                      <Button size="sm" variant="outline" className="rounded-lg" onPress={() => handleInvite(item)}>
-                        <Text className="text-xs font-semibold text-muted-foreground">Invite</Text>
-                      </Button>
+                      <Text className="text-lg font-bold text-primary">{(item.name || item.phone)[0].toUpperCase()}</Text>
                     )}
                   </View>
-                );
-              })}
-            </View>
-          </ScrollView>
+
+                  <View className="flex-1">
+                    <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                      {item.name || item.phone}
+                    </Text>
+                    <Text className="text-xs text-muted-foreground">{item.phone}</Text>
+                  </View>
+
+                  {isAppUser && appUser ? (
+                    <Button
+                      size="sm"
+                      className="rounded-lg"
+                      onPress={async () => {
+                        await onStartChat(appUser);
+                        onClose();
+                      }}
+                    >
+                      <Text className="text-xs font-semibold text-white">Chat</Text>
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" className="rounded-lg" onPress={() => handleInvite(item)}>
+                      <Text className="text-xs font-semibold text-muted-foreground">Invite</Text>
+                    </Button>
+                  )}
+                </View>
+              );
+            }}
+          />
         )}
       </View>
     </Modal>
@@ -680,9 +700,6 @@ const Messaging = () => {
   const [selectedConv, setSelectedConv] = useState<DbConversation | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [showCallDialog, setShowCallDialog] = useState(false);
-  const [callActive, setCallActive] = useState(false);
-  const [callTimer, setCallTimer] = useState(0);
   const [showStartChatModal, setShowStartChatModal] = useState(false);
   const [optimisticMessages, setOptimisticMessages] = useState<DbMessage[]>([]);
   const lastHideAdBarRef = useRef<boolean | null>(null);
@@ -804,23 +821,6 @@ const Messaging = () => {
     scrollToBottom();
   }, [combinedMessages, scrollToBottom]);
 
-  useEffect(() => {
-    if (callActive) {
-      callIntervalRef.current = setInterval(() => setCallTimer((t) => t + 1), 1000);
-    } else {
-      if (callIntervalRef.current) clearInterval(callIntervalRef.current);
-      setCallTimer(0);
-    }
-    return () => {
-      if (callIntervalRef.current) clearInterval(callIntervalRef.current);
-    };
-  }, [callActive]);
-
-  const formatCallTime = (s: number) =>
-    `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60)
-      .toString()
-      .padStart(2, "0")}`;
-
   const handleSend = async () => {
     if (!messageInput.trim() || !selectedConv || !user) return;
     const inputText = messageInput.trim();
@@ -857,15 +857,13 @@ const Messaging = () => {
     }
   };
 
-  const startCall = () => setShowCallDialog(true);
-  const connectCall = () => {
-    setCallActive(true);
-    toast.success("Call connected via masked number");
-  };
-  const endCall = () => {
-    setCallActive(false);
-    setShowCallDialog(false);
-    toast({ title: "Call ended", description: `Duration: ${formatCallTime(callTimer)}` });
+  const startCall = () => {
+    const phone = selectedConv?.business_phone;
+    if (!phone) {
+      toast.error("No phone number available for this contact");
+      return;
+    }
+    Linking.openURL(`tel:${phone}`).catch(() => toast.error("Unable to open dialer"));
   };
 
   const handleStartChatWithUser = async (targetUser: AppUser) => {
@@ -1110,66 +1108,6 @@ const Messaging = () => {
           </View>
         </View>
 
-        <Dialog
-          open={showCallDialog}
-          onOpenChange={(open) => {
-            if (!open && callActive) endCall();
-            else setShowCallDialog(open);
-          }}
-        >
-          <DialogContent className="max-w-sm">
-            <DialogHeader>
-              <DialogTitle>{callActive ? "Call in Progress" : "Masked Call"}</DialogTitle>
-            </DialogHeader>
-            <View className="items-center py-4 gap-4">
-              <View className="h-20 w-20 items-center justify-center rounded-full bg-primary/10">
-                <Text className="text-2xl font-bold text-primary">
-                  {selectedConv.business_avatar || "📇"}
-                </Text>
-              </View>
-              <View>
-                <Text className="text-base font-semibold text-foreground">
-                  {selectedConv.business_name}
-                </Text>
-                <Text className="mt-1 text-xs text-muted-foreground">
-                  Masked number: +91 XXXXX XX789
-                </Text>
-              </View>
-              {callActive ? (
-                <>
-                  <View className="flex-row items-center gap-2">
-                    <View className="h-2 w-2 rounded-full bg-success" />
-                    <Text className="text-lg font-mono font-bold text-foreground">
-                      {formatCallTime(callTimer)}
-                    </Text>
-                  </View>
-                  <Text className="text-[10px] text-muted-foreground">
-                    Your real number is hidden from the business
-                  </Text>
-                  <Button variant="destructive" className="w-full rounded-xl" onPress={endCall}>
-                    <PhoneOff size={16} color="#ffffff" /> End Call
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <View className="rounded-xl bg-muted p-3">
-                    <Text className="text-xs text-muted-foreground">🔒 Your real phone number will be hidden</Text>
-                    <Text className="text-xs text-muted-foreground">📞 A masked number will be used for this call</Text>
-                    <Text className="text-xs text-muted-foreground">⏱️ Call duration is tracked for your records</Text>
-                  </View>
-                  <View className="flex-row gap-2 w-full">
-                    <Button className="flex-1 rounded-xl" onPress={connectCall}>
-                      <Phone size={16} color="#ffffff" /> Connect Call
-                    </Button>
-                    <Button variant="outline" className="flex-1 rounded-xl" onPress={() => setShowCallDialog(false)}>
-                      Cancel
-                    </Button>
-                  </View>
-                </>
-              )}
-            </View>
-          </DialogContent>
-        </Dialog>
       </View>
     );
   }

@@ -17,6 +17,9 @@ export interface AppEvent {
   date: string;
   time: string;
   location: string | null;
+  venue?: string | null;
+  city?: string | null;
+  state?: string | null;
   image_url: string | null;
   ticket_price: number | null;
   max_attendees: number | null;
@@ -95,7 +98,7 @@ export const eventsApi = baseApi.injectEndpoints({
         const { page = 1, limit = 20, search, city } = params || {};
         let url = `/events?page=${page}&limit=${limit}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
-        else if (city) url += `&city=${encodeURIComponent(city)}`;
+        if (city) url += `&city=${encodeURIComponent(city)}`;
         console.log('[eventsApi.listEvents] url:', url);
         return url;
       },

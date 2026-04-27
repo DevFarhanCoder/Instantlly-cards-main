@@ -156,7 +156,7 @@ const AppLayout = ({
 
           <BottomNav />
 
-          {/* Floating Bulk Send FAB — above banner ad + bottom nav */}
+          {/* Floating Bulk Send FAB ΓÇö above banner ad + bottom nav */}
           {FEATURES.BULK_SEND && (
             <Pressable
               onPress={() => setShowBulkSend(true)}

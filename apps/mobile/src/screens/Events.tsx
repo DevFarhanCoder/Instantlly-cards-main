@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
-  Modal,
+  Keyboard,
   Pressable,
   RefreshControl,
+  ScrollView,
   Text,
   TextInput,
   View,
@@ -21,187 +23,314 @@ import {
   X,
 } from "lucide-react-native";
 import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
-import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Skeleton } from "../components/ui/skeleton";
-import { useAuth } from "../hooks/useAuth";
 import { useUserRole } from "../hooks/useUserRole";
 import { useMyRegistrations } from "../hooks/useEvents";
-import { useListEventsQuery } from "../store/api/eventsApi";
 import { useUserLocation } from "../hooks/useUserLocation";
-import { cn } from "../lib/utils";
+import { useListEventsQuery, AppEvent } from "../store/api/eventsApi";
+
+type TabType = "all" | "nearby";
 
 const PAGE_SIZE = 20;
 
-async function reverseGeocodeCity(lat: number, lon: number): Promise<string | null> {
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
-      { headers: { 'Accept-Language': 'en' } }
-    );
-    if (!res.ok) return null;
-    const json = await res.json();
-    return (
-      json.address?.city ||
-      json.address?.town ||
-      json.address?.village ||
-      json.address?.county ||
-      null
-    );
-  } catch {
-    return null;
-  }
-}
+const EventCard = ({
+  event,
+  onPress,
+}: {
+  event: AppEvent;
+  onPress: () => void;
+}) => (
+  <Pressable
+    onPress={onPress}
+    className="flex-row gap-3 bg-card rounded-xl overflow-hidden mb-3"
+  >
+    <View className="w-24 h-28 bg-primary/10 items-center justify-center">
+      <Text className="text-4xl">{"\uD83C\uDF89"}</Text>
+    </View>
+    <View className="py-3 pr-4 flex-1">
+      <View className="flex-row items-center gap-1.5 mb-1">
+        {!event.ticket_price || event.ticket_price === 0 ? (
+          <Badge className="bg-success/10 text-success border-none text-[10px]">
+            FREE
+          </Badge>
+        ) : (
+          <Badge className="bg-accent/10 text-accent border-none text-[10px]">
+            {"\u20B9"}{event.ticket_price}
+          </Badge>
+        )}
+        {event.city && (
+          <Badge className="bg-muted text-muted-foreground border-none text-[10px]">
+            {event.city}
+          </Badge>
+        )}
+      </View>
+      <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+        {event.title}
+      </Text>
+      <View className="flex-row items-center gap-1.5 mt-1">
+        <Calendar size={12} color="#6a7181" />
+        <Text className="text-[11px] text-muted-foreground">
+          {new Date(event.date).toLocaleDateString()} {"\u2022"} {event.time}
+        </Text>
+      </View>
+      {(event.venue || event.location) && (
+        <View className="flex-row items-center gap-1.5 mt-0.5">
+          <MapPin size={12} color="#6a7181" />
+          <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>
+            {event.venue || event.location}
+          </Text>
+        </View>
+      )}
+      <View className="flex-row items-center gap-1 mt-0.5">
+        <Users size={12} color="#6a7181" />
+        <Text className="text-[11px] text-muted-foreground">
+          {event._count?.registrations || event.attendee_count || 0} registered
+        </Text>
+      </View>
+    </View>
+  </Pressable>
+);
 
 const Events = () => {
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState("");
-  const [page, setPage] = useState(1);
-  const [allEvents, setAllEvents] = useState<any[]>([]);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const isFirstLoad = useRef(true);
-
-  // Location-based filtering
-  const userLocation = useUserLocation();
-  const [detectedCity, setDetectedCity] = useState<string | null>(null);
-  const [cityFilter, setCityFilter] = useState<string | null>(null);
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [cityInput, setCityInput] = useState("");
-
-  // Reverse geocode when location is available
-  useEffect(() => {
-    if (!userLocation || detectedCity) return;
-    reverseGeocodeCity(userLocation.latitude, userLocation.longitude).then((city) => {
-      if (city) {
-        setDetectedCity(city);
-        setCityFilter(city);
-      }
-    });
-  }, [userLocation]);
-
-  const {
-    data,
-    isLoading,
-    isFetching,
-    refetch,
-  } = useListEventsQuery(
-    { page, limit: PAGE_SIZE, search: searchQuery || undefined, city: (!searchQuery && cityFilter) ? cityFilter : undefined },
-    { refetchOnMountOrArgChange: true }
-  );
-
-  const { user } = useAuth();
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [chipsOpen, setChipsOpen] = useState(false);
+  const searchInputRef = useRef<TextInput | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>("all");
   const { isBusiness } = useUserRole();
   const { registrations } = useMyRegistrations();
   const passCount = registrations.length;
+  const userLocation = useUserLocation();
 
+  // Grow limit to paginate; reset when search or tab changes
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (!data) return;
-    if (page === 1) {
-      setAllEvents(data.data);
-      isFirstLoad.current = false;
-    } else {
-      setAllEvents(prev => {
-        const ids = new Set(prev.map((e: any) => e.id));
-        const newItems = data.data.filter((e: any) => !ids.has(e.id));
-        return [...prev, ...newItems];
-      });
-    }
-    const total = data.total ?? 0;
-    setHasMore(page * PAGE_SIZE < total);
-    setLoadingMore(false);
-  }, [data]);
+  // city from GPS — only used for "nearby" tab
+  const nearbyCity = userLocation?.city ?? null;
+  const cityFilter =
+    activeTab === "nearby" && nearbyCity ? nearbyCity : undefined;
 
-  // Reset when search or city filter changes
+  // Close venue chips on Android hardware back
   useEffect(() => {
-    setPage(1);
-    setAllEvents([]);
-    setHasMore(true);
-    isFirstLoad.current = true;
-  }, [searchQuery, cityFilter]);
+    if (!chipsOpen) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setChipsOpen(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [chipsOpen]);
+
+  const { data, isLoading, isFetching, refetch } = useListEventsQuery(
+    {
+      page: 1,
+      limit,
+      search: searchQuery || undefined,
+      city: cityFilter,
+    },
+    { refetchOnMountOrArgChange: true }
+  );
+
+  // Reset limit when search or tab changes
+  useEffect(() => {
+    setLimit(PAGE_SIZE);
+  }, [searchQuery, activeTab]);
+
+  // When switching to nearby and city just resolved, reset limit so we refetch
+  useEffect(() => {
+    if (activeTab === "nearby" && nearbyCity) {
+      setLimit(PAGE_SIZE);
+    }
+  }, [nearbyCity, activeTab]);
+
+  const events: AppEvent[] = data?.data ?? [];
+  const hasMore = events.length >= limit && events.length > 0;
+
+  // Unique venue suggestions from currently loaded events.
+  const venueSuggestions = (() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const e of events) {
+      const v = (e.venue || e.location || "").trim();
+      if (v && !seen.has(v.toLowerCase())) {
+        seen.add(v.toLowerCase());
+        out.push(v);
+      }
+    }
+    const q = searchQuery.trim().toLowerCase();
+    return q ? out.filter((v) => v.toLowerCase().includes(q)) : out;
+  })();
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    setPage(1);
-    setAllEvents([]);
-    setHasMore(true);
-    try {
-      await refetch();
-    } finally {
-      setRefreshing(false);
-    }
+    setLimit(PAGE_SIZE);
+    await refetch();
+    setRefreshing(false);
   }, [refetch]);
 
-  const handleLoadMore = useCallback(() => {
-    if (!hasMore || loadingMore || isFetching) return;
-    setLoadingMore(true);
-    setPage(prev => prev + 1);
-  }, [hasMore, loadingMore, isFetching]);
+  const loadMore = useCallback(() => {
+    if (!isFetching && !isLoading && hasMore) {
+      setLimit((prev) => prev + PAGE_SIZE);
+    }
+  }, [isFetching, isLoading, hasMore]);
 
-  const renderEvent = useCallback(({ item: event }: { item: any }) => (
-    <Pressable
-      key={event.id}
-      onPress={() => navigation.navigate("EventDetail", { id: event.id })}
-      className="flex-row gap-3 bg-card rounded-xl overflow-hidden mb-3"
-    >
-      <View className="w-24 h-28 bg-primary/10 items-center justify-center">
-        <Text className="text-4xl">🎉</Text>
-      </View>
-      <View className="py-3 pr-4 flex-1">
-        <View className="flex-row items-center gap-1.5 mb-1">
-          {!event.ticket_price || event.ticket_price === 0 ? (
-            <Badge className="bg-success/10 text-success border-none text-[10px]">
-              FREE
-            </Badge>
-          ) : (
-            <Badge className="bg-accent/10 text-accent border-none text-[10px]">
-              ₹{event.ticket_price}
-            </Badge>
-          )}
-        </View>
-        <Text
-          className="text-sm font-semibold text-foreground"
-          numberOfLines={1}
-        >
-          {event.title}
-        </Text>
-        <View className="flex-row items-center gap-1.5 mt-1">
-          <Calendar size={12} color="#6a7181" />
-          <Text className="text-[11px] text-muted-foreground">
-            {new Date(event.date).toLocaleDateString()} • {event.time}
-          </Text>
-        </View>
-        {event.location && (
-          <View className="flex-row items-center gap-1.5 mt-0.5">
-            <MapPin size={12} color="#6a7181" />
-            <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>
-              {event.location}
-            </Text>
-          </View>
-        )}
-        <View className="flex-row items-center gap-1 mt-0.5">
-          <Users size={12} color="#6a7181" />
-          <Text className="text-[11px] text-muted-foreground">
-            {event._count?.registrations || event.attendee_count || 0} registered
-          </Text>
-        </View>
-      </View>
-    </Pressable>
-  ), [navigation]);
+  const renderItem = useCallback(
+    ({ item }: { item: AppEvent }) => (
+      <EventCard
+        event={item}
+        onPress={() => navigation.navigate("EventDetail", { id: item.id })}
+      />
+    ),
+    [navigation]
+  );
 
-  const ListHeader = useMemo(() => (
+  const keyExtractor = useCallback(
+    (item: AppEvent) => String(item.id),
+    []
+  );
+
+  const ListHeader = (
     <View>
+      {/* Tabs */}
+      <View
+        style={{
+          flexDirection: "row",
+          backgroundColor: "#f3f4f6",
+          borderRadius: 12,
+          padding: 4,
+          marginBottom: 16,
+        }}
+      >
+        <Pressable
+          onPress={() => setActiveTab("all")}
+          style={{
+            flex: 1,
+            borderRadius: 8,
+            paddingVertical: 8,
+            alignItems: "center",
+            backgroundColor: activeTab === "all" ? "#ffffff" : "transparent",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: "500",
+              color: activeTab === "all" ? "#0f172a" : "#6a7181",
+            }}
+          >
+            All Events
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setActiveTab("nearby")}
+          style={{
+            flex: 1,
+            borderRadius: 8,
+            paddingVertical: 8,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+            backgroundColor: activeTab === "nearby" ? "#ffffff" : "transparent",
+          }}
+        >
+          <MapPin size={13} color={activeTab === "nearby" ? "#2563eb" : "#9aa2b1"} />
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: "500",
+              color: activeTab === "nearby" ? "#2563eb" : "#6a7181",
+            }}
+          >
+            Near Me
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Location status for Near Me tab */}
+      {activeTab === "nearby" && !nearbyCity && (
+        <View className="flex-row items-center gap-2 bg-accent/10 rounded-lg px-3 py-2 mb-3">
+          <ActivityIndicator size="small" color="#2563eb" />
+          <Text className="text-sm text-muted-foreground">Detecting your location...</Text>
+        </View>
+      )}
+      {activeTab === "nearby" && nearbyCity && (
+        <View className="flex-row items-center gap-2 mb-3">
+          <MapPin size={14} color="#2563eb" />
+          <Text className="text-sm text-primary font-medium">Events in {nearbyCity}</Text>
+        </View>
+      )}
+
+      <Text className="text-lg font-semibold text-foreground mb-3">
+        {activeTab === "nearby" && nearbyCity
+          ? `Events in ${nearbyCity}`
+          : "All Upcoming Events"}
+      </Text>
+
+      {isLoading && (
+        <View className="gap-3">
+          {[1, 2, 3].map((i) => (
+            <View key={i} className="flex-row gap-3 bg-card rounded-xl overflow-hidden mb-3">
+              <Skeleton className="w-24 h-28" />
+              <View className="py-3 pr-3 gap-2 flex-1">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-3 w-2/3" />
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+
+  const ListFooter = isFetching && !isLoading ? (
+    <View className="py-4 items-center">
+      <ActivityIndicator color="#2563eb" />
+    </View>
+  ) : null;
+
+  const ListEmpty = !isLoading ? (
+    <View className="items-center justify-center py-16">
+      <Text className="text-5xl mb-3">
+        {activeTab === "nearby" && !nearbyCity ? "\uD83D\uDCCD" : "\uD83D\uDD0D"}
+      </Text>
+      <Text className="text-sm text-muted-foreground text-center">
+        {activeTab === "nearby" && !nearbyCity
+          ? "Waiting for location..."
+          : activeTab === "nearby" && nearbyCity
+          ? `No events found in ${nearbyCity}`
+          : "No events found"}
+      </Text>
+    </View>
+  ) : null;
+
+  return (
+    <View className="flex-1 bg-background">
       <View className="bg-primary px-4 py-3">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center gap-2">
-            <Text className="text-lg">🎉</Text>
+            <Text className="text-lg">{"\uD83C\uDF89"}</Text>
             <Text className="text-lg font-bold text-primary-foreground">
               Events Market
             </Text>
           </View>
+          {typeof data?.total === "number" && (
+            <View
+              style={{
+                backgroundColor: "rgba(255,255,255,0.18)",
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 999,
+              }}
+            >
+              <Text style={{ color: "#ffffff", fontSize: 12, fontWeight: "600" }}>
+                {data.total} {data.total === 1 ? "event" : "events"}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View className="flex-row gap-2">
@@ -229,7 +358,7 @@ const Events = () => {
             className="flex-1"
           >
             <View className="bg-white rounded-lg p-2.5 flex-row items-center justify-center gap-1.5">
-              <Text className="text-base">📷</Text>
+              <Text className="text-base">{"\uD83D\uDCF7"}</Text>
               <Text className="text-sm font-semibold text-primary">
                 Scan QR
               </Text>
@@ -252,178 +381,206 @@ const Events = () => {
         </View>
       </View>
 
-      <View className="px-4 pt-4 gap-4">
-        <View className="relative">
-          <View className="absolute left-3 top-3.5 z-10">
-            <Search size={16} color="#9aa2b1" />
-          </View>
-          <Input
-            placeholder="Search events, locations..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            className="pl-10 pr-10 bg-card"
-          />
-          <Pressable
-            onPress={() => { setCityInput(cityFilter || ""); setFilterModalVisible(true); }}
-            className="absolute right-2 top-2.5 h-8 w-8 items-center justify-center rounded-full"
+      {/* Sticky search bar (lives above the FlatList so its dropdown can overlay rows) */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, backgroundColor: "transparent", zIndex: 100, elevation: 100 }}>
+        <View style={{ position: "relative" }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: "#ffffff",
+              borderRadius: 999,
+              paddingHorizontal: 14,
+              height: 44,
+              borderWidth: 1,
+              borderColor: searchFocused ? "#2563eb" : "#e5e7eb",
+              shadowColor: "#000",
+              shadowOpacity: searchFocused ? 0.06 : 0,
+              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: searchFocused ? 2 : 0,
+            }}
           >
-            <Filter size={16} color={cityFilter ? "#2563eb" : "#9aa2b1"} />
-          </Pressable>
-        </View>
-
-        {/* Location filter chip */}
-        {cityFilter ? (
-          <View className="flex-row items-center gap-1.5">
-            <MapPin size={13} color="#2563eb" />
-            <Text className="text-sm text-primary font-medium flex-1">
-              Events in {cityFilter}
-            </Text>
             <Pressable
-              onPress={() => setCityFilter(null)}
-              className="p-1"
+              onPress={() => {
+                searchInputRef.current?.focus();
+              }}
+              hitSlop={8}
             >
-              <X size={13} color="#6a7181" />
+              <Search size={16} color={searchFocused ? "#2563eb" : "#9aa2b1"} />
             </Pressable>
+            <Input
+              ref={searchInputRef}
+              placeholder="Search events or venues..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              style={{
+                flex: 1,
+                marginLeft: 8,
+                borderWidth: 0,
+                backgroundColor: "transparent",
+                height: 42,
+                paddingHorizontal: 0,
+                fontSize: 14,
+              }}
+            />
+            {searchQuery.length > 0 ? (
+              <Pressable
+                onPress={() => setSearchQuery("")}
+                hitSlop={8}
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: "#e5e7eb",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <X size={12} color="#6a7181" />
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={() => setChipsOpen((v) => !v)}
+                hitSlop={8}
+              >
+                <Filter size={16} color={chipsOpen ? "#2563eb" : "#9aa2b1"} />
+              </Pressable>
+            )}
           </View>
-        ) : (
-          <Pressable
-            onPress={() => { setCityInput(""); setFilterModalVisible(true); }}
-            className="flex-row items-center gap-1.5"
-          >
-            <MapPin size={13} color="#9aa2b1" />
-            <Text className="text-sm text-muted-foreground">All locations</Text>
-          </Pressable>
-        )}
 
-        <Text className="text-lg font-semibold text-foreground">
-          {cityFilter ? `Upcoming Events 📅` : `All Upcoming Events 📅`}{data?.total ? ` (${data.total})` : ""}
-        </Text>
-
-        {(isLoading && isFirstLoad.current) && (
-          <View className="gap-3">
-            {[1, 2, 3].map((i) => (
-              <View key={i} className="flex-row gap-3 bg-card rounded-xl overflow-hidden mb-3">
-                <Skeleton className="w-24 h-28" />
-                <View className="py-3 pr-3 gap-2 flex-1">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
-                  <Skeleton className="h-3 w-2/3" />
+          {/* Venue chips — appear when search bar is focused */}
+          {chipsOpen && venueSuggestions.length > 0 && (
+            <View
+              style={{
+                position: "absolute",
+                top: 52,
+                left: 0,
+                right: 0,
+                maxHeight: 360,
+                backgroundColor: "#ffffff",
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: "#e2e8f0",
+                paddingVertical: 12,
+                paddingHorizontal: 12,
+                elevation: 14,
+                shadowColor: "#0f172a",
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.12,
+                shadowRadius: 18,
+                zIndex: 200,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingHorizontal: 4,
+                  marginBottom: 10,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: "#64748b",
+                    fontWeight: "700",
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  {searchQuery ? "MATCHING VENUES" : "POPULAR VENUES"}
+                </Text>
+                <View
+                  style={{
+                    backgroundColor: "#e0e7ff",
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 10,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, color: "#4338ca", fontWeight: "600" }}>
+                    {venueSuggestions.length}
+                  </Text>
                 </View>
               </View>
-            ))}
-          </View>
-        )}
-      </View>
-    </View>
-  ), [navigation, passCount, isBusiness, searchQuery, data?.total, isLoading, cityFilter, detectedCity]);
-
-  const ListFooter = useCallback(() => {
-    if (!loadingMore && !isFetching) return null;
-    return (
-      <View className="py-4 items-center">
-        <ActivityIndicator size="small" color="#2563eb" />
-      </View>
-    );
-  }, [loadingMore, isFetching]);
-
-  const ListEmpty = useCallback(() => {
-    if (isLoading && isFirstLoad.current) return null;
-    return (
-      <View className="items-center justify-center py-16">
-        <Text className="text-5xl mb-3">📭</Text>
-        <Text className="text-sm text-muted-foreground">No events found</Text>
-      </View>
-    );
-  }, [isLoading]);
-
-  return (
-    <View className="flex-1 bg-background">
-      {/* Location Filter Modal */}
-      <Modal
-        visible={filterModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setFilterModalVisible(false)}
-      >
-        <Pressable
-          className="flex-1 bg-black/40"
-          onPress={() => setFilterModalVisible(false)}
-        />
-        <View className="bg-background rounded-t-2xl px-5 pt-5 pb-10">
-          <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-base font-semibold text-foreground">Filter by Location</Text>
-            <Pressable onPress={() => setFilterModalVisible(false)}>
-              <X size={20} color="#6a7181" />
-            </Pressable>
-          </View>
-
-          {detectedCity && (
-            <Pressable
-              onPress={() => { setCityFilter(detectedCity); setFilterModalVisible(false); }}
-              className="flex-row items-center gap-2 py-3 border-b border-border"
-            >
-              <MapPin size={16} color="#2563eb" />
-              <View className="flex-1">
-                <Text className="text-sm font-medium text-foreground">Near me</Text>
-                <Text className="text-xs text-muted-foreground">{detectedCity}</Text>
-              </View>
-              {cityFilter === detectedCity && (
-                <View className="w-2 h-2 rounded-full bg-primary" />
-              )}
-            </Pressable>
-          )}
-
-          <Pressable
-            onPress={() => { setCityFilter(null); setFilterModalVisible(false); }}
-            className="flex-row items-center gap-2 py-3 border-b border-border"
-          >
-            <View className="w-4 h-4 items-center justify-center">
-              <Text className="text-sm">🌍</Text>
-            </View>
-            <Text className="text-sm font-medium text-foreground flex-1">All locations</Text>
-            {!cityFilter && (
-              <View className="w-2 h-2 rounded-full bg-primary" />
-            )}
-          </Pressable>
-
-          <View className="mt-4">
-            <Text className="text-xs text-muted-foreground mb-2 uppercase font-medium">Search by city</Text>
-            <View className="flex-row gap-2">
-              <TextInput
-                value={cityInput}
-                onChangeText={setCityInput}
-                placeholder="Enter city name..."
-                placeholderTextColor="#9aa2b1"
-                className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-sm text-foreground"
-                style={{ fontSize: 14 }}
-                autoCapitalize="words"
-              />
-              <Pressable
-                onPress={() => {
-                  if (cityInput.trim()) {
-                    setCityFilter(cityInput.trim());
-                    setFilterModalVisible(false);
-                  }
-                }}
-                className="bg-primary rounded-lg px-4 items-center justify-center"
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
               >
-                <Text className="text-sm font-semibold text-primary-foreground">Apply</Text>
-              </Pressable>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    marginHorizontal: -4,
+                    marginVertical: -4,
+                  }}
+                >
+                {venueSuggestions.map((venue) => {
+                  const selected =
+                    searchQuery.trim().toLowerCase() === venue.toLowerCase();
+                  return (
+                    <View
+                      key={venue}
+                      style={{
+                        margin: 4,
+                        borderRadius: 999,
+                        borderWidth: 1.5,
+                        borderColor: selected ? "#2563eb" : "#94a3b8",
+                        backgroundColor: selected ? "#eff6ff" : "#ffffff",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <Pressable
+                        onPress={() => {
+                          if (selected) {
+                            setSearchQuery("");
+                          } else {
+                            setSearchQuery(venue);
+                            setChipsOpen(false);
+                            Keyboard.dismiss();
+                          }
+                        }}
+                        android_ripple={{ color: "#e2e8f0" }}
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 5,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 11.5,
+                            fontWeight: "500",
+                            color: selected ? "#2563eb" : "#334155",
+                          }}
+                          numberOfLines={1}
+                        >
+                          {venue}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+              </ScrollView>
             </View>
-          </View>
+          )}
         </View>
-      </Modal>
+      </View>
 
       <FlatList
-        data={allEvents}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={renderEvent}
+        data={events}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
         ListHeaderComponent={ListHeader}
         ListFooterComponent={ListFooter}
         ListEmptyComponent={ListEmpty}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.3}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -433,6 +590,25 @@ const Events = () => {
           />
         }
       />
+
+      {/* Tap-outside backdrop — closes the venue chips */}
+      {chipsOpen && (
+        <Pressable
+          onPress={() => {
+            setChipsOpen(false);
+          }}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 50,
+            elevation: 50,
+            backgroundColor: "transparent",
+          }}
+        />
+      )}
     </View>
   );
 };
