@@ -179,12 +179,12 @@ const ShareCardModal = ({ open, onOpenChange, data }: ShareCardModalProps) => {
           <DialogTitle>Share Business Card</DialogTitle>
         </DialogHeader>
 
-        {/* Hidden off-screen card view — captured as image when sharing */}
-        <View
-          ref={cardViewRef}
-          collapsable={false}
-          style={{ position: 'absolute', left: -9999, top: 0 }}
-        >
+        {/* Hidden card view — opacity:0 keeps it fully in the layout/render tree so react-native-view-shot can capture it in production builds */}
+        <View style={{ position: 'absolute', top: 0, left: 0, opacity: 0 }} pointerEvents="none">
+          <View
+            ref={cardViewRef}
+            collapsable={false}
+          >
           <BusinessCardTemplate
             name={data.fullName}
             designation={data.jobTitle ?? ""}
@@ -207,6 +207,7 @@ const ShareCardModal = ({ open, onOpenChange, data }: ShareCardModalProps) => {
             youtube={data.youtube ?? undefined}
             whatsapp={data.whatsapp ?? undefined}
           />
+          </View>
         </View>
 
         <View className="items-center gap-3 py-2">
