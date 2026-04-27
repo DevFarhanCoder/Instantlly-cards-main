@@ -256,7 +256,8 @@ export async function generateAndShareCardImage(
     }
 
     // Wait for images inside the hidden view to finish loading from network
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    // 5s in production (slower network), 3s in dev
+    await new Promise((resolve) => setTimeout(resolve, 5000));
 
     const uri = await captureRef(viewToCapture, {
       format: "png",
