@@ -91,7 +91,7 @@ export interface UpdateEventInput {
 export const eventsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     listEvents: builder.query<
-      { data: AppEvent[]; page: number; limit: number; total?: number },
+      { data: AppEvent[]; page: number; limit: number; total: number },
       { page?: number; limit?: number; search?: string; city?: string } | void
     >({
       query: (params) => {
@@ -102,7 +102,7 @@ export const eventsApi = baseApi.injectEndpoints({
         console.log('[eventsApi.listEvents] url:', url);
         return url;
       },
-      transformResponse: (response: { data: AppEvent[]; page: number; limit: number; total?: number }) => {
+      transformResponse: (response: { data: AppEvent[]; page: number; limit: number; total: number }) => {
         console.log('[eventsApi.listEvents] got', response.data?.length, 'of', response.total, 'events');
         return response;
       },

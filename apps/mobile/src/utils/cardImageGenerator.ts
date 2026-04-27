@@ -1,4 +1,5 @@
-import { Platform, Alert, Share as RNShare } from "react-native";
+import { Platform, Alert, Share as RNShare, Linking } from "react-native";
+import * as Clipboard from "expo-clipboard";
 
 // Lazy imports to prevent crash if native modules not available
 let captureRef: any = null;
@@ -255,7 +256,7 @@ export async function generateAndShareCardImage(
     }
 
     // Wait for images inside the hidden view to finish loading from network
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await new Promise((resolve) => setTimeout(resolve, 3000));
 
     const uri = await captureRef(viewToCapture, {
       format: "png",
@@ -343,26 +344,36 @@ export async function generateAndShareCardImage(
           }
         }
 
-        // Method C: expo-sharing (last resort — image only, copies text to clipboard)
+        // Method C: expo-sharing for image + open WhatsApp with message via deep link
         if (Sharing && !shared) {
           try {
             const isAvailable = await Sharing.isAvailableAsync();
             if (isAvailable) {
-              const { Clipboard } = require("react-native");
-              Clipboard.setString(whatsappMessage);
-              Alert.alert(
-                "Message Copied!",
-                "Card message copied to clipboard. Paste it after sharing the image.",
-                [{ text: "OK" }],
-              );
+              // Share the image first via system sheet
               await Sharing.shareAsync(shareableUri, {
                 mimeType: "image/png",
                 dialogTitle: `Share ${companyName}'s Business Card`,
               });
+              // After image shared, open WhatsApp with the card message
+              const waUrl = `whatsapp://send?text=${encodeURIComponent(whatsappMessage)}`;
+              const canOpen = await Linking.canOpenURL(waUrl);
+              if (canOpen) {
+                await Linking.openURL(waUrl);
+              } else {
+                // WhatsApp not installed — copy to clipboard silently
+                await Clipboard.setStringAsync(whatsappMessage);
+              }
               shared = true;
             }
           } catch (expoError: any) {
-            console.warn("⚠️ expo-sharing failed:", expoError?.message);
+            if (
+              expoError?.message === "User did not share" ||
+              expoError?.message === "CANCEL"
+            ) {
+              shared = true;
+            } else {
+              console.warn("⚠️ expo-sharing failed:", expoError?.message);
+            }
           }
         }
 
