@@ -3,8 +3,10 @@ import { useNavigation } from "@react-navigation/native";
 import { ArrowLeft, Gift, TrendingUp } from "lucide-react-native";
 import { useGetEarningsHistoryQuery } from "../store/api/referralApi";
 import { useState } from "react";
+import { useIconColor } from "../theme/colors";
 
 const EarningsHistory = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const [page, setPage] = useState(1);
   const { data, isLoading, isFetching } = useGetEarningsHistoryQuery({ page, limit: 20 });
@@ -22,7 +24,7 @@ const EarningsHistory = () => {
     <View className="flex-1 bg-white">
       <View className="border-b border-gray-200 bg-white px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-gray-900">Referral Earnings</Text>
       </View>

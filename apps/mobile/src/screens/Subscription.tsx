@@ -7,6 +7,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useSubscription } from "../hooks/useSubscription";
 import { toast } from "../lib/toast";
 import { cn } from "../lib/utils";
+import { useIconColor } from "../theme/colors";
 
 const plans = [
   {
@@ -52,6 +53,7 @@ const plans = [
 ];
 
 const Subscription = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
   const { user } = useAuth();
@@ -77,7 +79,7 @@ const Subscription = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Subscription Plans</Text>
       </View>

@@ -13,6 +13,7 @@ import { usePromotionContext } from "../contexts/PromotionContext";
 import { useCreateVoucher } from "../hooks/useVouchers";
 import { UpgradePrompt } from "../components/business/UpgradePrompt";
 import { toast } from "../lib/toast";
+import { useIconColor } from "../theme/colors";
 
 const voucherCategories = [
   "food",
@@ -27,6 +28,7 @@ const voucherCategories = [
 ];
 
 const VoucherCreate = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const routePromotionId = route?.params?.promotionId ? Number(route.params.promotionId) : null;
@@ -145,7 +147,7 @@ const VoucherCreate = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Create Voucher</Text>
       </View>

@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, Text, View, PressableProps } from "react-native";
 import { cn } from "../../lib/utils";
-import { colors } from "../../theme/colors";
+import { useColors } from "../../theme/colors";
 
 type ButtonVariant =
   | "default"
@@ -71,6 +71,7 @@ const Button = React.forwardRef<React.ElementRef<typeof Pressable>, ButtonProps>
     },
     ref
   ) => {
+    const colors = useColors();
     const classes = cn(
       baseClasses,
       variantClasses[variant].container,

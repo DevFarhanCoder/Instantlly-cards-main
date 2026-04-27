@@ -37,8 +37,10 @@ import {
   useResumeAdCampaignMutation,
   useDeleteAdCampaignMutation,
 } from "../store/api/adminApi";
+import { useIconColor } from "../theme/colors";
 
 const AdminAdDetail = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { id } = route.params;
@@ -151,7 +153,7 @@ const AdminAdDetail = () => {
       <View className="flex-1 bg-background">
         <View className="border-b border-border bg-card px-4 py-3 flex-row items-center gap-3">
           <Pressable onPress={() => navigation.goBack()}>
-            <ArrowLeft size={20} color="#111827" />
+            <ArrowLeft size={20} color={iconColor} />
           </Pressable>
           <Text className="text-lg font-bold text-foreground flex-1">Ad Details</Text>
         </View>
@@ -170,7 +172,7 @@ const AdminAdDetail = () => {
       {/* Header */}
       <View className="border-b border-border bg-card px-4 py-3 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground flex-1">Ad Details</Text>
         <Badge

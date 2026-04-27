@@ -5,8 +5,10 @@ import { ArrowLeft } from "lucide-react-native";
 import { Skeleton } from "../components/ui/skeleton";
 import { useListMobileCategoriesQuery, useGetMobileSubcategoriesQuery } from "../store/api/categoriesApi";
 import type { MobileSubcategoryItem } from "../store/api/categoriesApi";
+import { useIconColor } from "../theme/colors";
 
 const CategoryDetail = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const id = route.params?.id as string | undefined;
@@ -267,7 +269,7 @@ const CategoryDetail = () => {
         <View className="px-4 pb-3 pt-3">
           <View className="flex-row items-center gap-2">
             <Pressable onPress={() => navigation.goBack()}>
-              <ArrowLeft size={20} color="#111827" />
+              <ArrowLeft size={20} color={iconColor} />
             </Pressable>
             <Text className="text-2xl">{displayIcon}</Text>
             <Text className="text-xl font-bold text-foreground">{displayName}</Text>

@@ -12,6 +12,7 @@ import { usePromotionContext } from "../contexts/PromotionContext";
 import { hasFeature } from "../utils/tierFeatures";
 import { UpgradePrompt } from "../components/business/UpgradePrompt";
 import { NoPromotionCTA } from "../components/business/NoPromotionCTA";
+import { useIconColor } from "../theme/colors";
 
 const statusColors: Record<string, string> = {
   active: "bg-green-500/10 text-green-600",
@@ -44,6 +45,7 @@ const demoAds = [
 ];
 
 const Ads = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { tier, selectedPromotionId, selectedPromotion, promotions } = usePromotionContext();
@@ -114,7 +116,7 @@ const Ads = () => {
             className="h-9 w-full gap-1"
             onPress={() => navigation.navigate("AdDashboard")}
           >
-            <BarChart3 size={14} color="#111827" /> Dashboard
+            <BarChart3 size={14} color={iconColor} /> Dashboard
           </Button>
         }
         switchLabel={user && hasSelectedListing ? businessName : undefined}
@@ -222,7 +224,7 @@ const Ads = () => {
                 <Plus size={16} color="#ffffff" /> {canCreateAds ? "Create Ad" : "Boost+ Required"}
               </Button>
               <Button variant="outline" className="flex-1 gap-2 rounded-xl" onPress={() => navigation.navigate("AdDashboard")}>
-                <TrendingUp size={16} color="#111827" /> View Stats
+                <TrendingUp size={16} color={iconColor} /> View Stats
               </Button>
             </View>
           </View>

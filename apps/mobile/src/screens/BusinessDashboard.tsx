@@ -43,8 +43,10 @@ import StaffManager from "../components/business/StaffManager";
 import { AppHeader } from "../components/ui/AppHeader";
 import { NoPromotionCTA } from "../components/business/NoPromotionCTA";
 import { toast } from "../lib/toast";
+import { useIconColor } from "../theme/colors";
 
 const BusinessDashboard = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { selectedPromotionId, selectedPromotion, promotions } = usePromotionContext();
@@ -211,7 +213,7 @@ const BusinessDashboard = () => {
             className="h-9 w-full gap-1 rounded-lg text-xs"
             onPress={() => navigation.navigate("BusinessAnalytics")}
           >
-            <BarChart3 size={14} color="#111827" /> Analytics
+            <BarChart3 size={14} color={iconColor} /> Analytics
           </Button>
         ) : undefined
       }
@@ -393,7 +395,7 @@ const BusinessDashboard = () => {
 
           <TabsContent value="events" className="gap-3 mt-3">
             <Button variant="outline" className="w-full gap-2 rounded-xl" onPress={() => navigation.navigate("EventCreate")}>
-              <Calendar size={16} color="#111827" /> Create New Event
+              <Calendar size={16} color={iconColor} /> Create New Event
             </Button>
             {scopedEvents.length === 0 ? (
               <View className="rounded-xl border border-dashed border-border bg-muted/30 p-8 items-center">
@@ -444,7 +446,7 @@ const BusinessDashboard = () => {
 
           <TabsContent value="vouchers" className="gap-3 mt-3">
             <Button variant="outline" className="w-full gap-2 rounded-xl" onPress={() => navigation.navigate("VoucherCreate")}>
-              <Tag size={16} color="#111827" /> Create New Voucher
+              <Tag size={16} color={iconColor} /> Create New Voucher
             </Button>
             {scopedVouchers.length === 0 ? (
               <View className="rounded-xl border border-dashed border-border bg-muted/30 p-8 items-center">
@@ -490,7 +492,7 @@ const BusinessDashboard = () => {
 
           <TabsContent value="messages" className="gap-3 mt-3">
             <Button variant="outline" className="w-full gap-2 rounded-xl" onPress={() => navigation.navigate("Messaging")}>
-              <MessageCircle size={16} color="#111827" /> Open Messaging
+              <MessageCircle size={16} color={iconColor} /> Open Messaging
             </Button>
             {conversations.length === 0 ? (
               <View className="rounded-xl border border-dashed border-border bg-muted/30 p-8 items-center">

@@ -19,6 +19,7 @@ import { isNativeRazorpayAvailable, openRazorpayCheckout } from "../lib/payments
 import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
 import * as SecureStore from 'expo-secure-store';
 import { parseCategoryString } from "../lib/categoryUtils";
+import { useIconColor } from "../theme/colors";
 
 const premiumPlans = [
   {
@@ -111,6 +112,7 @@ const premiumPlans = [
 ];
 
 const PremiumPlanSelection = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user } = useAuth();
@@ -333,7 +335,7 @@ const PremiumPlanSelection = () => {
       <View className="border-b border-border bg-card px-4 py-4">
         <View className="flex-row items-center gap-3">
           <Pressable onPress={() => navigation.goBack()}>
-            <ArrowLeft size={20} color="#111827" />
+            <ArrowLeft size={20} color={iconColor} />
           </Pressable>
           <View className="flex-1">
             <Text className="text-lg font-bold text-foreground">Premium Plans</Text>

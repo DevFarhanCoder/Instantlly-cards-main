@@ -29,6 +29,7 @@ import {
   useGetAdminVouchersQuery,
   useGetAdminReviewsQuery,
 } from "../store/api/adminApi";
+import { useIconColor } from "../theme/colors";
 
 const TABS = [
   { key: "overview", label: "Overview" },
@@ -81,6 +82,7 @@ const AdminDashboard = () => {
 };
 
 const AdminPanel = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const [tab, setTab] = useState("overview");
   const [globalSearch, setGlobalSearch] = useState("");
@@ -200,7 +202,7 @@ const AdminPanel = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-3 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <ShieldCheck size={20} color="#2563eb" />
         <Text className="text-lg font-bold text-foreground flex-1">Admin Panel</Text>

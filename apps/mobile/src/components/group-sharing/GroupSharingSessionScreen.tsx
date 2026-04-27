@@ -27,6 +27,7 @@ import { useBusinessCards, type BusinessCardRow } from '../../hooks/useBusinessC
 import { endGroupSession, leaveGroupSession, type GroupSession } from '../../services/groupSharingService';
 import { useSendMessageRestMutation, useGetGroupMediaQuery, useStopGroupSharingMutation } from '../../store/api/chatApi';
 import { useGroupToast } from './GroupSharingToast';
+import { useIconColor } from "../../theme/colors";
 
 interface Props {
   visible: boolean;
@@ -186,6 +187,7 @@ export default function GroupSharingSessionScreen({
   session,
   onClose,
 }: Props) {
+  const iconColor = useIconColor();
   const { user } = useAuth();
   const { showToast, ToastRenderer } = useGroupToast();
   const { cards, isLoading } = useBusinessCards() as any;
@@ -302,7 +304,7 @@ export default function GroupSharingSessionScreen({
         {/* ── Header ───────────────────────────────────────────────────── */}
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={onClose} hitSlop={8}>
-            <Ionicons name="arrow-back" size={22} color="#111827" />
+            <Ionicons name="arrow-back" size={22} color={iconColor} />
           </Pressable>
           <Text style={styles.headerTitle}>Group Sharing Session</Text>
           <View style={{ width: 40 }} />

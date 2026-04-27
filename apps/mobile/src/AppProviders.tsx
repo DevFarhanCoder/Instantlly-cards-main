@@ -9,6 +9,7 @@ import { PushNotificationProvider } from "./contexts/PushNotificationContext";
 import { CreditsProvider, useCredits } from "./contexts/CreditsContext";
 import { checkAndRefreshCredits } from "./lib/creditsRefresh";
 import { PromotionProvider } from "./contexts/PromotionContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 // Keep React Query client for existing hooks that haven't migrated to RTK Query yet
 const queryClient = new QueryClient();
@@ -46,15 +47,18 @@ const AppProviders = ({ children }: { children: ReactNode }) => {
     tree = <SafeAreaProvider>{tree}</SafeAreaProvider>;
   }
 
-  // ReduxProvider wraps everything (outermost)
+  // ReduxProvider wraps everything (outermost), ThemeProvider sits above it so
+  // any provider/screen can read or update the theme.
   return (
-    <ReduxProvider store={store}>
-      <CreditsProvider>
-        <CreditsBootstrap>
-          {tree}
-        </CreditsBootstrap>
-      </CreditsProvider>
-    </ReduxProvider>
+    <ThemeProvider>
+      <ReduxProvider store={store}>
+        <CreditsProvider>
+          <CreditsBootstrap>
+            {tree}
+          </CreditsBootstrap>
+        </CreditsProvider>
+      </ReduxProvider>
+    </ThemeProvider>
   );
 };
 

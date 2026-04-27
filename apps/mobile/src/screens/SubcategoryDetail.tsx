@@ -30,11 +30,13 @@ import { useDirectoryFeed, type DirectoryCard } from "../hooks/useDirectoryCards
 import { Skeleton } from "../components/ui/skeleton";
 import { useUserLocation, getDistanceKm, formatDistance } from "../hooks/useUserLocation";
 import { colors } from "../theme/colors";
+import { useIconColor } from "../theme/colors";
 
 type SortOption = "rating" | "newest";
 type ServiceMode = "all" | "home" | "visit";
 
 const SubcategoryDetail = () => {
+  const iconColor = useIconColor();
   const { toggleFavorite, isFavorite } = useFavorites();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -113,7 +115,7 @@ const SubcategoryDetail = () => {
         <View className="px-4 pb-2 pt-3">
           <View className="flex-row items-center gap-2">
             <Pressable onPress={() => navigation.goBack()}>
-              <ArrowLeft size={20} color="#111827" />
+              <ArrowLeft size={20} color={iconColor} />
             </Pressable>
             <Text className="text-2xl">{categoryIcon || "📁"}</Text>
             <View className="flex-1">

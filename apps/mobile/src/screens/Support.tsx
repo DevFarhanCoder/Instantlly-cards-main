@@ -9,6 +9,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../integrations/supabase/client";
 import { toast } from "../lib/toast";
+import { useIconColor } from "../theme/colors";
 
 const faqItems = [
   { q: "How do I book a service?", a: "Browse businesses, tap on one, and use the 'Book Appointment' button." },
@@ -25,6 +26,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 };
 
 const Support = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const [subject, setSubject] = useState("");
@@ -84,7 +86,7 @@ const Support = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Help & Support</Text>
       </View>

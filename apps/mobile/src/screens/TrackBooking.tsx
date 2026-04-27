@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { Button } from "../components/ui/button";
 import { useBookings } from "../hooks/useBookings";
 import { cn } from "../lib/utils";
+import { useIconColor } from "../theme/colors";
 
 const statusConfig: Record<string, { label: string; color: string; emoji: string }> = {
   confirmed: { label: "Confirmed", color: "text-blue-600 bg-blue-50", emoji: "✅" },
@@ -15,6 +16,7 @@ const statusConfig: Record<string, { label: string; color: string; emoji: string
 };
 
 const TrackBooking = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { bookings, isLoading, refetch: refetchBookings } = useBookings();
   const [refreshing, setRefreshing] = useState(false);
@@ -83,7 +85,7 @@ const TrackBooking = () => {
             className="w-full rounded-xl text-xs mt-1"
             onPress={() => navigation.navigate("BusinessDetail", { id: `card-${booking.business_id}` })}
           >
-            <RefreshCw size={12} color="#111827" /> Re-book
+            <RefreshCw size={12} color={iconColor} /> Re-book
           </Button>
         )}
       </Pressable>
@@ -94,7 +96,7 @@ const TrackBooking = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Track Bookings</Text>
       </View>

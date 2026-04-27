@@ -61,6 +61,7 @@ import GroupConnectionScreen from "../components/group-sharing/GroupConnectionSc
 import GroupSharingSessionScreen from "../components/group-sharing/GroupSharingSessionScreen";
 import type { GroupSession } from "../services/groupSharingService";
 import { useGetReferralStatsQuery } from "../store/api/referralApi";
+import { useIconColor } from "../theme/colors";
 
 function fallbackCode(userId: number | string | undefined): string {
   if (!userId) return "------";
@@ -77,6 +78,7 @@ function fallbackCode(userId: number | string | undefined): string {
 }
 
 const MyCards = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const plan = route.params?.plan;
@@ -622,28 +624,28 @@ const MyCards = () => {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onPress={() => navigation.navigate("PublicCard", { id: `card-${card.id}` })}>
-                          <Eye size={14} color="#111827" /> View
+                          <Eye size={14} color={iconColor} /> View
                         </DropdownMenuItem>
                         <DropdownMenuItem onPress={() => navigation.navigate("CardCreate", { cardId: card.id })}>
-                          <Edit size={14} color="#111827" /> Edit
+                          <Edit size={14} color={iconColor} /> Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem onPress={() => setShareCard(card)}>
-                          <Share2 size={14} color="#111827" /> Share
+                          <Share2 size={14} color={iconColor} /> Share
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         {isBusiness && (
                           <DropdownMenuItem onPress={() => navigation.navigate("AdCreate", { cardId: card.id })}>
-                            <Megaphone size={14} color="#111827" /> Run Ad
+                            <Megaphone size={14} color={iconColor} /> Run Ad
                           </DropdownMenuItem>
                         )}
                         {isBusiness && (
                           <DropdownMenuItem onPress={() => navigation.navigate("EventCreate", { cardId: card.id })}>
-                            <Calendar size={14} color="#111827" /> List Event
+                            <Calendar size={14} color={iconColor} /> List Event
                           </DropdownMenuItem>
                         )}
                         {isBusiness && (
                           <DropdownMenuItem onPress={() => navigation.navigate("VoucherCreate", { promotionId: promo?.id })}>
-                            <Tag size={14} color="#111827" /> Create Voucher
+                            <Tag size={14} color={iconColor} /> Create Voucher
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />
@@ -766,11 +768,11 @@ const MyCards = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onPress={() => navigation.navigate("BusinessDetail", { id: `promo-${promo.id}` })}>
-                            <Eye size={14} color="#111827" /> View
+                            <Eye size={14} color={iconColor} /> View
                           </DropdownMenuItem>
                           {isBusiness && (
                             <DropdownMenuItem onPress={() => navigation.navigate("BusinessPromotionForm", { promotionId: promo.id, editMode: true })}>
-                              <Edit size={14} color="#111827" /> Edit
+                              <Edit size={14} color={iconColor} /> Edit
                             </DropdownMenuItem>
                           )}
                           {isBusiness && <DropdownMenuSeparator />}
@@ -789,7 +791,7 @@ const MyCards = () => {
                           )}
                           {isBusiness && promo.status === 'cancelled' && (
                             <DropdownMenuItem onPress={() => handleUndoPromotionCancel(promo)}>
-                              <Edit size={14} color="#111827" /> Undo Cancel
+                              <Edit size={14} color={iconColor} /> Undo Cancel
                             </DropdownMenuItem>
                           )}
                           {isBusiness && promo.status === 'cancelled' && (
