@@ -1,9 +1,14 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  BackHandler,
+  FlatList,
+  Keyboard,
   Pressable,
   RefreshControl,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -15,63 +20,317 @@ import {
   Search,
   Ticket,
   Users,
+  X,
 } from "lucide-react-native";
 import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
-import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Skeleton } from "../components/ui/skeleton";
-import { useAuth } from "../hooks/useAuth";
 import { useUserRole } from "../hooks/useUserRole";
-import { useEvents, useMyRegistrations } from "../hooks/useEvents";
-import { cn } from "../lib/utils";
+import { useMyRegistrations } from "../hooks/useEvents";
+import { useUserLocation } from "../hooks/useUserLocation";
+import { useListEventsQuery, AppEvent } from "../store/api/eventsApi";
+
+type TabType = "all" | "nearby";
+
+const PAGE_SIZE = 20;
+
+const EventCard = ({
+  event,
+  onPress,
+}: {
+  event: AppEvent;
+  onPress: () => void;
+}) => (
+  <Pressable
+    onPress={onPress}
+    className="flex-row gap-3 bg-card rounded-xl overflow-hidden mb-3"
+  >
+    <View className="w-24 h-28 bg-primary/10 items-center justify-center">
+      <Text className="text-4xl">{"\uD83C\uDF89"}</Text>
+    </View>
+    <View className="py-3 pr-4 flex-1">
+      <View className="flex-row items-center gap-1.5 mb-1">
+        {!event.ticket_price || event.ticket_price === 0 ? (
+          <Badge className="bg-success/10 text-success border-none text-[10px]">
+            FREE
+          </Badge>
+        ) : (
+          <Badge className="bg-accent/10 text-accent border-none text-[10px]">
+            {"\u20B9"}{event.ticket_price}
+          </Badge>
+        )}
+        {event.city && (
+          <Badge className="bg-muted text-muted-foreground border-none text-[10px]">
+            {event.city}
+          </Badge>
+        )}
+      </View>
+      <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+        {event.title}
+      </Text>
+      <View className="flex-row items-center gap-1.5 mt-1">
+        <Calendar size={12} color="#6a7181" />
+        <Text className="text-[11px] text-muted-foreground">
+          {new Date(event.date).toLocaleDateString()} {"\u2022"} {event.time}
+        </Text>
+      </View>
+      {(event.venue || event.location) && (
+        <View className="flex-row items-center gap-1.5 mt-0.5">
+          <MapPin size={12} color="#6a7181" />
+          <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>
+            {event.venue || event.location}
+          </Text>
+        </View>
+      )}
+      <View className="flex-row items-center gap-1 mt-0.5">
+        <Users size={12} color="#6a7181" />
+        <Text className="text-[11px] text-muted-foreground">
+          {event._count?.registrations || event.attendee_count || 0} registered
+        </Text>
+      </View>
+    </View>
+  </Pressable>
+);
 
 const Events = () => {
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState("");
-  const {
-    data: events = [],
-    isLoading,
-    isFetching,
-    refetch: refetchEvents,
-  } = useEvents();
-  const { user } = useAuth();
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [chipsOpen, setChipsOpen] = useState(false);
+  const searchInputRef = useRef<TextInput | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>("all");
   const { isBusiness } = useUserRole();
   const { registrations } = useMyRegistrations();
   const passCount = registrations.length;
+  const userLocation = useUserLocation();
 
+  // Grow limit to paginate; reset when search or tab changes
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const [refreshing, setRefreshing] = useState(false);
+
+  // city from GPS — only used for "nearby" tab
+  const nearbyCity = userLocation?.city ?? null;
+  const cityFilter =
+    activeTab === "nearby" && nearbyCity ? nearbyCity : undefined;
+
+  // Close venue chips on Android hardware back
+  useEffect(() => {
+    if (!chipsOpen) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setChipsOpen(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [chipsOpen]);
+
+  const { data, isLoading, isFetching, refetch } = useListEventsQuery(
+    {
+      page: 1,
+      limit,
+      search: searchQuery || undefined,
+      city: cityFilter,
+    },
+    { refetchOnMountOrArgChange: true }
+  );
+
+  // Reset limit when search or tab changes
+  useEffect(() => {
+    setLimit(PAGE_SIZE);
+  }, [searchQuery, activeTab]);
+
+  // When switching to nearby and city just resolved, reset limit so we refetch
+  useEffect(() => {
+    if (activeTab === "nearby" && nearbyCity) {
+      setLimit(PAGE_SIZE);
+    }
+  }, [nearbyCity, activeTab]);
+
+  const events: AppEvent[] = data?.data ?? [];
+  const hasMore = events.length >= limit && events.length > 0;
+
+  // Unique venue suggestions from currently loaded events.
+  const venueSuggestions = (() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const e of events) {
+      const v = (e.venue || e.location || "").trim();
+      if (v && !seen.has(v.toLowerCase())) {
+        seen.add(v.toLowerCase());
+        out.push(v);
+      }
+    }
+    const q = searchQuery.trim().toLowerCase();
+    return q ? out.filter((v) => v.toLowerCase().includes(q)) : out;
+  })();
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    try {
-      await refetchEvents();
-    } finally {
-      setRefreshing(false);
+    setLimit(PAGE_SIZE);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
+
+  const loadMore = useCallback(() => {
+    if (!isFetching && !isLoading && hasMore) {
+      setLimit((prev) => prev + PAGE_SIZE);
     }
-  }, [refetchEvents]);
+  }, [isFetching, isLoading, hasMore]);
 
-  const filteredEvents = useMemo(() => {
-    return events.filter((e: any) => {
-      const matchesSearch =
-        !searchQuery ||
-        e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (e.location || "").toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
-    });
-  }, [events, searchQuery]);
+  const renderItem = useCallback(
+    ({ item }: { item: AppEvent }) => (
+      <EventCard
+        event={item}
+        onPress={() => navigation.navigate("EventDetail", { id: item.id })}
+      />
+    ),
+    [navigation]
+  );
 
-  const upcomingEvents = filteredEvents;
+  const keyExtractor = useCallback(
+    (item: AppEvent) => String(item.id),
+    []
+  );
+
+  const ListHeader = (
+    <View>
+      {/* Tabs */}
+      <View
+        style={{
+          flexDirection: "row",
+          backgroundColor: "#f3f4f6",
+          borderRadius: 12,
+          padding: 4,
+          marginBottom: 16,
+        }}
+      >
+        <Pressable
+          onPress={() => setActiveTab("all")}
+          style={{
+            flex: 1,
+            borderRadius: 8,
+            paddingVertical: 8,
+            alignItems: "center",
+            backgroundColor: activeTab === "all" ? "#ffffff" : "transparent",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: "500",
+              color: activeTab === "all" ? "#0f172a" : "#6a7181",
+            }}
+          >
+            All Events
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setActiveTab("nearby")}
+          style={{
+            flex: 1,
+            borderRadius: 8,
+            paddingVertical: 8,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+            backgroundColor: activeTab === "nearby" ? "#ffffff" : "transparent",
+          }}
+        >
+          <MapPin size={13} color={activeTab === "nearby" ? "#2563eb" : "#9aa2b1"} />
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: "500",
+              color: activeTab === "nearby" ? "#2563eb" : "#6a7181",
+            }}
+          >
+            Near Me
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Location status for Near Me tab */}
+      {activeTab === "nearby" && !nearbyCity && (
+        <View className="flex-row items-center gap-2 bg-accent/10 rounded-lg px-3 py-2 mb-3">
+          <ActivityIndicator size="small" color="#2563eb" />
+          <Text className="text-sm text-muted-foreground">Detecting your location...</Text>
+        </View>
+      )}
+      {activeTab === "nearby" && nearbyCity && (
+        <View className="flex-row items-center gap-2 mb-3">
+          <MapPin size={14} color="#2563eb" />
+          <Text className="text-sm text-primary font-medium">Events in {nearbyCity}</Text>
+        </View>
+      )}
+
+      <Text className="text-lg font-semibold text-foreground mb-3">
+        {activeTab === "nearby" && nearbyCity
+          ? `Events in ${nearbyCity}`
+          : "All Upcoming Events"}
+      </Text>
+
+      {isLoading && (
+        <View className="gap-3">
+          {[1, 2, 3].map((i) => (
+            <View key={i} className="flex-row gap-3 bg-card rounded-xl overflow-hidden mb-3">
+              <Skeleton className="w-24 h-28" />
+              <View className="py-3 pr-3 gap-2 flex-1">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+                <Skeleton className="h-3 w-2/3" />
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+
+  const ListFooter = isFetching && !isLoading ? (
+    <View className="py-4 items-center">
+      <ActivityIndicator color="#2563eb" />
+    </View>
+  ) : null;
+
+  const ListEmpty = !isLoading ? (
+    <View className="items-center justify-center py-16">
+      <Text className="text-5xl mb-3">
+        {activeTab === "nearby" && !nearbyCity ? "\uD83D\uDCCD" : "\uD83D\uDD0D"}
+      </Text>
+      <Text className="text-sm text-muted-foreground text-center">
+        {activeTab === "nearby" && !nearbyCity
+          ? "Waiting for location..."
+          : activeTab === "nearby" && nearbyCity
+          ? `No events found in ${nearbyCity}`
+          : "No events found"}
+      </Text>
+    </View>
+  ) : null;
 
   return (
     <View className="flex-1 bg-background">
       <View className="bg-primary px-4 py-3">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center gap-2">
-            <Text className="text-lg">🎉</Text>
+            <Text className="text-lg">{"\uD83C\uDF89"}</Text>
             <Text className="text-lg font-bold text-primary-foreground">
               Events Market
             </Text>
           </View>
+          {typeof data?.total === "number" && (
+            <View
+              style={{
+                backgroundColor: "rgba(255,255,255,0.18)",
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 999,
+              }}
+            >
+              <Text style={{ color: "#ffffff", fontSize: 12, fontWeight: "600" }}>
+                {data.total} {data.total === 1 ? "event" : "events"}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View className="flex-row gap-2">
@@ -99,7 +358,7 @@ const Events = () => {
             className="flex-1"
           >
             <View className="bg-white rounded-lg p-2.5 flex-row items-center justify-center gap-1.5">
-              <Text className="text-base">📷</Text>
+              <Text className="text-base">{"\uD83D\uDCF7"}</Text>
               <Text className="text-sm font-semibold text-primary">
                 Scan QR
               </Text>
@@ -122,9 +381,206 @@ const Events = () => {
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 16 }}
-        className="px-4 py-4 gap-5"
+      {/* Sticky search bar (lives above the FlatList so its dropdown can overlay rows) */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, backgroundColor: "transparent", zIndex: 100, elevation: 100 }}>
+        <View style={{ position: "relative" }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: "#ffffff",
+              borderRadius: 999,
+              paddingHorizontal: 14,
+              height: 44,
+              borderWidth: 1,
+              borderColor: searchFocused ? "#2563eb" : "#e5e7eb",
+              shadowColor: "#000",
+              shadowOpacity: searchFocused ? 0.06 : 0,
+              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: searchFocused ? 2 : 0,
+            }}
+          >
+            <Pressable
+              onPress={() => {
+                searchInputRef.current?.focus();
+              }}
+              hitSlop={8}
+            >
+              <Search size={16} color={searchFocused ? "#2563eb" : "#9aa2b1"} />
+            </Pressable>
+            <Input
+              ref={searchInputRef}
+              placeholder="Search events or venues..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              style={{
+                flex: 1,
+                marginLeft: 8,
+                borderWidth: 0,
+                backgroundColor: "transparent",
+                height: 42,
+                paddingHorizontal: 0,
+                fontSize: 14,
+              }}
+            />
+            {searchQuery.length > 0 ? (
+              <Pressable
+                onPress={() => setSearchQuery("")}
+                hitSlop={8}
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: "#e5e7eb",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <X size={12} color="#6a7181" />
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={() => setChipsOpen((v) => !v)}
+                hitSlop={8}
+              >
+                <Filter size={16} color={chipsOpen ? "#2563eb" : "#9aa2b1"} />
+              </Pressable>
+            )}
+          </View>
+
+          {/* Venue chips — appear when search bar is focused */}
+          {chipsOpen && venueSuggestions.length > 0 && (
+            <View
+              style={{
+                position: "absolute",
+                top: 52,
+                left: 0,
+                right: 0,
+                maxHeight: 360,
+                backgroundColor: "#ffffff",
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: "#e2e8f0",
+                paddingVertical: 12,
+                paddingHorizontal: 12,
+                elevation: 14,
+                shadowColor: "#0f172a",
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.12,
+                shadowRadius: 18,
+                zIndex: 200,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  paddingHorizontal: 4,
+                  marginBottom: 10,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: "#64748b",
+                    fontWeight: "700",
+                    letterSpacing: 0.6,
+                  }}
+                >
+                  {searchQuery ? "MATCHING VENUES" : "POPULAR VENUES"}
+                </Text>
+                <View
+                  style={{
+                    backgroundColor: "#e0e7ff",
+                    paddingHorizontal: 8,
+                    paddingVertical: 2,
+                    borderRadius: 10,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, color: "#4338ca", fontWeight: "600" }}>
+                    {venueSuggestions.length}
+                  </Text>
+                </View>
+              </View>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+              >
+                <View
+                  style={{
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    marginHorizontal: -4,
+                    marginVertical: -4,
+                  }}
+                >
+                {venueSuggestions.map((venue) => {
+                  const selected =
+                    searchQuery.trim().toLowerCase() === venue.toLowerCase();
+                  return (
+                    <View
+                      key={venue}
+                      style={{
+                        margin: 4,
+                        borderRadius: 999,
+                        borderWidth: 1.5,
+                        borderColor: selected ? "#2563eb" : "#94a3b8",
+                        backgroundColor: selected ? "#eff6ff" : "#ffffff",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <Pressable
+                        onPress={() => {
+                          if (selected) {
+                            setSearchQuery("");
+                          } else {
+                            setSearchQuery(venue);
+                            setChipsOpen(false);
+                            Keyboard.dismiss();
+                          }
+                        }}
+                        android_ripple={{ color: "#e2e8f0" }}
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 5,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 11.5,
+                            fontWeight: "500",
+                            color: selected ? "#2563eb" : "#334155",
+                          }}
+                          numberOfLines={1}
+                        >
+                          {venue}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+              </ScrollView>
+            </View>
+          )}
+        </View>
+      </View>
+
+      <FlatList
+        data={events}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        ListHeaderComponent={ListHeader}
+        ListFooterComponent={ListFooter}
+        ListEmptyComponent={ListEmpty}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -133,147 +589,26 @@ const Events = () => {
             tintColor="#2463eb"
           />
         }
-      >
-        <View className="relative">
-          <View className="absolute left-3 top-3.5">
-            <Search size={16} color="#9aa2b1" />
-          </View>
-          <Input
-            placeholder="Search events, locations..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            className="pl-10 pr-10 bg-card"
-          />
-          <Pressable className="absolute right-2 top-2.5 h-8 w-8 items-center justify-center rounded-full">
-            <Filter size={16} color="#9aa2b1" />
-          </Pressable>
-        </View>
+      />
 
-        <Card className="overflow-hidden bg-primary">
-          <CardContent className="p-6">
-            <View className="items-center mb-4">
-              <Badge className="bg-primary-foreground/20 text-primary-foreground border-none mb-2">
-                🔥 Trending Events
-              </Badge>
-              <Text className="text-2xl font-bold text-primary-foreground mb-1 text-center">
-                Discover Events Near You
-              </Text>
-              <Text className="text-sm text-primary-foreground/80 mb-4 text-center">
-                Register instantly & get your QR pass
-              </Text>
-            </View>
-            <View className="flex-row gap-4">
-              {[
-                ["100+", "Events"],
-                ["10K+", "Attendees"],
-                ["50+", "Cities"],
-              ].map(([val, lbl]) => (
-                <View key={lbl} className="flex-1 items-center">
-                  <Text className="text-xl font-bold text-primary-foreground">
-                    {val}
-                  </Text>
-                  <Text className="text-[11px] text-primary-foreground/80">
-                    {lbl}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </CardContent>
-        </Card>
-
-        <View>
-          <Text className="text-lg font-semibold text-foreground mb-3">
-            All Upcoming Events 📅
-          </Text>
-
-          {isLoading || isFetching ? (
-            <View className="gap-3">
-              {[1, 2, 3].map((i) => (
-                <View
-                  key={i}
-                  className="flex-row gap-3 bg-card rounded-xl overflow-hidden"
-                >
-                  <Skeleton className="w-24 h-28" />
-                  <View className="py-3 pr-3 gap-2 flex-1">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-1/2" />
-                    <Skeleton className="h-3 w-2/3" />
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : upcomingEvents.length === 0 ? (
-            <View className="items-center justify-center py-16">
-              <Text className="text-5xl mb-3">📭</Text>
-              <Text className="text-sm text-muted-foreground">
-                No events found
-              </Text>
-            </View>
-          ) : (
-            <View className="gap-3">
-              {upcomingEvents.map((event: any) => (
-                <Pressable
-                  key={event.id}
-                  onPress={() =>
-                    navigation.navigate("EventDetail", { id: event.id })
-                  }
-                  className="flex-row gap-3 bg-card rounded-xl overflow-hidden"
-                >
-                  <View className="w-24 h-28 bg-primary/10 items-center justify-center">
-                    <Text className="text-4xl">🎉</Text>
-                  </View>
-                  <View className="py-3 pr-4 flex-1">
-                    <View className="flex-row items-center gap-1.5 mb-1">
-                      {!event.ticket_price || event.ticket_price === 0 ? (
-                        <Badge className="bg-success/10 text-success border-none text-[10px]">
-                          FREE
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-accent/10 text-accent border-none text-[10px]">
-                          ₹{event.ticket_price}
-                        </Badge>
-                      )}
-                    </View>
-                    <Text
-                      className="text-sm font-semibold text-foreground"
-                      numberOfLines={1}
-                    >
-                      {event.title}
-                    </Text>
-                    <View className="flex-row items-center gap-1.5 mt-1">
-                      <Calendar size={12} color="#6a7181" />
-                      <Text className="text-[11px] text-muted-foreground">
-                        {new Date(event.date).toLocaleDateString()} •{" "}
-                        {event.time}
-                      </Text>
-                    </View>
-                    {event.location && (
-                      <View className="flex-row items-center gap-1.5 mt-0.5">
-                        <MapPin size={12} color="#6a7181" />
-                        <Text
-                          className="text-[11px] text-muted-foreground"
-                          numberOfLines={1}
-                        >
-                          {event.location}
-                        </Text>
-                      </View>
-                    )}
-                    <View className="flex-row items-center gap-1 mt-0.5">
-                      <Users size={12} color="#6a7181" />
-                      <Text className="text-[11px] text-muted-foreground">
-                        {event._count?.registrations ||
-                          event.attendee_count ||
-                          0}{" "}
-                        registered
-                      </Text>
-                    </View>
-                  </View>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
-      </ScrollView>
+      {/* Tap-outside backdrop — closes the venue chips */}
+      {chipsOpen && (
+        <Pressable
+          onPress={() => {
+            setChipsOpen(false);
+          }}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 50,
+            elevation: 50,
+            backgroundColor: "transparent",
+          }}
+        />
+      )}
     </View>
   );
 };

@@ -17,6 +17,9 @@ export interface AppEvent {
   date: string;
   time: string;
   location: string | null;
+  venue?: string | null;
+  city?: string | null;
+  state?: string | null;
   image_url: string | null;
   ticket_price: number | null;
   max_attendees: number | null;
@@ -88,18 +91,19 @@ export interface UpdateEventInput {
 export const eventsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     listEvents: builder.query<
-      { data: AppEvent[]; page: number; limit: number },
-      { page?: number; limit?: number; search?: string } | void
+      { data: AppEvent[]; page: number; limit: number; total?: number },
+      { page?: number; limit?: number; search?: string; city?: string } | void
     >({
       query: (params) => {
-        const { page = 1, limit = 20, search } = params || {};
+        const { page = 1, limit = 20, search, city } = params || {};
         let url = `/events?page=${page}&limit=${limit}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
+        if (city) url += `&city=${encodeURIComponent(city)}`;
         console.log('[eventsApi.listEvents] url:', url);
         return url;
       },
-      transformResponse: (response: { data: AppEvent[]; page: number; limit: number }) => {
-        console.log('[eventsApi.listEvents] got', response.data?.length, 'events');
+      transformResponse: (response: { data: AppEvent[]; page: number; limit: number; total?: number }) => {
+        console.log('[eventsApi.listEvents] got', response.data?.length, 'of', response.total, 'events');
         return response;
       },
       providesTags: ['Event'],
