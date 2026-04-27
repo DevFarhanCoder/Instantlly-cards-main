@@ -1,25 +1,44 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useInfiniteQuery,
+} from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
+const BACKEND_API = "https://api.instantllycards.com";
+
 export interface Event {
-  id: string;
+  id: number;
   title: string;
   description: string | null;
-  venue: string;
+  venue: string | null;
+  location: string | null;
   date: string;
   time: string;
-  category: string;
+  category: string | null;
   image_url: string | null;
+  ticket_price: number | null;
   price: number;
   is_free: boolean;
   max_attendees: number | null;
+  attendee_count: number;
   organizer_name: string | null;
   is_featured: boolean;
-  user_id: string | null;
-  business_card_id: string | null;
+  status: string;
   created_at: string;
+  // Admin-uploaded extended fields
+  sr_no: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  days: number | null;
+  city: string | null;
+  state: string | null;
+  event_type: string | null;
+  source_website: string | null;
+  uploaded_by_admin: boolean;
 }
 
 export interface EventRegistration {
@@ -38,27 +57,47 @@ export function useEvents() {
   return useQuery({
     queryKey: ["events"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .order("date", { ascending: true });
-      if (error) throw error;
-      return data as Event[];
+      const res = await fetch(`${BACKEND_API}/api/events?limit=100`);
+      if (!res.ok) throw new Error("Failed to fetch events");
+      const json = await res.json();
+      return (json.data ?? json) as Event[];
     },
   });
 }
 
-export function useEvent(id: string) {
+const PAGE_SIZE = 20;
+
+export function useInfiniteEvents(search?: string, category?: string) {
+  return useInfiniteQuery({
+    queryKey: ["events", "infinite", search || "", category || ""],
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({
+        page: String(pageParam),
+        limit: String(PAGE_SIZE),
+      });
+      if (search?.trim()) params.set("search", search.trim());
+      if (category) params.set("category", category);
+      const res = await fetch(`${BACKEND_API}/api/events?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch events");
+      const json = await res.json();
+      return {
+        events: (json.data ?? json) as Event[],
+        page: pageParam as number,
+      };
+    },
+    getNextPageParam: (lastPage) =>
+      lastPage.events.length < PAGE_SIZE ? undefined : lastPage.page + 1,
+    initialPageParam: 1,
+  });
+}
+
+export function useEvent(id: string | number) {
   return useQuery({
     queryKey: ["event", id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (error) throw error;
-      return data as Event;
+      const res = await fetch(`${BACKEND_API}/api/events/${id}`);
+      if (!res.ok) throw new Error("Failed to fetch event");
+      return (await res.json()) as Event;
     },
     enabled: !!id,
   });
@@ -103,7 +142,10 @@ export function useCreateEvent() {
         .insert({
           ...event,
           user_id: user!.id,
-          organizer_name: event.organizer_name || user!.user_metadata?.full_name || "Organizer",
+          organizer_name:
+            event.organizer_name ||
+            user!.user_metadata?.full_name ||
+            "Organizer",
         } as any)
         .select()
         .single();

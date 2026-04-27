@@ -191,11 +191,20 @@ const GroupsTab = () => {
                 <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
                   {group.name}
                 </Text>
-                {group.lastMessageTime ? (
-                  <Text className="text-[10px] text-muted-foreground">
-                    {new Date(group.lastMessageTime).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
-                  </Text>
-                ) : null}
+                <View className="flex-row items-center gap-1.5">
+                  {group.lastMessageTime ? (
+                    <Text className="text-[10px] text-muted-foreground">
+                      {new Date(group.lastMessageTime).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                    </Text>
+                  ) : null}
+                  {(group.unreadCount ?? 0) > 0 ? (
+                    <View className="min-w-[18px] h-[18px] items-center justify-center rounded-full bg-primary px-1">
+                      <Text className="text-[10px] font-bold text-primary-foreground leading-none">
+                        {group.unreadCount > 99 ? '99+' : String(group.unreadCount)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
               <Text className="mt-0.5 text-xs text-muted-foreground" numberOfLines={1}>
                 {getGroupPreviewText(group)}
