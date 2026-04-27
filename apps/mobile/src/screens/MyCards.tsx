@@ -186,8 +186,8 @@ const MyCards = () => {
 
     try {
       const result = await generateAndShareCardImage(cardViewRef, { ...cardData, referralCode }, "whatsapp");
-      if (!result.success && result.error !== "native_module_not_available") {
-        // Fallback to text-only
+      if (!result.success) {
+        // Fallback to text-only share (covers native_module_not_available and other errors)
         const message = buildWhatsAppMessage(cardData, referralPlayStoreLink);
         const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
         const canOpen = await Linking.canOpenURL(whatsappUrl);

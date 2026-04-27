@@ -11,7 +11,11 @@ function getImageUrl(imagePath?: string): string {
   ) {
     return imagePath;
   }
-  const base = (process.env.EXPO_PUBLIC_API_BASE || "https://api.instantllycards.com").replace(/\/$/, "");
+  const base = (
+    process.env.EXPO_PUBLIC_API_BASE ||
+    process.env.EXPO_PUBLIC_API_URL ||
+    "https://backend.instantllycards.com"
+  ).replace(/\/$/, "");
   const path = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
   return `${base}${path}`;
 }

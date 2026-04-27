@@ -15,6 +15,7 @@ export interface DbConversation {
   business_id: string;
   business_name: string;
   business_avatar: string | null;
+  business_phone: string | null;
   unread_count: number;
   last_message_preview: string | null;
   created_at: string;
@@ -52,6 +53,7 @@ function mapConversation(conv: ChatConversation, userId?: number): DbConversatio
     business_id: String(conv.otherUser?.id ?? ""),
     business_name: conv.otherUser?.name || "Unknown User",
     business_avatar: conv.otherUser?.avatar || null,
+    business_phone: conv.otherUser?.phone || null,
     unread_count: conv.unreadCount ?? 0,
     last_message_preview: preview ? `${senderPrefix}${preview}` : null,
     created_at: ts,
@@ -205,6 +207,7 @@ export function useCreateConversation() {
         business_id: String(otherUserId),
         business_name: chat.otherUser?.name || businessName || "Unknown User",
         business_avatar: chat.otherUser?.avatar || businessAvatar || null,
+        business_phone: chat.otherUser?.phone || null,
         unread_count: 0,
         last_message_preview: null,
         created_at: now,

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import * as Location from "expo-location";
 
-interface UserLocation {
+export interface UserLocation {
   latitude: number;
   longitude: number;
+  city: string | null;
+  state: string | null;
 }
 
 export function useUserLocation() {
@@ -18,8 +20,28 @@ export function useUserLocation() {
       const pos = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Low,
       });
+
+      let city: string | null = null;
+      let state: string | null = null;
+      try {
+        const geocode = await Location.reverseGeocodeAsync({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+        const place = geocode[0];
+        city = place?.city || place?.subregion || place?.district || null;
+        state = place?.region || null;
+      } catch {
+        // geocoding failed — lat/lng still available, city/state stay null
+      }
+
       if (mounted) {
-        setLocation({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        setLocation({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          city,
+          state,
+        });
       }
     })();
 
