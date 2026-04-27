@@ -48,6 +48,7 @@ import { useUploadImageMutation, useGetMyCardsQuery } from "../store/api/busines
 import { toast } from "../lib/toast";
 import { cn } from "../lib/utils";
 import { colors } from "../theme/colors";
+import { useIconColor } from "../theme/colors";
 
 const STEPS = [
   { key: "personal", label: "Personal", icon: User, num: 1 },
@@ -473,6 +474,7 @@ const AccordionSection = ({
 
 /* ── Main Component ────────────────────────────────────── */
 const CardCreate = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const cardId = route?.params?.cardId as string | undefined;
@@ -781,7 +783,7 @@ const CardCreate = () => {
               onPress={() => navigation.goBack()}
               className="h-8 w-8 items-center justify-center rounded-full bg-muted"
             >
-              <X size={16} color="#111827" />
+              <X size={16} color={iconColor} />
             </Pressable>
           </View>
         </View>
@@ -886,7 +888,7 @@ const CardCreate = () => {
               onPress={() => navigation.goBack()}
               className="h-8 w-8 items-center justify-center rounded-full bg-muted"
             >
-              <X size={16} color="#111827" />
+              <X size={16} color={iconColor} />
             </Pressable>
           </View>
         </View>

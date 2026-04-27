@@ -12,6 +12,7 @@ import { useVouchers, type Voucher } from "../hooks/useVouchers";
 import { cn } from "../lib/utils";
 import { colors } from "../theme/colors";
 import { differenceInDays, isValid } from "date-fns";
+import { useIconColor } from "../theme/colors";
 
 const emojiImages: Record<string, string> = {
   travel: "🏖️",
@@ -36,6 +37,7 @@ const getExpiryLabel = (expiresAt: string | null) => {
 };
 
 const Vouchers = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -78,7 +80,7 @@ const Vouchers = () => {
             className="gap-1"
             onPress={() => navigation.navigate("MyVouchers")}
           >
-            <Ticket size={14} color="#111827" /> My Vouchers
+            <Ticket size={14} color={iconColor} /> My Vouchers
           </Button>
         </View>
         <Text className="mt-1 text-xs text-primary-foreground/70">
@@ -191,7 +193,7 @@ const Vouchers = () => {
                           </Badge>
                         )}
                         <View className="absolute bottom-2 left-2 flex-row items-center gap-1 rounded-full bg-background/80 px-2 py-0.5">
-                          <Clock size={12} color="#111827" />
+                          <Clock size={12} color={iconColor} />
                           <Text className="text-[10px] font-medium text-foreground">
                             {getExpiryLabel(v.expires_at)}
                           </Text>

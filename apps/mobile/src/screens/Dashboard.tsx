@@ -19,6 +19,7 @@ import { useBookings } from "../hooks/useBookings";
 import { useAuth } from "../hooks/useAuth";
 import { useDirectoryCards } from "../hooks/useDirectoryCards";
 import { colors } from "../theme/colors";
+import { useIconColor } from "../theme/colors";
 
 const STATUS_CONFIG: Record<
   string,
@@ -71,6 +72,7 @@ const BookingCard = ({ b, onRebook }: { b: any; onRebook: (id: string) => void }
 };
 
 const Dashboard = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { favorites } = useFavorites();
   const { user } = useAuth();
@@ -115,7 +117,7 @@ const Dashboard = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">My Dashboard</Text>
       </View>

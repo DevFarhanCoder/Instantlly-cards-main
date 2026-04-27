@@ -20,8 +20,10 @@ import ShareCardModal from "../components/ShareCardModal";
 import LeadForm from "../components/business/LeadForm";
 import { useDirectoryCard } from "../hooks/useDirectoryCards";
 import { toast } from "../lib/toast";
+import { useIconColor } from "../theme/colors";
 
 const PublicCard = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const id = route?.params?.id as string | undefined;
@@ -81,7 +83,7 @@ const PublicCard = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center justify-between">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Business Card</Text>
         <Pressable onPress={handleShare}>
@@ -302,7 +304,7 @@ const PublicCard = () => {
                   onPress={() => openUrl(url!.startsWith("http") ? url! : `https://${url}`)}
                   className="h-10 w-10 items-center justify-center rounded-full bg-muted"
                 >
-                  <Icon size={16} color="#111827" />
+                  <Icon size={16} color={iconColor} />
                 </Pressable>
               ))}
             </View>
@@ -340,7 +342,7 @@ const PublicCard = () => {
           className="flex-1 gap-1.5 rounded-xl py-4"
           onPress={handleShare}
         >
-          <Share2 size={14} color="#111827" /> Share
+          <Share2 size={14} color={iconColor} /> Share
         </Button>
         {card.email && (
           <Button
@@ -348,7 +350,7 @@ const PublicCard = () => {
             className="flex-1 gap-1.5 rounded-xl py-4"
             onPress={() => openUrl(`mailto:${card.email}`)}
           >
-            <Mail size={14} color="#111827" /> Email
+            <Mail size={14} color={iconColor} /> Email
           </Button>
         )}
       </View>

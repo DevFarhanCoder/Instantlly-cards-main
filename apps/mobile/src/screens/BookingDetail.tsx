@@ -9,6 +9,7 @@ import { Card, CardContent } from "../components/ui/card";
 import { useGetBookingQuery, useUpdateBookingStatusMutation } from "../store/api/bookingsApi";
 import { useAuth } from "../hooks/useAuth";
 import { toast } from "../lib/toast";
+import { useIconColor } from "../theme/colors";
 
 const statusConfig: Record<string, { label: string; bgClass: string; textClass: string }> = {
   pending: { label: "Pending", bgClass: "bg-yellow-100", textClass: "text-yellow-700" },
@@ -18,6 +19,7 @@ const statusConfig: Record<string, { label: string; bgClass: string; textClass: 
 };
 
 const BookingDetail = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const id = route?.params?.id;
@@ -64,7 +66,7 @@ const BookingDetail = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Booking Details</Text>
       </View>

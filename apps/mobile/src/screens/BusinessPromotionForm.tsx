@@ -32,6 +32,7 @@ import { setCredentials, setActiveRole } from "../store/authSlice";
 import * as SecureStore from 'expo-secure-store';
 import type { CategoryTreeNode } from "../store/api/categoriesApi";
 import { parseCategoryString } from "../lib/categoryUtils";
+import { useIconColor } from "../theme/colors";
 
 const STEPS = [
   { id: 1, title: "Business", label: "Business Information" },
@@ -63,6 +64,7 @@ const s = StyleSheet.create({
 });
 
 const BusinessPromotionForm = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const plan = route?.params?.plan || "free";
@@ -474,7 +476,7 @@ const BusinessPromotionForm = () => {
       <View className="border-b border-border bg-card px-4 py-4">
         <View className="flex-row items-center gap-3 mb-4">
           <Pressable onPress={handleBack}>
-            <ArrowLeft size={20} color="#111827" />
+            <ArrowLeft size={20} color={iconColor} />
           </Pressable>
           <Text className="text-lg font-bold text-foreground">Business Promotion</Text>
         </View>
@@ -1078,7 +1080,7 @@ const BusinessPromotionForm = () => {
             <View className="border-b border-border px-4 py-4 flex-row items-center justify-between">
               <Text className="text-xl font-bold text-foreground">Business Hours</Text>
               <Pressable onPress={() => setShowBusinessHours(false)}>
-                <X size={24} color="#111827" />
+                <X size={24} color={iconColor} />
               </Pressable>
             </View>
 

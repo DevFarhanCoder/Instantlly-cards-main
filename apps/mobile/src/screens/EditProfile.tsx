@@ -19,8 +19,10 @@ import { useAuth } from "../hooks/useAuth";
 import { useGetProfileQuery, useUpdateProfileMutation } from "../store/api/usersApi";
 import { supabase } from "../integrations/supabase/client";
 import { toast } from "../lib/toast";
+import { useIconColor } from "../theme/colors";
 
 const EditProfile = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const [fullName, setFullName] = useState("");
@@ -117,7 +119,7 @@ const EditProfile = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Edit Profile</Text>
       </View>

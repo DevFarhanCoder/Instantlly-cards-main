@@ -1,11 +1,11 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { Bell, MessageCircle, Send, User } from "lucide-react-native";
 import BottomNav from "./BottomNav";
 import BannerAdSlot from "../ads/BannerAdSlot";
-import { colors } from "../../theme/colors";
+import { colors as defaultColors, useColors } from "../../theme/colors";
 import { useAuth } from "../../hooks/useAuth";
 import { useUserRole } from "../../hooks/useUserRole";
 import { useNotifications } from "../../hooks/useNotifications";
@@ -27,6 +27,8 @@ const AppLayout = ({
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { width } = useWindowDimensions();
+  const colors = useColors();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { user } = useAuth();
   const { activeRole } = useUserRole();
   const { unreadCount } = useNotifications();
@@ -176,7 +178,8 @@ const AppLayout = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: typeof defaultColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -221,7 +224,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   brandDark: {
-    color: "#1a2b4a",
+    color: colors.foreground,
   },
   brandBlue: {
     color: "#2bb8e4",
@@ -339,6 +342,6 @@ const styles = StyleSheet.create({
     fontSize: 8,
     letterSpacing: 0.4,
   },
-});
+  });
 
 export default AppLayout;

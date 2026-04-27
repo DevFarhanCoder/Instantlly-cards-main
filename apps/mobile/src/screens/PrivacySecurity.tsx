@@ -27,10 +27,12 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { useChangePasswordMutation, useDeleteAccountMutation } from "../store/api/usersApi";
 import { toast } from "../lib/toast";
+import { useIconColor } from "../theme/colors";
 
 const SETTINGS_KEY = "privacy-settings";
 
 const PrivacySecurity = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const { user, signOut } = useAuth();
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -126,7 +128,7 @@ const PrivacySecurity = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()}>
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Privacy & Security</Text>
       </View>

@@ -19,6 +19,7 @@ import { useUserRole } from "../hooks/useUserRole";
 import { usePromotionContext } from "../contexts/PromotionContext";
 import { useCreateEvent } from "../hooks/useEvents";
 import { toast } from "../lib/toast";
+import { useIconColor } from "../theme/colors";
 
 const eventCategories = [
   "Awards",
@@ -42,6 +43,7 @@ for (let h = 6; h < 24; h++) {
 }
 
 const EventCreate = () => {
+  const iconColor = useIconColor();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const preselectedCardId = route?.params?.cardId || "";
@@ -157,7 +159,7 @@ const EventCreate = () => {
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
         <Pressable onPress={() => navigation.goBack()} testID="back-button">
-          <ArrowLeft size={20} color="#111827" />
+          <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Create Event</Text>
       </View>
