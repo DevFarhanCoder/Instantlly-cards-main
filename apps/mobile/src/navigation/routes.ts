@@ -8,7 +8,7 @@ export type RootStackParamList = {
   BusinessDetail: { id: string } | undefined;
   CategoryDetail: { id: string } | undefined;
   SubcategoryDetail: { subcategory: string; categoryName: string; categoryIcon: string } | undefined;
-  Messaging: undefined;
+  Messaging: { initialTab?: string } | undefined;
   Vouchers: undefined;
   VoucherDetail: { id: string } | undefined;
   MyVouchers: undefined;
@@ -18,6 +18,7 @@ export type RootStackParamList = {
   Events: undefined;
   EventDetail: { id: string } | undefined;
   EventScanner: undefined;
+  CardScanner: undefined;
   EventCreate: undefined;
   VoucherCreate: { promotionId?: number } | undefined;
   PublicCard: { id: string } | undefined;

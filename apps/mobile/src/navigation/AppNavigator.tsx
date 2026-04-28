@@ -68,6 +68,7 @@ import Events from "../screens/Events";
 import EventDetail from "../screens/EventDetail";
 import EventCreate from "../screens/EventCreate";
 import EventScanner from "../screens/EventScanner";
+import CardScanner from "../screens/CardScanner";
 import CardCreate from "../screens/CardCreate";
 import BusinessPromotionForm from "../screens/BusinessPromotionForm";
 import PremiumPlanSelection from "../screens/PremiumPlanSelection";
@@ -143,6 +144,7 @@ const AdDashboardScreen    = withLayout(AdDashboard);
 const EventsScreen         = withLayout(Events);
 const EventDetailScreen    = withLayout(EventDetail);
 const EventScannerScreen   = withLayout(EventScanner);
+const CardScannerScreen    = withLayout(CardScanner);
 const EventCreateScreen    = withLayout(EventCreate);
 const VoucherCreateScreen  = withLayout(VoucherCreate);
 const PublicCardScreen     = withLayout(PublicCard);
@@ -182,13 +184,15 @@ const NotFoundScreen       = plainPlaceholder("Not Found");
 
 // ─── Deep link config ────────────────────────────────────────────────────────
 const linking = {
-  prefixes: ['instantllycards://'],
+  prefixes: ['instantllycards://', 'https://instantlly.lovable.app'],
   config: {
     screens: {
       // instantllycards://join?code=XXXX
       GroupJoin: { path: 'join' },
       // instantllycards://signup?utm_campaign=ABC123XY → Auth screen, referral code as route param
       Auth: 'signup',
+      // instantllycards://card/:id  (and  https://instantlly.lovable.app/card/:id)
+      PublicCard: { path: 'card/:id' },
     },
   },
 };
@@ -609,9 +613,9 @@ const AppNavigator = () => {
           groupName: data.groupName ?? 'Group Chat',
         });
       } else if (data?.screen === 'Chat' || data?.screen === 'Messaging') {
-        // DM push notification tapped — open the Inbox (Messaging screen).
-        // The user can then tap the specific conversation.
-        navigationRef.navigate('Messaging');
+        // DM / card-share push notification tapped — open the Inbox (Messaging screen).
+        // Forward the tab hint (e.g. 'Received') so it lands on the right tab.
+        navigationRef.navigate('Messaging', data?.tab ? { initialTab: data.tab } : undefined);
       }
     });
     return () => { notifListenerRef.current?.remove(); };
@@ -694,6 +698,7 @@ const AppNavigator = () => {
         <Stack.Screen name="AdDashboard" component={AdDashboardScreen} />
         <Stack.Screen name="EventDetail" component={EventDetailScreen} />
         <Stack.Screen name="EventScanner" component={EventScannerScreen} />
+        <Stack.Screen name="CardScanner" component={CardScannerScreen} />
         <Stack.Screen name="EventCreate" component={EventCreateScreen} />
         <Stack.Screen name="VoucherCreate" component={VoucherCreateScreen} />
         <Stack.Screen name="PublicCard" component={PublicCardScreen} />

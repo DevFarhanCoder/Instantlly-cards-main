@@ -26,6 +26,7 @@ import {
   Megaphone,
   MoreVertical,
   Plus,
+  QrCode,
   Share2,
   Tag,
   Trash2,
@@ -146,7 +147,7 @@ const MyCards = () => {
 
   const handleCopyLink = async () => {
     if (!shareCard) return;
-    const shareUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantlly.lovable.app'}/card/${shareCard.id}`;
+    const shareUrl = `instantllycards://card/card-${shareCard.id}`;
     await Clipboard.setStringAsync(shareUrl);
     toast.success("Link copied!");
     setShareCard(null);
@@ -155,7 +156,7 @@ const MyCards = () => {
   const handleWhatsAppShare = async () => {
     if (!shareCard) return;
 
-    const shareUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantlly.lovable.app'}/card/${shareCard.id}`;
+    const shareUrl = `instantllycards://card/card-${shareCard.id}`;
     const cardData: ShareCardData = {
       fullName: shareCard.full_name,
       companyName: shareCard.company_name,
@@ -289,7 +290,7 @@ const MyCards = () => {
     return (
       <View className="flex-1 bg-background">
         <View className="border-b border-border bg-card px-4 py-4">
-          <Text className="text-xl font-bold text-foreground">My Business Cards</Text>
+          <Text className="text-xl font-bold text-foreground">My Cards</Text>
         </View>
 
         <ScrollView className="flex-1">
@@ -494,7 +495,7 @@ const MyCards = () => {
   return (
     <View className="flex-1 bg-background">
       <View className="border-b border-border bg-card px-4 py-4 flex-row items-center justify-between">
-        <Text className="text-xl font-bold text-foreground">My Business Cards</Text>
+        <Text className="text-xl font-bold text-foreground">My Cards</Text>
         <View className="flex-row items-center gap-3">
           <View className="flex-row items-center gap-1.5">
             <Text className="text-xs font-medium text-muted-foreground">
@@ -517,6 +518,12 @@ const MyCards = () => {
               style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
             />
           </View>
+          <Pressable
+            onPress={() => navigation.navigate("CardScanner")}
+            className="h-10 w-10 items-center justify-center rounded-full bg-primary/10"
+          >
+            <QrCode size={18} color="#2563eb" />
+          </Pressable>
           <Pressable
             onPress={() => navigation.navigate("CardCreate", plan ? { plan, skipPreview: true } : { skipPreview: true })}
             className="h-10 w-10 items-center justify-center rounded-full bg-primary"
@@ -1028,7 +1035,7 @@ const MyCards = () => {
 
           <View className="items-center gap-4 py-4">
             {shareCard ? (
-              <QRCode value={`${process.env.EXPO_PUBLIC_WEB_URL || 'https://instantlly.lovable.app'}/card/${shareCard.id}`} size={160} />
+              <QRCode value={`instantllycards://card/card-${shareCard.id}`} size={160} />
             ) : null}
             <Text className="text-xs text-muted-foreground">
               Scan to view this card
