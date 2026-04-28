@@ -2,9 +2,9 @@ import { useMemo } from "react";
 import { useVouchers } from "./useVouchers";
 
 export function useDealOfTheDay() {
-  const { vouchers, isLoading, error } = useVouchers();
+  const { data: vouchers, isLoading, error } = useVouchers();
 
-  const data = useMemo(() => {
+  const deal = useMemo(() => {
     const active = (vouchers ?? []).filter(
       (v: any) => v.status === "active" && v.original_price > 0
     );
@@ -21,5 +21,5 @@ export function useDealOfTheDay() {
     return sorted[dayOfYear % sorted.length];
   }, [vouchers]);
 
-  return { data, isLoading, error };
+  return { data: deal, isLoading, error };
 }

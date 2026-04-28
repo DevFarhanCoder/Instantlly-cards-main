@@ -49,11 +49,22 @@ export interface ClaimedVoucher {
 }
 
 const mapVoucher = (v: any): Voucher => {
-  const original = Number(v.mrp ?? v.amount ?? v.original_price ?? v.discount_value ?? 0);
-  const discounted =
-    v.discount_type === "percent"
-      ? Math.max(0, original - original * (Number(v.discount_value) / 100))
-      : Math.max(0, original - Number(v.discount_value ?? 0));
+  // Backend now decorates rows with computed `original_price`, `discounted_price`,
+  // `discount_label`. Prefer those when present, otherwise fall back to legacy fields.
+  const dType = v.discount_type === "percent" ? "percent" : "flat";
+  const dValue = Number(v.discount_value ?? 0);
+  const original = v.original_price !== undefined && v.original_price !== null
+    ? Number(v.original_price)
+    : Number(v.mrp ?? v.amount ?? 0);
+  const discounted = v.discounted_price !== undefined && v.discounted_price !== null
+    ? Number(v.discounted_price)
+    : original > 0
+      ? dType === "percent"
+        ? Math.max(0, original - (original * dValue) / 100)
+        : Math.max(0, original - dValue)
+      : 0;
+  const label = v.discount_label
+    ?? (dType === "percent" ? `${dValue}% OFF` : `₹${dValue} OFF`);
   return {
     id: String(v.id),
     user_id: String(v.owner_user_id ?? v.user_id ?? ""),
@@ -64,10 +75,7 @@ const mapVoucher = (v: any): Voucher => {
     category: v.category ?? "",
     original_price: original,
     discounted_price: discounted,
-    discount_label:
-      v.discount_type === "percent"
-        ? `${Number(v.discount_value)}% OFF`
-        : `₹${Number(v.discount_value ?? 0)} OFF`,
+    discount_label: label,
     is_popular: Boolean(v.is_popular),
     expires_at: v.expires_at ?? null,
     max_claims: v.max_claims ?? null,
@@ -158,18 +166,31 @@ export function useCreateVoucher() {
 
         const original = (voucher as any).original_price ?? 0;
         const discounted = (voucher as any).discounted_price ?? 0;
-        const discountValue =
-          voucher.discount_value !== undefined && voucher.discount_value !== null
-            ? Number(voucher.discount_value)
-            : Math.max(0, Number(original) - Number(discounted));
+        // Prefer percent discount when an original price is present so the UI
+        // shows "X% OFF" instead of "₹X OFF".
+        const explicitType = (voucher as any).discount_type as string | undefined;
+        const explicitValue = (voucher as any).discount_value;
+        let discountType: string;
+        let discountValue: number;
+        if (explicitType && explicitValue !== undefined && explicitValue !== null) {
+          discountType = explicitType;
+          discountValue = Number(explicitValue);
+        } else if (Number(original) > 0 && Number(discounted) >= 0 && Number(discounted) <= Number(original)) {
+          discountType = "percent";
+          discountValue = Math.round(((Number(original) - Number(discounted)) / Number(original)) * 100);
+        } else {
+          discountType = "flat";
+          discountValue = Math.max(0, Number(original) - Number(discounted));
+        }
 
         const payload = {
           business_promotion_id: Number(businessPromotionId),
           title: (voucher as any).title,
           code: (voucher as any).code || undefined,
           description: (voucher as any).subtitle || (voucher as any).terms || undefined,
-          discount_type: (voucher as any).discount_type || "flat",
+          discount_type: discountType,
           discount_value: discountValue,
+          original_price: Number(original) > 0 ? Number(original) : undefined,
           max_claims: (voucher as any).max_claims,
           expires_at: (voucher as any).expires_at,
         } as any;
