@@ -41,6 +41,23 @@ export const vouchersApi = baseApi.injectEndpoints({
       query: ({ id, status }) => ({ url: `/vouchers/${id}/status`, method: 'PATCH', body: { status } }),
       invalidatesTags: ['Voucher'],
     }),
+    createVoucherPaymentIntent: builder.mutation<
+      { key: string; order_id: string; amount: number; currency: string; voucher_id: number; voucher_title: string },
+      number
+    >({
+      query: (id) => ({ url: `/vouchers/${id}/payment-intent`, method: 'POST' }),
+    }),
+    verifyVoucherPayment: builder.mutation<
+      any,
+      { voucherId: number; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
+    >({
+      query: ({ voucherId, ...body }) => ({
+        url: `/vouchers/${voucherId}/verify-payment`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Voucher'],
+    }),
   }),
 });
 
@@ -54,4 +71,6 @@ export const {
   useGetVoucherTransfersQuery,
   useCreateVoucherMutation,
   useUpdateVoucherStatusMutation,
+  useCreateVoucherPaymentIntentMutation,
+  useVerifyVoucherPaymentMutation,
 } = vouchersApi;

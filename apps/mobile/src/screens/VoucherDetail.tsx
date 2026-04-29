@@ -8,11 +8,22 @@ import { Skeleton } from "../components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { useAuth } from "../hooks/useAuth";
 import { useClaimVoucher, useVoucher } from "../hooks/useVouchers";
+import {
+  useCreateVoucherPaymentIntentMutation,
+  useVerifyVoucherPaymentMutation,
+} from "../store/api/vouchersApi";
 import { toast } from "../lib/toast";
 import QRCode from "react-native-qrcode-svg";
 import { differenceInDays, isValid } from "date-fns";
 import { colors } from "../theme/colors";
 import { useIconColor } from "../theme/colors";
+import {
+  isNativeRazorpayAvailable,
+  openRazorpayCheckout,
+  type RazorpayCheckoutOptions,
+  type RazorpayCheckoutSuccess,
+} from "../lib/payments/razorpayCheckout";
+import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
 
 const emojiMap: Record<string, string> = {
   travel: "🏖️",
@@ -34,9 +45,14 @@ const VoucherDetail = () => {
   const { user } = useAuth();
   const { data: voucher, isLoading, refetch: refetchVoucher } = useVoucher(id || "");
   const claimVoucher = useClaimVoucher();
+  const [createIntent, intentState] = useCreateVoucherPaymentIntentMutation();
+  const [verifyPayment, verifyState] = useVerifyVoucherPaymentMutation();
   const [showPurchase, setShowPurchase] = useState(false);
   const [showRedemption, setShowRedemption] = useState(false);
   const [claimReference, setClaimReference] = useState("");
+  const [webViewVisible, setWebViewVisible] = useState(false);
+  const [webViewOptions, setWebViewOptions] = useState<RazorpayCheckoutOptions | null>(null);
+  const isProcessing = claimVoucher.isPending || intentState.isLoading || verifyState.isLoading;
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -79,19 +95,90 @@ const VoucherDetail = () => {
       ? "Expires today"
       : `${expiryDays} days left`;
 
+  const finishClaim = (claimId: string | number) => {
+    setClaimReference(`CLM-${claimId}`);
+    setShowPurchase(false);
+    setShowRedemption(true);
+  };
+
+  const verifyAndClaim = async (payment: RazorpayCheckoutSuccess) => {
+    if (!voucher) return;
+    try {
+      const result = await verifyPayment({
+        voucherId: Number(voucher.id),
+        razorpay_order_id: payment.razorpay_order_id,
+        razorpay_payment_id: payment.razorpay_payment_id,
+        razorpay_signature: payment.razorpay_signature,
+      }).unwrap();
+      toast.success("Voucher claimed! \uD83C\uDF89");
+      finishClaim(result.id);
+    } catch (e: any) {
+      toast.error(e?.data?.error || e?.message || "Payment verification failed");
+    }
+  };
+
   const handlePurchase = async () => {
     if (!user) {
       toast.error("Please sign in first");
       navigation.navigate("Auth");
       return;
     }
+    if (!voucher) return;
+
+    // Free vouchers: claim directly without payment.
+    if (!voucher.discounted_price || voucher.discounted_price <= 0) {
+      try {
+        const result = await claimVoucher.mutateAsync(voucher.id);
+        finishClaim(result.id);
+      } catch {
+        // toast handled inside hook
+      }
+      return;
+    }
+
+    // Paid voucher — create order + open Razorpay
     try {
-      const result = await claimVoucher.mutateAsync(voucher.id);
-      setClaimReference(`CLM-${result.id}`);
-      setShowPurchase(false);
-      setShowRedemption(true);
+      const intent = await createIntent(Number(voucher.id)).unwrap();
+      const checkoutOptions: RazorpayCheckoutOptions = {
+        key: intent.key,
+        amount: intent.amount,
+        currency: intent.currency,
+        order_id: intent.order_id,
+        name: voucher.title || "Voucher",
+        description: intent.voucher_title || voucher.title,
+        prefill: {
+          name: user?.name || undefined,
+          contact: user?.phone || undefined,
+        },
+        theme: { color: "#2463eb" },
+      };
+
+      if (isNativeRazorpayAvailable()) {
+        try {
+          const result = await openRazorpayCheckout(checkoutOptions);
+          await verifyAndClaim(result);
+          return;
+        } catch (nativeErr: any) {
+          if (/null|undefined|not a function|NATIVE_UNAVAILABLE/i.test(nativeErr?.message || "")) {
+            setWebViewOptions(checkoutOptions);
+            setWebViewVisible(true);
+            return;
+          }
+          if (
+            nativeErr?.code === 0 ||
+            /cancelled|canceled/i.test(nativeErr?.description || nativeErr?.message || "")
+          ) {
+            toast.error("Payment cancelled");
+            return;
+          }
+          throw nativeErr;
+        }
+      }
+
+      setWebViewOptions(checkoutOptions);
+      setWebViewVisible(true);
     } catch (e: any) {
-      // error toast is handled by useClaimVoucher hook
+      toast.error(e?.data?.error || e?.message || "Failed to start payment");
     }
   };
 
@@ -190,10 +277,14 @@ const VoucherDetail = () => {
         <Button
           className="w-full rounded-xl py-4"
           onPress={() => setShowPurchase(true)}
-          disabled={claimVoucher.isPending || (expiryDays !== null && expiryDays < 0)}
+          disabled={isProcessing || (expiryDays !== null && expiryDays < 0)}
         >
           <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: "700" }}>
-            {expiryDays !== null && expiryDays < 0 ? "Voucher Expired" : `Claim Voucher — ₹${voucher.discounted_price.toLocaleString()}`}
+            {expiryDays !== null && expiryDays < 0
+              ? "Voucher Expired"
+              : voucher.discounted_price > 0
+                ? `Claim Voucher — ₹${voucher.discounted_price.toLocaleString()}`
+                : "Claim Free Voucher"}
           </Text>
         </Button>
       </View>
@@ -203,19 +294,27 @@ const VoucherDetail = () => {
           <DialogHeader>
             <DialogTitle>Confirm Claim</DialogTitle>
             <DialogDescription>
-              You're about to claim {voucher.title} for ₹{voucher.discounted_price.toLocaleString()}
+              {voucher.discounted_price > 0
+                ? `You're about to claim ${voucher.title} for ₹${voucher.discounted_price.toLocaleString()}`
+                : `You're about to claim ${voucher.title} for free.`}
             </DialogDescription>
           </DialogHeader>
           <View className="rounded-xl bg-muted p-3 flex-row items-center justify-between">
             <Text className="text-sm font-medium text-foreground">Total</Text>
             <Text className="text-lg font-bold text-primary">
-              ₹{voucher.discounted_price.toLocaleString()}
+              {voucher.discounted_price > 0
+                ? `₹${voucher.discounted_price.toLocaleString()}`
+                : "FREE"}
             </Text>
           </View>
           <DialogFooter>
             <View className="gap-2">
-              <Button className="w-full rounded-xl" onPress={handlePurchase} disabled={claimVoucher.isPending}>
-                {claimVoucher.isPending ? "Processing..." : "Confirm Claim"}
+              <Button className="w-full rounded-xl" onPress={handlePurchase} disabled={isProcessing}>
+                {isProcessing
+                  ? "Processing..."
+                  : voucher.discounted_price > 0
+                    ? "Pay & Claim"
+                    : "Confirm Claim"}
               </Button>
               <Button variant="outline" className="w-full rounded-xl" onPress={() => setShowPurchase(false)}>
                 Cancel
@@ -251,6 +350,28 @@ const VoucherDetail = () => {
           </Button>
         </DialogContent>
       </Dialog>
+
+      {webViewOptions && (
+        <RazorpayWebView
+          visible={webViewVisible}
+          options={webViewOptions}
+          onSuccess={async (data) => {
+            setWebViewVisible(false);
+            await verifyAndClaim(data);
+            setWebViewOptions(null);
+          }}
+          onCancel={() => {
+            setWebViewVisible(false);
+            setWebViewOptions(null);
+            toast.error("Payment cancelled");
+          }}
+          onError={(err) => {
+            setWebViewVisible(false);
+            setWebViewOptions(null);
+            toast.error(err || "Payment failed");
+          }}
+        />
+      )}
     </View>
   );
 };
