@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { PageLoader } from "../components/ui/page-loader";
-import { ArrowLeft, Calendar, Clock, MapPin, Ticket, Users } from "lucide-react-native";
+import { ArrowLeft, Calendar, CheckCircle, Clock, MapPin, Ticket, Users, XCircle } from "lucide-react-native";
 import QRCode from "react-native-qrcode-svg";
 import { format } from "date-fns";
 import { Badge } from "../components/ui/badge";
@@ -43,6 +43,8 @@ const PassDetail = () => {
 
   const event = pass.event;
   const isFree = !event?.ticket_price || event.ticket_price === 0;
+  const isCancelled = pass.refund_status === "refunded" || !!pass.cancelled_at;
+  const isCheckedIn = !!pass.checked_in;
 
   return (
     <View className="flex-1 bg-background">
@@ -55,6 +57,37 @@ const PassDetail = () => {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }} className="px-4 py-6" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />}>
         <Card className="overflow-hidden">
+          {/* Status banners */}
+          {isCancelled ? (
+            <View className="bg-destructive/5 border-b border-destructive/40 p-4 flex-row items-center gap-3" testID="pass-cancelled-banner">
+              <XCircle size={20} color="#ef4343" />
+              <View className="flex-1">
+                <Text className="text-sm font-semibold text-destructive">
+                  This pass has been cancelled
+                </Text>
+                <Text className="text-xs text-destructive/80">
+                  {pass.refund_status === "refunded"
+                    ? `Refund processed${pass.amount_paid != null ? ` (₹${pass.amount_paid})` : ""}.`
+                    : "Your registration was cancelled."}
+                </Text>
+              </View>
+            </View>
+          ) : isCheckedIn ? (
+            <View className="bg-success/10 border-b border-success/40 p-4 flex-row items-center gap-3" testID="pass-checkedin-banner">
+              <CheckCircle size={20} color="#28af60" />
+              <View className="flex-1">
+                <Text className="text-sm font-semibold text-success">
+                  Checked in
+                </Text>
+                {pass.checked_in_at ? (
+                  <Text className="text-xs text-success/80">
+                    {format(new Date(pass.checked_in_at), "MMM d, yyyy 'at' p")}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
           {/* Header */}
           <View className="bg-primary/5 p-6 items-center gap-2">
             <Text className="text-4xl">🎫</Text>
@@ -90,7 +123,17 @@ const PassDetail = () => {
 
           <CardContent className="p-6 gap-6">
             {/* QR Code */}
-            {pass.qr_code ? (
+            {isCancelled ? (
+              <View className="items-center py-6 gap-2">
+                <XCircle size={48} color="#ef4343" />
+                <Text className="text-sm font-semibold text-destructive">
+                  QR code disabled
+                </Text>
+                <Text className="text-xs text-muted-foreground text-center">
+                  This pass is no longer valid for entry.
+                </Text>
+              </View>
+            ) : pass.qr_code ? (
               <View className="items-center gap-3">
                 <View className="bg-white p-5 rounded-2xl shadow-md">
                   <QRCode value={pass.qr_code} size={220} />

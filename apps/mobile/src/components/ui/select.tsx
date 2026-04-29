@@ -40,14 +40,17 @@ export const Select = ({
 export const SelectTrigger = ({
   className,
   children,
+  testID,
 }: {
   className?: string;
   children?: React.ReactNode;
+  testID?: string;
 }) => {
   const context = useContext(SelectContext);
   if (!context) return null;
   return (
     <Pressable
+      testID={testID}
       onPress={() => context.setOpen(true)}
       className={cn(
         "h-10 w-full flex-row items-center justify-between rounded-md border border-input bg-background px-3",

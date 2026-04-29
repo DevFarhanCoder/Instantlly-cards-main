@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   BarChart3,
   Bell,
+  CalendarDays,
   CheckCircle,
   ChevronRight,
   CreditCard,
@@ -378,6 +379,12 @@ const Profile = () => {
             label: "Business Dashboard",
             desc: "Manage bookings, events, vouchers",
             route: "BusinessDashboard",
+          },
+          {
+            icon: CalendarDays,
+            label: "My Events",
+            desc: "View, edit & cancel your events",
+            route: "MyEvents",
           },
         ]
       : []),

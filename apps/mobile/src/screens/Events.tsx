@@ -293,7 +293,7 @@ const Events = () => {
   ) : null;
 
   const ListEmpty = !isLoading ? (
-    <View className="items-center justify-center py-16">
+    <View className="items-center justify-center py-16 px-6">
       <Text className="text-5xl mb-3">
         {activeTab === "nearby" && !nearbyCity ? "\uD83D\uDCCD" : "\uD83D\uDD0D"}
       </Text>
@@ -302,8 +302,32 @@ const Events = () => {
           ? "Waiting for location..."
           : activeTab === "nearby" && nearbyCity
           ? `No events found in ${nearbyCity}`
+          : searchQuery
+          ? `No events match "${searchQuery}"`
           : "No events found"}
       </Text>
+      {activeTab === "nearby" && nearbyCity ? (
+        <Pressable
+          onPress={() => setActiveTab("all")}
+          className="mt-4 px-4 py-2 rounded-lg bg-primary/10"
+          accessibilityLabel="Show all events"
+        >
+          <Text className="text-sm font-semibold text-primary">
+            Show all events
+          </Text>
+        </Pressable>
+      ) : null}
+      {searchQuery ? (
+        <Pressable
+          onPress={() => setSearchQuery("")}
+          className="mt-4 px-4 py-2 rounded-lg bg-primary/10"
+          accessibilityLabel="Clear search"
+        >
+          <Text className="text-sm font-semibold text-primary">
+            Clear search
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   ) : null;
 

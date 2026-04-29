@@ -7,11 +7,16 @@ import {
   useRegisterForEventMutation,
   useGetMyRegistrationsQuery,
   useVerifyRegistrationMutation,
+  useJoinEventWaitlistMutation,
+  useCancelEventMutation,
+  useRefundRegistrationMutation,
+  usePromoteWaitlistMutation,
 } from '../store/api/eventsApi';
 import { useAuth } from './useAuth';
 
 export type {
   AppEvent as Event,
+  AppTicketTier as TicketTier,
   EventRegistration,
   CreateEventInput,
   UpdateEventInput,
@@ -62,6 +67,7 @@ export function useRegisterForEvent() {
       email?: string;
       phone?: string;
       ticket_count?: number;
+      tier_id?: number | null;
       payment?: {
         razorpay_order_id: string;
         razorpay_payment_id: string;
@@ -72,6 +78,7 @@ export function useRegisterForEvent() {
       const result = await trigger({
         eventId,
         ticket_count: input.ticket_count,
+        tier_id: input.tier_id ?? undefined,
         payment: input.payment,
       }).unwrap();
       return result;
@@ -85,6 +92,21 @@ export function useRegisterForEvent() {
 
 export function useCreateEventPaymentIntent() {
   const [trigger, state] = useCreateEventPaymentIntentMutation();
+  return {
+    mutateAsync: (input: { event_id: string | number; ticket_count?: number; tier_id?: number | null }) => {
+      const eventId = typeof input.event_id === 'string' ? parseInt(input.event_id, 10) : input.event_id;
+      return trigger({ eventId, ticket_count: input.ticket_count, tier_id: input.tier_id ?? undefined }).unwrap();
+    },
+    isPending: state.isLoading,
+    isSuccess: state.isSuccess,
+    data: state.data,
+    error: state.error,
+  };
+}
+
+/** Phase 5 — Join the waitlist when an event is full. */
+export function useJoinWaitlist() {
+  const [trigger, state] = useJoinEventWaitlistMutation();
   return {
     mutateAsync: (input: { event_id: string | number; ticket_count?: number }) => {
       const eventId = typeof input.event_id === 'string' ? parseInt(input.event_id, 10) : input.event_id;
@@ -107,10 +129,59 @@ export function useVerifyRegistration() {
 
 export function useMyRegistrations() {
   const { user } = useAuth();
-  const { data, isLoading, refetch } = useGetMyRegistrationsQuery(undefined, { skip: !user });
+  const { data, isLoading, isError, refetch } = useGetMyRegistrationsQuery(undefined, { skip: !user });
   return {
     registrations: data ?? [],
     isLoading,
+    isError,
     refetch,
+  };
+}
+
+/** Phase 5 — Organizer cancels an event (cascades refunds server-side). */
+export function useCancelEvent() {
+  const [trigger, state] = useCancelEventMutation();
+  return {
+    mutateAsync: (input: { event_id: string | number; reason?: string }) => {
+      const eventId = typeof input.event_id === 'string' ? parseInt(input.event_id, 10) : input.event_id;
+      return trigger({ eventId, reason: input.reason }).unwrap();
+    },
+    isPending: state.isLoading,
+    isSuccess: state.isSuccess,
+    error: state.error,
+  };
+}
+
+/** Phase 5 — Organizer refunds a single registration. */
+export function useRefundRegistration() {
+  const [trigger, state] = useRefundRegistrationMutation();
+  return {
+    mutateAsync: (input: {
+      event_id: string | number;
+      registration_id: number;
+      reason?: string;
+    }) => {
+      const eventId = typeof input.event_id === 'string' ? parseInt(input.event_id, 10) : input.event_id;
+      return trigger({
+        eventId,
+        registrationId: input.registration_id,
+        reason: input.reason,
+      }).unwrap();
+    },
+    isPending: state.isLoading,
+    isSuccess: state.isSuccess,
+    error: state.error,
+  };
+}
+
+/** Phase 5 — Organizer manually promotes the next waitlisted user. */
+export function usePromoteWaitlist() {
+  const [trigger, state] = usePromoteWaitlistMutation();
+  return {
+    mutateAsync: (input: { event_id: string | number }) => {
+      const eventId = typeof input.event_id === 'string' ? parseInt(input.event_id, 10) : input.event_id;
+      return trigger({ eventId }).unwrap();
+    },
+    isPending: state.isLoading,
   };
 }
