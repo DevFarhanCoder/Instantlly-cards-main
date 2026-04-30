@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { ActivityIndicator, Animated, View } from "react-native";
+import { useColors } from "../../theme/colors";
 
 interface PageLoaderProps {
   fullScreen?: boolean;
@@ -7,6 +8,7 @@ interface PageLoaderProps {
 
 const PageLoader = ({ fullScreen = true }: PageLoaderProps) => {
   const scale = useRef(new Animated.Value(0.9)).current;
+  const colors = useColors();
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -21,9 +23,16 @@ const PageLoader = ({ fullScreen = true }: PageLoaderProps) => {
 
   if (fullScreen) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#f7f7f7" }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.background,
+        }}
+      >
         <Animated.View style={{ transform: [{ scale }] }}>
-          <ActivityIndicator size="large" color="#2463eb" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </Animated.View>
       </View>
     );
@@ -32,7 +41,7 @@ const PageLoader = ({ fullScreen = true }: PageLoaderProps) => {
   return (
     <View style={{ alignItems: "center", paddingVertical: 40 }}>
       <Animated.View style={{ transform: [{ scale }] }}>
-        <ActivityIndicator size="small" color="#2463eb" />
+        <ActivityIndicator size="small" color={colors.primary} />
       </Animated.View>
     </View>
   );

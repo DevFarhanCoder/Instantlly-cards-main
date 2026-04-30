@@ -81,6 +81,9 @@ import BookingDetail from "../screens/BookingDetail";
 import EventEdit from "../screens/EventEdit";
 import EventRegistrations from "../screens/EventRegistrations";
 import PassDetail from "../screens/PassDetail";
+import QRView from "../screens/QRView";
+import MyEvents from "../screens/MyEvents";
+import EventAnalytics from "../screens/EventAnalytics";
 import VoucherCreate from "../screens/VoucherCreate";
 import AdminAdDetail from "../screens/AdminAdDetail";
 import GroupChat from "../screens/GroupChat";
@@ -169,6 +172,9 @@ const BookingDetailScreen  = withLayout(BookingDetail);
 const EventEditScreen      = withLayout(EventEdit);
 const EventRegistrationsScreen = withLayout(EventRegistrations);
 const PassDetailScreen = withLayout(PassDetail);
+const QRViewScreen = withLayout(QRView);
+const MyEventsScreen = withLayout(MyEvents);
+const EventAnalyticsScreen = withLayout(EventAnalytics);
 const SupportScreen        = withLayout(Support);
 const NearbyBusinessesScreen = withLayout(NearbyBusinesses);
 const LoyaltyPointsScreen  = withLayout(LoyaltyPoints);
@@ -715,6 +721,9 @@ const AppNavigator = () => {
         <Stack.Screen name="EventEdit" component={EventEditScreen} />
         <Stack.Screen name="EventRegistrations" component={EventRegistrationsScreen} />
         <Stack.Screen name="PassDetail" component={PassDetailScreen} />
+        <Stack.Screen name="QRView" component={QRViewScreen} />
+        <Stack.Screen name="MyEvents" component={MyEventsScreen} />
+        <Stack.Screen name="EventAnalytics" component={EventAnalyticsScreen} />
         <Stack.Screen name="Support" component={SupportScreen} />
         <Stack.Screen name="NearbyBusinesses" component={NearbyBusinessesScreen} />
         <Stack.Screen name="LoyaltyPoints" component={LoyaltyPointsScreen} />
