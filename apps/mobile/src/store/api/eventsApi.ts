@@ -8,6 +8,41 @@ export interface EventBusiness {
   phone?: string;
 }
 
+/**
+ * A ticket tier as returned by the backend's event decorator.
+ *
+ * Backward-compat note:
+ *   • Legacy events (created before tiers shipped) still surface as ONE
+ *     synthesized "General" tier with `is_virtual: true` and `id: null`.
+ *   • New events with real tiers return them with `is_virtual: false`
+ *     and stable numeric ids.
+ *
+ * The client should NEVER assume tiers exist as DB rows — always read
+ * the convenience flags (`is_sold_out`, `is_free`, `is_on_sale`) instead
+ * of doing capacity math itself.
+ */
+export interface AppTicketTier {
+  id: number | null;
+  event_id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  quantity_total: number | null;
+  quantity_sold: number;
+  quantity_available: number | null;
+  sort_order: number;
+  is_active: boolean;
+  is_virtual: boolean;
+  is_sold_out: boolean;
+  is_free: boolean;
+  sale_starts_at: string | null;
+  sale_ends_at: string | null;
+  min_per_order: number;
+  max_per_order: number;
+  is_on_sale: boolean;
+}
+
 export interface AppEvent {
   id: number;
   business_id?: number | null;
@@ -26,9 +61,21 @@ export interface AppEvent {
   attendee_count: number;
   status: 'active' | 'cancelled' | 'completed';
   created_at: string;
+  /** True for events created before the tier system shipped. The backend
+   *  guarantees `ticket_tiers` will be a single virtual "General" tier in
+   *  this case so the client can render a single code path. */
+  is_legacy?: boolean | null;
+  /** True when at least one real (non-virtual) tier exists for the event. */
+  has_real_tiers?: boolean;
+  /** Always present in responses (decorated by the server). May contain a
+   *  single virtual tier for legacy / un-tiered events. NEVER undefined,
+   *  but client code MUST still guard with `?? []` for older cached data. */
+  ticket_tiers?: AppTicketTier[];
   business?: EventBusiness;
   business_promotion?: { id: number; business_name: string; business_card_id: number | null };
   _count?: { registrations: number };
+  cancelled_at?: string | null;
+  views_count?: number;
 }
 
 export interface EventRegistration {
@@ -42,6 +89,14 @@ export interface EventRegistration {
   payment_order_id?: string | null;
   payment_id?: string | null;
   amount_paid?: number | null;
+  /** Phase 5 — check-in / cancel / refund tracking. All optional so older
+   *  cached responses still type-check. */
+  ticket_tier_id?: number | null;
+  checked_in?: boolean;
+  checked_in_at?: string | null;
+  cancelled_at?: string | null;
+  refund_status?: string | null;
+  refund_amount?: number | null;
   event?: AppEvent;
   user?: { id: number; name: string; phone: string; profile_picture: string | null };
 }
@@ -88,6 +143,23 @@ export interface UpdateEventInput {
   status?: string;
 }
 
+/** Tier draft used by Create-Event flow before the tier rows exist on the
+ *  server. After event creation the client posts each draft to
+ *  POST /events/:id/tickets. */
+export interface CreateTicketTierInput {
+  name: string;
+  description?: string;
+  price: number;
+  currency?: string;
+  quantity_total?: number | null;
+  sort_order?: number;
+  is_active?: boolean;
+  sale_starts_at?: string | null;
+  sale_ends_at?: string | null;
+  min_per_order?: number;
+  max_per_order?: number;
+}
+
 export const eventsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     listEvents: builder.query<
@@ -102,9 +174,25 @@ export const eventsApi = baseApi.injectEndpoints({
         console.log('[eventsApi.listEvents] url:', url);
         return url;
       },
-      transformResponse: (response: { data: AppEvent[]; page: number; limit: number; total: number }) => {
-        console.log('[eventsApi.listEvents] got', response.data?.length, 'of', response.total, 'events');
-        return response;
+      transformResponse: (response: any) => {
+        // Defensive normalization — backend currently returns
+        //   { data, page, limit, total }
+        // but tolerate both:
+        //   • bare arrays (older proxies / dev servers)
+        //   • { data: { ... } } wrappers (any future API gateway)
+        const inner = response?.data ?? response;
+        const list: AppEvent[] = Array.isArray(inner)
+          ? inner
+          : Array.isArray(inner?.data)
+            ? inner.data
+            : [];
+        const page = Number(response?.page ?? inner?.page ?? 1);
+        const limit = Number(response?.limit ?? inner?.limit ?? list.length);
+        const total = Number(response?.total ?? inner?.total ?? list.length);
+        console.log(
+          '[eventsApi.listEvents] got', list.length, 'of', total, 'events',
+        );
+        return { data: list, page, limit, total };
       },
       providesTags: ['Event'],
     }),
@@ -124,9 +212,15 @@ export const eventsApi = baseApi.injectEndpoints({
         console.log('[eventsApi.listMyEvents] fetching');
         return '/events/my';
       },
-      transformResponse: (response: AppEvent[]) => {
-        console.log('[eventsApi.listMyEvents] got', response.length, 'events');
-        return response;
+      transformResponse: (response: any) => {
+        // Tolerate both `[ ... ]` and `{ data: [ ... ] }` shapes.
+        const list: AppEvent[] = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+            ? response.data
+            : [];
+        console.log('[eventsApi.listMyEvents] got', list.length, 'events');
+        return list;
       },
       providesTags: ['Event'],
     }),
@@ -154,14 +248,14 @@ export const eventsApi = baseApi.injectEndpoints({
     }),
     createEventPaymentIntent: builder.mutation<
       EventPaymentIntent,
-      { eventId: number; ticket_count?: number }
+      { eventId: number; ticket_count?: number; tier_id?: number | null }
     >({
-      query: ({ eventId, ticket_count }) => {
-        console.log('[eventsApi.createPaymentIntent] eventId:', eventId, 'ticket_count:', ticket_count);
+      query: ({ eventId, ticket_count, tier_id }) => {
+        console.log('[eventsApi.createPaymentIntent] eventId:', eventId, 'ticket_count:', ticket_count, 'tier_id:', tier_id);
         return {
           url: `/events/${eventId}/payment-intent`,
           method: 'POST',
-          body: { ticket_count },
+          body: { ticket_count, tier_id: tier_id ?? undefined },
         };
       },
       transformResponse: (response: EventPaymentIntent) => {
@@ -174,18 +268,19 @@ export const eventsApi = baseApi.injectEndpoints({
       {
         eventId: number;
         ticket_count?: number;
+        tier_id?: number | null;
         payment?: EventPaymentPayload;
       }
     >({
-      query: ({ eventId, ticket_count, payment }) => {
-        console.log('[eventsApi.registerForEvent] eventId:', eventId, 'tickets:', ticket_count, 'hasPayment:', !!payment);
+      query: ({ eventId, ticket_count, tier_id, payment }) => {
+        console.log('[eventsApi.registerForEvent] eventId:', eventId, 'tickets:', ticket_count, 'tier_id:', tier_id, 'hasPayment:', !!payment);
         if (payment) {
           console.log('[eventsApi.registerForEvent] payment — order:', payment.razorpay_order_id, 'paymentId:', payment.razorpay_payment_id);
         }
         return {
           url: `/events/${eventId}/register`,
           method: 'POST',
-          body: { ticket_count, payment },
+          body: { ticket_count, tier_id: tier_id ?? undefined, payment },
         };
       },
       transformResponse: (response: EventRegistration & { qr_code: string }) => {
@@ -199,9 +294,14 @@ export const eventsApi = baseApi.injectEndpoints({
         console.log('[eventsApi.getEventRegistrations] eventId:', eventId);
         return `/events/${eventId}/registrations`;
       },
-      transformResponse: (response: EventRegistration[]) => {
-        console.log('[eventsApi.getEventRegistrations] got', response.length, 'registrations');
-        return response;
+      transformResponse: (response: any) => {
+        const list: EventRegistration[] = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+            ? response.data
+            : [];
+        console.log('[eventsApi.getEventRegistrations] got', list.length, 'registrations');
+        return list;
       },
       providesTags: ['Event'],
     }),
@@ -210,9 +310,25 @@ export const eventsApi = baseApi.injectEndpoints({
         console.log('[eventsApi.getMyRegistrations] fetching');
         return '/events/registrations/my';
       },
-      transformResponse: (response: EventRegistration[]) => {
-        console.log('[eventsApi.getMyRegistrations] got', response.length, 'passes');
-        return response;
+      transformResponse: (response: any) => {
+        // Defensive normalization — handle both bare arrays and
+        // `{ data: [...] }` wrappers, and never return undefined so the
+        // "Couldn't load passes" error state isn't triggered by an
+        // unexpected response shape.
+        const list: EventRegistration[] = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+            ? response.data
+            : [];
+        console.log('[eventsApi.getMyRegistrations] got', list.length, 'passes');
+        return list;
+      },
+      transformErrorResponse: (error) => {
+        console.error(
+          '[eventsApi.getMyRegistrations] ERROR — status:', error.status,
+          'data:', JSON.stringify(error.data),
+        );
+        return error;
       },
       providesTags: ['Event'],
     }),
@@ -226,6 +342,13 @@ export const eventsApi = baseApi.injectEndpoints({
         registered_at: string;
         user: { id: number; name: string; phone: string; profile_picture: string | null } | null;
         event: { id: number; title: string; date: string; time: string; location: string | null } | null;
+        /** Phase 5 — backend stamps these on every successful scan. */
+        checked_in?: boolean;
+        checked_in_at?: string | null;
+        checked_in_by?: number | null;
+        /** True when the QR was previously scanned. UI should show a warning,
+         *  not a success (the attendee was already let in). */
+        already_used?: boolean;
       },
       string
     >({
@@ -242,6 +365,156 @@ export const eventsApi = baseApi.injectEndpoints({
         return response;
       },
     }),
+    /** Phase 5 — Join waitlist for a sold-out event. */
+    joinEventWaitlist: builder.mutation<
+      { waitlist_id: number; position: number; event_id: number },
+      { eventId: number; ticket_count?: number }
+    >({
+      query: ({ eventId, ticket_count }) => {
+        console.log('[eventsApi.joinEventWaitlist] eventId:', eventId, 'count:', ticket_count);
+        return {
+          url: `/events/${eventId}/waitlist`,
+          method: 'POST',
+          body: { ticket_count },
+        };
+      },
+      invalidatesTags: (_r, _e, arg) => [{ type: 'Event', id: arg.eventId }],
+    }),
+    /** Phase 5 — Organizer/admin analytics for one event. */
+    getEventAnalytics: builder.query<
+      {
+        event_id: number;
+        views: number;
+        registrations: number;
+        check_ins: number;
+        conversion_rate: number;
+      },
+      number
+    >({
+      query: (eventId) => {
+        console.log('[eventsApi.getEventAnalytics] eventId:', eventId);
+        return `/events/${eventId}/analytics`;
+      },
+      providesTags: (_r, _e, eventId) => [{ type: 'Event', id: eventId }],
+    }),
+    /** Phase 6 — Organizer creates one ticket tier on an event. The first
+     *  successful call automatically flips `is_legacy=false` server-side. */
+    createTicketTier: builder.mutation<
+      AppTicketTier,
+      { eventId: number; tier: CreateTicketTierInput }
+    >({
+      query: ({ eventId, tier }) => ({
+        url: `/events/${eventId}/tickets`,
+        method: 'POST',
+        body: tier,
+      }),
+      invalidatesTags: (_r, _e, arg) => [
+        { type: 'Event', id: arg.eventId },
+        'Event',
+      ],
+    }),
+    deleteTicketTier: builder.mutation<
+      { ok: true },
+      { eventId: number; tierId: number }
+    >({
+      query: ({ eventId, tierId }) => ({
+        url: `/events/${eventId}/tickets/${tierId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_r, _e, arg) => [
+        { type: 'Event', id: arg.eventId },
+        'Event',
+      ],
+    }),
+    /** Phase 3 — Edit an existing tier (price, capacity, sale window, etc.). */
+    updateTicketTier: builder.mutation<
+      AppTicketTier,
+      { eventId: number; tierId: number; tier: Partial<CreateTicketTierInput> }
+    >({
+      query: ({ eventId, tierId, tier }) => ({
+        url: `/events/${eventId}/tickets/${tierId}`,
+        method: 'PUT',
+        body: tier,
+      }),
+      invalidatesTags: (_r, _e, arg) => [
+        { type: 'Event', id: arg.eventId },
+        'Event',
+      ],
+    }),
+    /** Phase 5 — Organizer cancels an event. Backend cascades refunds and
+     *  marks all active registrations cancelled+refunded. */
+    cancelEvent: builder.mutation<
+      {
+        event_id: number;
+        cancelled: true;
+        refunds: Array<{
+          registration_id: number;
+          refund_id: string | null;
+          already_refunded: boolean;
+          error?: string;
+        }>;
+      },
+      { eventId: number; reason?: string }
+    >({
+      query: ({ eventId, reason }) => {
+        console.log('[eventsApi.cancelEvent] eventId:', eventId, 'reason:', reason);
+        return {
+          url: `/events/${eventId}/cancel`,
+          method: 'POST',
+          body: { reason },
+        };
+      },
+      invalidatesTags: (_r, _e, arg) => [
+        { type: 'Event', id: arg.eventId },
+        'Event',
+      ],
+    }),
+    /** Phase 5 — Organizer refunds a single registration. Server rolls back
+     *  capacity and triggers waitlist promotion (if any). */
+    refundRegistration: builder.mutation<
+      {
+        registration_id: number;
+        refund_id: string | null;
+        already_refunded: boolean;
+        refund_status: 'refunded';
+      },
+      { eventId: number; registrationId: number; reason?: string }
+    >({
+      query: ({ eventId, registrationId, reason }) => {
+        console.log(
+          '[eventsApi.refundRegistration] eventId:', eventId,
+          'regId:', registrationId, 'reason:', reason,
+        );
+        return {
+          url: `/events/${eventId}/refund`,
+          method: 'POST',
+          body: { registration_id: registrationId, reason },
+        };
+      },
+      invalidatesTags: (_r, _e, arg) => [
+        { type: 'Event', id: arg.eventId },
+        'Event',
+      ],
+    }),
+    /** Phase 5 — Organizer manually promotes the next waitlisted user. */
+    promoteWaitlist: builder.mutation<
+      {
+        promoted_user_id: number;
+        new_registration_id: number;
+        waitlist_id: number;
+        qr_code: string;
+      } | { promoted: false; reason?: string },
+      { eventId: number }
+    >({
+      query: ({ eventId }) => ({
+        url: `/events/${eventId}/waitlist/promote`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_r, _e, arg) => [
+        { type: 'Event', id: arg.eventId },
+        'Event',
+      ],
+    }),
   }),
 });
 
@@ -256,4 +529,12 @@ export const {
   useGetEventRegistrationsQuery,
   useGetMyRegistrationsQuery,
   useVerifyRegistrationMutation,
+  useJoinEventWaitlistMutation,
+  useGetEventAnalyticsQuery,
+  useCreateTicketTierMutation,
+  useDeleteTicketTierMutation,
+  useUpdateTicketTierMutation,
+  useCancelEventMutation,
+  useRefundRegistrationMutation,
+  usePromoteWaitlistMutation,
 } = eventsApi;

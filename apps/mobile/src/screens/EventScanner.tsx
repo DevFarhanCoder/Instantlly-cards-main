@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
+  AlertTriangle,
   ArrowLeft,
   Camera,
   CheckCircle2,
@@ -11,22 +12,25 @@ import {
   XCircle,
 } from "lucide-react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { format } from "date-fns";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { useVerifyRegistration } from "../hooks/useEvents";
 import { toast } from "../lib/toast";
 
+type ScanState =
+  | { kind: "ok"; data: any }
+  | { kind: "already_used"; data: any }
+  | { kind: "cancelled"; message: string }
+  | { kind: "error"; message: string };
+
 const EventScanner = () => {
   const navigation = useNavigation<any>();
   const verifyMutation = useVerifyRegistration();
   const [permission, requestPermission] = useCameraPermissions();
   const [qrInput, setQrInput] = useState("");
-  const [result, setResult] = useState<{
-    success: boolean;
-    data?: any;
-    error?: string;
-  } | null>(null);
+  const [result, setResult] = useState<ScanState | null>(null);
   const [mode, setMode] = useState<"camera" | "manual">("camera");
   const [scanned, setScanned] = useState(false);
 
@@ -38,9 +42,26 @@ const EventScanner = () => {
     setResult(null);
     try {
       const data = await verifyMutation.mutateAsync(code.trim());
-      setResult({ success: true, data });
+      // Backend marks `already_used: true` when this QR was previously
+      // scanned. Treat as a warning (orange), not a success — the
+      // attendee should NOT be admitted again.
+      if (data?.already_used) {
+        setResult({ kind: "already_used", data });
+      } else {
+        setResult({ kind: "ok", data });
+      }
     } catch (err: any) {
-      setResult({ success: false, error: err?.message || "Verification failed" });
+      const status = err?.status;
+      const code = err?.data?.code;
+      const message: string =
+        err?.data?.error ||
+        err?.message ||
+        "Verification failed";
+      if (status === 410 || code === "REGISTRATION_CANCELLED") {
+        setResult({ kind: "cancelled", message });
+      } else {
+        setResult({ kind: "error", message });
+      }
     }
   };
 
@@ -144,6 +165,7 @@ const EventScanner = () => {
                   <Button
                     onPress={() => handleVerify(qrInput)}
                     disabled={verifyMutation.isPending}
+                    testID="verify-btn"
                   >
                     {verifyMutation.isPending ? "..." : <Search size={16} color="#ffffff" />}
                   </Button>
@@ -155,43 +177,53 @@ const EventScanner = () => {
 
         {result && (
           <View>
-            {result.success ? (
+            {result.kind === "ok" ? (
               <Card className="border-success/50 bg-success/5">
                 <CardContent className="p-5 gap-3">
                   <View className="flex-row items-center gap-3">
                     <CheckCircle2 size={32} color="#16a34a" />
                     <View>
-                      <Text className="font-bold text-foreground">✅ Verified Successfully</Text>
+                      <Text className="font-bold text-foreground">✅ Verified — Allow Entry</Text>
                       <Text className="text-xs text-muted-foreground">
-                        Attendee registration confirmed
+                        Attendee checked in just now.
                       </Text>
                     </View>
                   </View>
-                  <View className="gap-1.5 rounded-lg bg-success/10 p-3">
-                    <Text className="text-sm">
-                      <Text className="font-medium">Name: </Text>
-                      {result.data.user?.name || 'N/A'}
-                    </Text>
-                    {result.data.user?.phone && (
-                      <Text className="text-sm">
-                        <Text className="font-medium">Phone: </Text>
-                        {result.data.user.phone}
+                  <AttendeeBlock data={result.data} />
+                </CardContent>
+              </Card>
+            ) : result.kind === "already_used" ? (
+              <Card className="border-amber-500/60 bg-amber-50">
+                <CardContent className="p-5 gap-3">
+                  <View className="flex-row items-center gap-3">
+                    <AlertTriangle size={32} color="#d97706" />
+                    <View>
+                      <Text className="font-bold text-foreground">
+                        ⚠️ Already Checked In — Do NOT Allow Re-Entry
                       </Text>
-                    )}
-                    <Text className="text-sm">
-                      <Text className="font-medium">Event: </Text>
-                      {result.data.event?.title}
-                    </Text>
-                    <Text className="text-sm">
-                      <Text className="font-medium">Tickets: </Text>
-                      {result.data.ticket_count || 1}
-                    </Text>
-                    {result.data.payment_status && result.data.payment_status !== 'not_required' && (
-                      <Text className="text-sm">
-                        <Text className="font-medium">Payment: </Text>
-                        {result.data.payment_status === 'paid' ? `Paid${result.data.amount_paid != null ? ` ₹${result.data.amount_paid}` : ''}` : result.data.payment_status}
+                      <Text className="text-xs text-amber-700">
+                        {result.data?.checked_in_at
+                          ? `Scanned ${format(new Date(result.data.checked_in_at), "MMM d, p")}`
+                          : "This QR has already been used."}
                       </Text>
-                    )}
+                    </View>
+                  </View>
+                  <AttendeeBlock data={result.data} amber />
+                </CardContent>
+              </Card>
+            ) : result.kind === "cancelled" ? (
+              <Card className="border-destructive/50 bg-destructive/5">
+                <CardContent className="p-5">
+                  <View className="flex-row items-center gap-3">
+                    <XCircle size={32} color="#ef4444" />
+                    <View>
+                      <Text className="font-bold text-foreground">
+                        ❌ Cancelled or Refunded
+                      </Text>
+                      <Text className="text-sm text-muted-foreground">
+                        This pass is no longer valid. Do not allow entry.
+                      </Text>
+                    </View>
                   </View>
                 </CardContent>
               </Card>
@@ -203,7 +235,7 @@ const EventScanner = () => {
                     <View>
                       <Text className="font-bold text-foreground">❌ Verification Failed</Text>
                       <Text className="text-sm text-muted-foreground">
-                        {result.error}
+                        {result.message}
                       </Text>
                     </View>
                   </View>
@@ -216,6 +248,45 @@ const EventScanner = () => {
     </View>
   );
 };
+
+/**
+ * AttendeeBlock — shared body for verified + already_used result cards.
+ * Keeps the layout identical so organizers don't have to relearn the layout
+ * between green/orange paths.
+ */
+function AttendeeBlock({ data, amber = false }: { data: any; amber?: boolean }) {
+  const tone = amber ? "bg-amber-100" : "bg-success/10";
+  return (
+    <View className={`gap-1.5 rounded-lg p-3 ${tone}`}>
+      <Text className="text-sm">
+        <Text className="font-medium">Name: </Text>
+        {data?.user?.name || "N/A"}
+      </Text>
+      {data?.user?.phone ? (
+        <Text className="text-sm">
+          <Text className="font-medium">Phone: </Text>
+          {data.user.phone}
+        </Text>
+      ) : null}
+      <Text className="text-sm">
+        <Text className="font-medium">Event: </Text>
+        {data?.event?.title || "—"}
+      </Text>
+      <Text className="text-sm">
+        <Text className="font-medium">Tickets: </Text>
+        {data?.ticket_count || 1}
+      </Text>
+      {data?.payment_status && data.payment_status !== "not_required" ? (
+        <Text className="text-sm">
+          <Text className="font-medium">Payment: </Text>
+          {data.payment_status === "paid"
+            ? `Paid${data.amount_paid != null ? ` ₹${data.amount_paid}` : ""}`
+            : data.payment_status}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
 
 export default EventScanner;
 

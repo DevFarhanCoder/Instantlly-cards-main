@@ -45,7 +45,10 @@ export type RootStackParamList = {
   BookingDetail: { id: string | number } | undefined;
   EventEdit: { id: string | number } | undefined;
   EventRegistrations: { id: string | number } | undefined;
+  EventAnalytics: { id: string | number } | undefined;
+  MyEvents: undefined;
   PassDetail: { passId: string | number } | undefined;
+  QRView: { passId: string | number };
   Support: undefined;
   NearbyBusinesses: undefined;
   LoyaltyPoints: undefined;

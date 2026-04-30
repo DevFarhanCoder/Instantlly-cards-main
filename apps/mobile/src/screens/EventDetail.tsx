@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -7,47 +7,102 @@ import {
   View,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { PageLoader } from "../components/ui/page-loader";
 import {
   ArrowLeft,
   Calendar,
+  CheckCircle,
   Clock,
   MapPin,
+  Tag,
   Users,
-  CheckCircle,
 } from "lucide-react-native";
 import QRCode from "react-native-qrcode-svg";
+
+import { PageLoader } from "../components/ui/page-loader";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
+import { ErrorState } from "../components/ui/error-state";
+import { EmptyState } from "../components/ui/empty-state";
+import {
+  TicketSelector,
+  tierKey,
+  type TierKey,
+} from "../components/ui/ticket-selector";
+
 import { useAuth } from "../hooks/useAuth";
 import {
   useCreateEventPaymentIntent,
   useEvent,
+  useJoinWaitlist,
   useMyRegistrations,
   useRegisterForEvent,
 } from "../hooks/useEvents";
 import { toast } from "../lib/toast";
+import { useColors } from "../theme/colors";
 import {
-  openRazorpayCheckout,
   isNativeRazorpayAvailable,
+  openRazorpayCheckout,
 } from "../lib/payments/razorpayCheckout";
 import type { RazorpayCheckoutOptions } from "../lib/payments/razorpayCheckout";
 import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
+import type { AppEvent, AppTicketTier } from "../store/api/eventsApi";
+
+/**
+ * EventDetail — Phase 2 frontend.
+ *
+ * Routing rules (mirrors backend's eventDecorator):
+ *   • event.is_legacy === true → render legacy single-price UI.
+ *   • No real (non-virtual) tiers → render legacy single-price UI.
+ *   • Otherwise → render TicketSelector with tiered UI.
+ *
+ * The bottom CTA (Buy Now / Register / Register Free / Join Waitlist) is
+ * computed from the currently-selected tier so we never show conflicting
+ * actions, satisfying the "do NOT show ticket_price + tiers together" rule.
+ */
+
+// ─── Helpers ──────────────────────────────────────────────────────────
+
+function pickRealTiers(event: AppEvent | undefined): AppTicketTier[] {
+  if (!event) return [];
+  const tiers = Array.isArray(event.ticket_tiers) ? event.ticket_tiers : [];
+  return tiers.filter((t) => !t.is_virtual);
+}
+
+function isLegacyMode(event: AppEvent | undefined): boolean {
+  if (!event) return true;
+  if (event.is_legacy === true) return true;
+  return pickRealTiers(event).length === 0;
+}
+
+function legacyIsFree(event: AppEvent | undefined): boolean {
+  return !event?.ticket_price || event.ticket_price === 0;
+}
+
+// ─── Component ────────────────────────────────────────────────────────
 
 const EventDetail = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const id = route?.params?.id;
-  const { data: event, isLoading, refetch: refetchEvent } = useEvent(id || "");
+  const colors = useColors();
+
+  const {
+    data: event,
+    isLoading,
+    isError,
+    refetch: refetchEvent,
+  } = useEvent(id || "");
   const registerMutation = useRegisterForEvent();
   const paymentIntentMutation = useCreateEventPaymentIntent();
+  const waitlistMutation = useJoinWaitlist();
   const { user } = useAuth();
   const { registrations, refetch: refetchRegistrations } = useMyRegistrations();
 
-  // Check if user already registered for this event
-  const existingPass = registrations.find(
-    (r: any) => String(r.event_id) === String(id),
+  const existingPass = useMemo(
+    () =>
+      registrations.find((r: any) => String(r.event_id) === String(id)),
+    [registrations, id],
   );
 
   const [refreshing, setRefreshing] = useState(false);
@@ -60,297 +115,352 @@ const EventDetail = () => {
     }
   }, [refetchEvent, refetchRegistrations]);
 
-  const [showPriceConfirm, setShowPriceConfirm] = useState(false);
-  const [registration, setRegistration] = useState<any>(null);
+  // Tier selection state — only meaningful when there are real tiers.
+  const realTiers = useMemo(() => pickRealTiers(event), [event]);
+  const legacy = isLegacyMode(event);
 
-  // WebView Razorpay fallback state (for Expo Go)
-  const [razorpayWebViewVisible, setRazorpayWebViewVisible] = useState(false);
-  const [razorpayWebViewOptions, setRazorpayWebViewOptions] =
+  // Default tier MUST satisfy: not sold out AND is_on_sale AND is_active.
+  // Falls back to first sellable, then to the first row so the UI still
+  // renders something meaningful when everything is unavailable.
+  const initialTierKey: TierKey | null = useMemo(() => {
+    if (legacy) return null;
+    const firstSelectable = realTiers.find(
+      (t) => t.is_on_sale && !t.is_sold_out && t.is_active,
+    );
+    const fallback = firstSelectable ?? realTiers[0];
+    return fallback ? tierKey(fallback) : null;
+  }, [legacy, realTiers]);
+
+  const [selectedTierKey, setSelectedTierKey] = useState<TierKey | null>(
+    initialTierKey,
+  );
+  // Re-sync selection if the event payload changes (refresh, refetch).
+  React.useEffect(() => {
+    setSelectedTierKey(initialTierKey);
+  }, [initialTierKey]);
+
+  const selectedTier = useMemo(
+    () =>
+      legacy
+        ? null
+        : realTiers.find((t) => tierKey(t) === selectedTierKey) ?? null,
+    [legacy, realTiers, selectedTierKey],
+  );
+
+  // Quantity is clamped on every tier change so we never exceed the new
+  // tier's max/available; if the previous quantity is still valid we keep it
+  // (avoids forcing the user back to 1 when switching tiers).
+  const [quantity, setQuantity] = useState(1);
+  React.useEffect(() => {
+    if (!selectedTier) {
+      setQuantity(1);
+      return;
+    }
+    const min = selectedTier.min_per_order ?? 1;
+    const cap = Math.max(
+      min,
+      Math.min(
+        selectedTier.max_per_order ?? 10,
+        selectedTier.quantity_available ?? selectedTier.max_per_order ?? 10,
+      ),
+    );
+    setQuantity((q) => Math.min(Math.max(q, min), cap));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTier?.id]);
+
+  // Local UX state — protects against double-tap and exposes payment retry.
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
+  const [waitlistAlreadyJoined, setWaitlistAlreadyJoined] = useState(false);
+
+  // Razorpay WebView fallback state
+  const [registration, setRegistration] = useState<any>(null);
+  const [webViewVisible, setWebViewVisible] = useState(false);
+  const [webViewOptions, setWebViewOptions] =
     useState<RazorpayCheckoutOptions | null>(null);
 
-  const completeRegistration = async (paymentPayload?: {
-    razorpay_order_id: string;
-    razorpay_payment_id: string;
-    razorpay_signature: string;
-  }) => {
-    const result = await registerMutation.mutateAsync({
-      event_id: id!,
-      ticket_count: 1,
-      payment: paymentPayload,
-    });
-    console.log(
-      "[EventDetail.completeRegistration] SUCCESS — regId:",
-      result.id,
-      "qr:",
-      result.qr_code,
-      "paymentStatus:",
-      result.payment_status,
-    );
-    setRegistration(result);
-    toast.success("Registration successful! Your QR pass is ready");
-  };
+  // ─── Action handlers ────────────────────────────────────────────────
 
-  const handleRegister = async () => {
-    console.log(
-      "[EventDetail.handleRegister] starting — user:",
-      user?.id,
-      "eventId:",
-      id,
-    );
+  const completeRegistration = useCallback(
+    async (paymentPayload?: {
+      razorpay_order_id: string;
+      razorpay_payment_id: string;
+      razorpay_signature: string;
+    }) => {
+      if (!event) return;
+      const tierIdForCall =
+        !legacy && selectedTier?.id ? selectedTier.id : null;
+      const ticketCount = legacy ? 1 : quantity;
+      const result = await registerMutation.mutateAsync({
+        event_id: id!,
+        ticket_count: ticketCount,
+        tier_id: tierIdForCall,
+        payment: paymentPayload,
+      });
+      console.log(
+        "[EventDetail.completeRegistration] SUCCESS — regId:",
+        result.id,
+        "qr:",
+        result.qr_code,
+      );
+      setRegistration(result);
+      toast.success("Registration successful! Your QR pass is ready");
+    },
+    [event, legacy, selectedTier, quantity, id, registerMutation],
+  );
+
+  const startPaidCheckout = useCallback(
+    async (
+      amountInPaisa: number,
+      orderInfo: {
+        key_id: string;
+        order_id: string;
+        currency: string;
+        event_title: string;
+      },
+    ) => {
+      if (!event) return false;
+      const checkoutOptions: RazorpayCheckoutOptions = {
+        key: orderInfo.key_id,
+        amount: amountInPaisa,
+        currency: orderInfo.currency,
+        order_id: orderInfo.order_id,
+        name: event.title || "Event Ticket",
+        description: `Ticket for ${orderInfo.event_title}`,
+        prefill: {
+          name: user?.name || undefined,
+          contact: user?.phone || undefined,
+        },
+        theme: { color: colors.primary },
+      };
+
+      if (isNativeRazorpayAvailable()) {
+        try {
+          const res = await openRazorpayCheckout(checkoutOptions);
+          await completeRegistration(res);
+          return true;
+        } catch (nativeErr: any) {
+          if (/null|undefined|not a function/i.test(nativeErr?.message || "")) {
+            setWebViewOptions(checkoutOptions);
+            setWebViewVisible(true);
+            return true;
+          }
+          throw nativeErr;
+        }
+      }
+      setWebViewOptions(checkoutOptions);
+      setWebViewVisible(true);
+      return true;
+    },
+    [event, user, colors.primary, completeRegistration],
+  );
+
+  const handleRegisterPress = useCallback(async () => {
     if (!user) {
-      console.log("[EventDetail.handleRegister] no user — redirecting to Auth");
       toast.error("Please sign in to register");
       navigation.navigate("Auth");
       return;
     }
-
-    const ticketCount = 1;
-    const isPaid = !!event?.ticket_price && event.ticket_price > 0;
-    console.log(
-      "[EventDetail.handleRegister] isPaid:",
-      isPaid,
-      "ticketPrice:",
-      event?.ticket_price,
-    );
+    if (!event) return;
+    // Guard against double-taps / re-entry from rapid presses.
+    if (isProcessing) {
+      console.log("[EventDetail.handleRegisterPress] ignored — already processing");
+      return;
+    }
+    setIsProcessing(true);
+    setPaymentError(null);
 
     try {
-      let paymentPayload:
-        | {
-            razorpay_order_id: string;
-            razorpay_payment_id: string;
-            razorpay_signature: string;
-          }
-        | undefined;
-
-      if (isPaid) {
-        console.log("[EventDetail.handleRegister] creating payment intent...");
+      if (legacy) {
+        const free = legacyIsFree(event);
+        if (free) {
+          await completeRegistration();
+          return;
+        }
         const intent = await paymentIntentMutation.mutateAsync({
           event_id: id!,
-          ticket_count: ticketCount,
+          ticket_count: 1,
         });
-        console.log(
-          "[EventDetail.handleRegister] got intent — orderId:",
-          intent.order_id,
-          "amount:",
-          intent.amount,
-          intent.currency,
-        );
-
-        const checkoutOptions: RazorpayCheckoutOptions = {
-          key: intent.key_id,
-          amount: intent.amount,
-          currency: intent.currency,
+        await startPaidCheckout(intent.amount, {
+          key_id: intent.key_id,
           order_id: intent.order_id,
-          name: event?.title || "Event Ticket",
-          description: `Ticket for ${intent.event_title}`,
-          prefill: {
-            name: user?.name || undefined,
-            contact: user?.phone || undefined,
-          },
-          theme: { color: "#2563eb" },
-        };
-
-        if (isNativeRazorpayAvailable()) {
-          console.log(
-            "[EventDetail.handleRegister] trying native Razorpay SDK...",
-          );
-          try {
-            const checkoutResult = await openRazorpayCheckout(checkoutOptions);
-            console.log(
-              "[EventDetail.handleRegister] Razorpay result — order:",
-              checkoutResult.razorpay_order_id,
-              "payment:",
-              checkoutResult.razorpay_payment_id,
-            );
-            paymentPayload = checkoutResult;
-          } catch (nativeErr: any) {
-            // Native SDK resolved but bridge is null (Expo Go) — fall back to WebView
-            if (
-              /null|undefined|not a function/i.test(nativeErr?.message || "")
-            ) {
-              console.log(
-                "[EventDetail.handleRegister] native SDK bridge failed, falling back to WebView",
-              );
-              setRazorpayWebViewOptions(checkoutOptions);
-              setRazorpayWebViewVisible(true);
-              return;
-            }
-            throw nativeErr; // re-throw real errors (user cancelled, etc.)
-          }
-        } else {
-          // Expo Go fallback — show WebView checkout
-          console.log(
-            "[EventDetail.handleRegister] native SDK unavailable, using WebView fallback",
-          );
-          setRazorpayWebViewOptions(checkoutOptions);
-          setRazorpayWebViewVisible(true);
-          return; // WebView callbacks will handle completeRegistration
-        }
+          currency: intent.currency,
+          event_title: intent.event_title,
+        });
+        return;
       }
 
-      await completeRegistration(paymentPayload);
+      if (!selectedTier) {
+        toast.error("Please pick a ticket");
+        return;
+      }
+      if (selectedTier.is_free) {
+        await completeRegistration();
+        return;
+      }
+      const intent = await paymentIntentMutation.mutateAsync({
+        event_id: id!,
+        ticket_count: quantity,
+        tier_id: selectedTier.id ?? undefined,
+      });
+      await startPaidCheckout(intent.amount, {
+        key_id: intent.key_id,
+        order_id: intent.order_id,
+        currency: intent.currency,
+        event_title: intent.event_title,
+      });
     } catch (err: any) {
       console.log(
-        "[EventDetail.handleRegister] ERROR:",
+        "[EventDetail.handleRegisterPress] ERROR:",
         err?.status,
         err?.data?.error || err?.message,
-        JSON.stringify(err),
       );
       if (
         err?.code === 0 ||
-        /cancelled|canceled/i.test(err?.description || err?.message || "")
+        /cancel/i.test(err?.description || err?.message || "")
       ) {
-        console.log("[EventDetail.handleRegister] payment cancelled by user");
+        setPaymentError("Payment cancelled. You can try again.");
         toast.error("Payment cancelled");
         return;
       }
-
-      // Handle 409 — already registered
-      if (err?.status === 409 || err?.data?.error === "Already registered") {
-        toast.error("You are already registered for this event");
+      if (err?.status === 409) {
+        toast.error(err?.data?.error || "Already registered");
         return;
       }
-
-      if (
-        /Razorpay checkout module is not available/i.test(err?.message || "")
-      ) {
-        toast.error(
-          "Payment is unavailable on this build. Please use a native build with Razorpay enabled.",
-        );
-        return;
-      }
-
-      toast.error(err?.data?.error || err?.message || "Registration failed");
+      const msg = err?.data?.error || err?.message || "Registration failed";
+      setPaymentError(msg);
+      toast.error(msg);
+    } finally {
+      setIsProcessing(false);
     }
-  };
+  }, [
+    user,
+    event,
+    legacy,
+    selectedTier,
+    quantity,
+    id,
+    isProcessing,
+    paymentIntentMutation,
+    startPaidCheckout,
+    completeRegistration,
+    navigation,
+  ]);
 
-  const handleRegisterPress = () => {
+  const handleJoinWaitlist = useCallback(async () => {
     if (!user) {
-      toast.error("Please sign in to register");
+      toast.error("Please sign in to join the waitlist");
       navigation.navigate("Auth");
       return;
     }
-    // For paid events, show price confirmation first
-    if (event && event.ticket_price && event.ticket_price > 0) {
-      setShowPriceConfirm(true);
-    } else {
-      handleRegister();
+    // Spam protection — single in-flight join only.
+    if (waitlistMutation.isPending || isProcessing) {
+      console.log("[EventDetail.handleJoinWaitlist] ignored — busy");
+      return;
     }
-  };
+    setIsProcessing(true);
+    try {
+      const res = await waitlistMutation.mutateAsync({
+        event_id: id!,
+        ticket_count: legacy ? 1 : quantity,
+      });
+      console.log(
+        "[EventDetail.handleJoinWaitlist] SUCCESS — pos:",
+        res.position,
+      );
+      setWaitlistPosition(res.position);
+      setWaitlistAlreadyJoined(false);
+      toast.success(
+        `Joined waitlist — position #${res.position}. We'll notify you if a seat opens.`,
+      );
+      await refetchEvent();
+    } catch (err: any) {
+      console.log(
+        "[EventDetail.handleJoinWaitlist] ERROR:",
+        err?.data?.error || err?.message,
+      );
+      // Backend returns 409 with code ALREADY_ON_WAITLIST when re-joining.
+      if (
+        err?.status === 409 ||
+        /already/i.test(err?.data?.error || err?.message || "")
+      ) {
+        setWaitlistAlreadyJoined(true);
+        toast.error("You're already on the waitlist");
+        return;
+      }
+      toast.error(
+        err?.data?.error || err?.message || "Could not join waitlist",
+      );
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [
+    user,
+    id,
+    legacy,
+    quantity,
+    isProcessing,
+    waitlistMutation,
+    refetchEvent,
+    navigation,
+  ]);
 
-  const handleConfirmPaid = () => {
-    setShowPriceConfirm(false);
-    handleRegister();
-  };
+  // ─── Render: loading / error / not-found ────────────────────────────
 
   if (isLoading) {
     return <PageLoader />;
   }
-
-  if (!event) {
-    return (
-      <View className="flex-1 items-center justify-center px-4">
-        <Text className="text-5xl mb-3">😕</Text>
-        <Text className="text-sm text-muted-foreground">Event not found</Text>
-        <Button className="mt-4" onPress={() => navigation.navigate("Events")}>
-          Back to Events
-        </Button>
-      </View>
-    );
-  }
-
-  // Show QR pass after fresh registration
-  if (registration) {
+  if (isError) {
     return (
       <View className="flex-1 bg-background">
-        <View className="bg-primary px-4 py-4">
-          <Pressable
-            onPress={() => navigation.navigate("Events")}
-            className="flex-row items-center gap-2"
-          >
-            <ArrowLeft size={20} color="#ffffff" />
-            <Text className="font-medium text-primary-foreground">
-              Back to Events
-            </Text>
-          </Pressable>
-        </View>
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: 16 }}
-          className="px-4 py-8"
-        >
-          <Card className="overflow-hidden">
-            <View className="bg-success/10 p-6 items-center">
-              <Text className="text-5xl">🎉</Text>
-              <Text className="text-xl font-bold text-foreground mt-3">
-                You're Registered!
-              </Text>
-              <Text className="text-sm text-muted-foreground mt-1">
-                {event.title}
-              </Text>
-            </View>
-            <CardContent className="p-6 gap-6">
-              <View className="items-center">
-                <View className="bg-white p-4 rounded-2xl shadow-md">
-                  <QRCode value={registration.qr_code} size={200} />
-                </View>
-              </View>
-              <View className="items-center">
-                <Text className="text-xs text-muted-foreground">
-                  Your QR Code
-                </Text>
-                <Text className="text-sm font-mono font-medium text-foreground mt-1">
-                  {registration.qr_code}
-                </Text>
-              </View>
-              {registration.payment_status === "paid" && (
-                <View className="flex-row items-center justify-center gap-2 bg-success/10 rounded-lg px-3 py-2">
-                  <CheckCircle size={14} color="#16a34a" />
-                  <Text className="text-sm font-semibold text-success">
-                    Payment Confirmed
-                  </Text>
-                  {registration.amount_paid != null && (
-                    <Text className="text-sm text-success">
-                      — ₹{registration.amount_paid}
-                    </Text>
-                  )}
-                </View>
-              )}
-              <View className="gap-2 rounded-xl bg-muted p-4">
-                <View className="flex-row items-center gap-2">
-                  <Calendar size={14} color="#6a7181" />
-                  <Text className="text-sm text-muted-foreground">
-                    {new Date(event.date).toLocaleDateString()} • {event.time}
-                  </Text>
-                </View>
-                {event.location && (
-                  <View className="flex-row items-center gap-2">
-                    <MapPin size={14} color="#6a7181" />
-                    <Text className="text-sm text-muted-foreground">
-                      {event.location}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text className="text-center text-xs text-muted-foreground">
-                Show this QR code at the event entrance for verification
-              </Text>
-            </CardContent>
-          </Card>
-        </ScrollView>
+        <ErrorState
+          title="Couldn't load event"
+          message="Check your connection and try again."
+          onRetry={() => refetchEvent()}
+        />
+      </View>
+    );
+  }
+  if (!event) {
+    return (
+      <View className="flex-1 bg-background">
+        <EmptyState
+          icon={<Text className="text-5xl">😕</Text>}
+          title="Event not found"
+          message="This event may have been removed or moved."
+          actionLabel="Back to Events"
+          onAction={() => navigation.navigate("Events")}
+        />
       </View>
     );
   }
 
-  const isFree = !event.ticket_price || event.ticket_price === 0;
+  // ─── Render: success QR view after fresh registration ───────────────
+
+  if (registration) {
+    return (
+      <SuccessQrView
+        event={event}
+        registration={registration}
+        onBack={() => navigation.navigate("Events")}
+      />
+    );
+  }
+
+  // ─── Render: main detail view ──────────────────────────────────────
+
+  const eventCancelled =
+    (event as any).status === "cancelled" || !!event.cancelled_at;
 
   return (
     <View className="flex-1 bg-background">
-      <View className="bg-primary px-4 py-4">
+      <View className="bg-primary px-4 py-4 flex-row items-center gap-2">
         <Pressable
-          onPress={() => navigation.navigate("Events")}
+          onPress={() => navigation.goBack()}
           className="flex-row items-center gap-2"
         >
-          <ArrowLeft size={20} color="#ffffff" />
+          <ArrowLeft size={20} color={colors.primaryForeground} />
           <Text className="font-medium text-primary-foreground">Back</Text>
         </Pressable>
       </View>
@@ -360,206 +470,236 @@ const EventDetail = () => {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 16 }}
+        contentContainerStyle={{ paddingBottom: 24 }}
         className="px-4 -mt-6"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={["#2463eb"]}
-            tintColor="#2463eb"
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
       >
         <Card>
           <CardContent className="p-5 gap-4">
             <View>
-              <View className="flex-row items-center gap-2 mb-2">
-                {isFree ? (
-                  <Badge className="bg-success/10 text-success border-none text-xs">
-                    FREE
-                  </Badge>
+              <View className="flex-row items-center gap-2 mb-2 flex-wrap">
+                {legacy ? (
+                  legacyIsFree(event) ? (
+                    <Badge className="bg-success/10 text-success border-none text-xs">
+                      FREE
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-accent/10 text-accent border-none text-xs font-bold">
+                      ₹{event.ticket_price}
+                    </Badge>
+                  )
                 ) : (
                   <Badge className="bg-accent/10 text-accent border-none text-xs font-bold">
-                    ₹{event.ticket_price}
+                    Multiple ticket types
                   </Badge>
                 )}
+                {eventCancelled ? (
+                  <Badge className="bg-destructive/10 text-destructive border-none text-xs">
+                    Cancelled
+                  </Badge>
+                ) : null}
               </View>
               <Text className="text-xl font-bold text-foreground">
                 {event.title}
               </Text>
             </View>
 
-            {event.description && (
-              <Text className="text-sm text-muted-foreground">
-                {event.description}
-              </Text>
-            )}
-
             <View className="gap-2.5 rounded-xl bg-muted p-4">
               <View className="flex-row items-center gap-3">
-                <Calendar size={16} color="#2563eb" />
+                <Calendar size={16} color={colors.primary} />
                 <Text className="text-sm text-foreground">
                   {new Date(event.date).toLocaleDateString()}
                 </Text>
               </View>
               <View className="flex-row items-center gap-3">
-                <Clock size={16} color="#2563eb" />
+                <Clock size={16} color={colors.primary} />
                 <Text className="text-sm text-foreground">{event.time}</Text>
               </View>
-              {event.location && (
+              {event.venue || event.location ? (
                 <View className="flex-row items-center gap-3">
-                  <MapPin size={16} color="#2563eb" />
+                  <MapPin size={16} color={colors.primary} />
                   <Text className="text-sm text-foreground">
-                    {event.location}
+                    {event.venue || event.location}
                   </Text>
                 </View>
-              )}
-              {event.max_attendees && (
+              ) : null}
+              {event.max_attendees ? (
                 <View className="flex-row items-center gap-3">
-                  <Users size={16} color="#2563eb" />
+                  <Users size={16} color={colors.primary} />
                   <Text className="text-sm text-foreground">
                     {event.max_attendees} seats ({event.attendee_count || 0}{" "}
                     registered)
                   </Text>
                 </View>
-              )}
-              {event.business && (
+              ) : null}
+              {event.business ? (
                 <View className="flex-row items-center gap-3">
-                  <Text className="text-sm text-muted-foreground">
-                    Organized by
-                  </Text>
-                  <Text className="text-sm font-medium text-foreground">
-                    {event.business.company_name || event.business.full_name}
+                  <Tag size={16} color={colors.primary} />
+                  <Text className="text-sm text-foreground">
+                    By {event.business.company_name || event.business.full_name}
                   </Text>
                 </View>
-              )}
+              ) : null}
             </View>
 
-            {/* Already registered — show pass */}
-            {existingPass ? (
-              <View className="gap-3">
-                <View className="flex-row items-center gap-2 bg-success/10 rounded-xl p-4">
-                  <CheckCircle size={20} color="#16a34a" />
-                  <View className="flex-1">
-                    <Text className="text-sm font-bold text-success">
-                      Already Registered
-                    </Text>
-                    <Text className="text-xs text-muted-foreground">
-                      You have a pass for this event
-                    </Text>
-                  </View>
-                </View>
-                {existingPass.qr_code && (
-                  <View className="items-center bg-muted/30 rounded-xl p-4 gap-2 border border-dashed border-border">
-                    <QRCode value={existingPass.qr_code} size={160} />
-                    <Text className="text-[10px] text-muted-foreground font-mono">
-                      {existingPass.qr_code}
-                    </Text>
-                  </View>
-                )}
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onPress={() => navigation.navigate("MyPasses")}
-                >
-                  View All Passes
-                </Button>
+            {event.description ? (
+              <View>
+                <Text className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                  About
+                </Text>
+                <Text className="text-sm text-foreground leading-5">
+                  {event.description}
+                </Text>
               </View>
-            ) : showPriceConfirm ? (
-              /* Price confirmation for paid events */
-              <View className="gap-3 rounded-xl border border-border bg-card p-4">
-                <Text className="font-semibold text-foreground text-center">
-                  Confirm Registration
-                </Text>
-                <View className="items-center py-3">
-                  <Text className="text-3xl font-bold text-primary">
-                    ₹{event.ticket_price}
+            ) : null}
+          </CardContent>
+        </Card>
+
+        {/* Payment retry banner — surfaced after a failed/cancelled checkout
+             so users can retry without scrolling around the card. */}
+        {paymentError ? (
+          <Card className="mt-4 border-destructive/40">
+            <CardContent className="p-4 gap-3">
+              <View className="flex-row items-start gap-2">
+                <Text className="text-base">{"\u274C"}</Text>
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-destructive">
+                    Payment failed
                   </Text>
-                  <Text className="text-xs text-muted-foreground mt-1">
-                    Ticket Price
+                  <Text className="text-xs text-muted-foreground mt-0.5">
+                    {paymentError}
                   </Text>
                 </View>
-                {user && (
-                  <View className="bg-muted rounded-lg px-3 py-2 gap-1">
-                    <Text className="text-xs text-muted-foreground text-center">
-                      Registering as
-                    </Text>
-                    <Text className="text-sm font-semibold text-foreground text-center">
-                      {user.name}
-                    </Text>
-                    {user.phone && (
-                      <Text className="text-xs text-muted-foreground text-center">
-                        {user.phone}
-                      </Text>
-                    )}
+              </View>
+              <Button
+                size="sm"
+                onPress={() => {
+                  setPaymentError(null);
+                  void handleRegisterPress();
+                }}
+                disabled={isProcessing}
+              >
+                {isProcessing ? "Retrying…" : "Try Again"}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {/* Waitlist confirmation / already-joined banner. */}
+        {waitlistPosition !== null ? (
+          <Card className="mt-4 border-success/40">
+            <CardContent className="p-4 gap-1">
+              <Text className="text-sm font-semibold text-success">
+                ✅ Joined waitlist
+              </Text>
+              <Text className="text-xs text-muted-foreground">
+                Position: #{waitlistPosition}. We'll notify you if a seat opens.
+              </Text>
+            </CardContent>
+          </Card>
+        ) : waitlistAlreadyJoined ? (
+          <Card className="mt-4 border-warning/40">
+            <CardContent className="p-4 gap-1">
+              <Text className="text-sm font-semibold text-warning">
+                You're already on the waitlist
+              </Text>
+              <Text className="text-xs text-muted-foreground">
+                We'll notify you as soon as a seat opens up.
+              </Text>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {existingPass ? (
+          <Card className="mt-4">
+            <CardContent className="p-5 gap-3">
+              <View className="flex-row items-center gap-2 bg-success/10 rounded-xl p-4">
+                <CheckCircle size={20} color={colors.success} />
+                <View className="flex-1">
+                  <Text className="text-sm font-bold text-success">
+                    Already Registered
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">
+                    You have a pass for this event
+                  </Text>
+                </View>
+              </View>
+              {existingPass.qr_code ? (
+                <View className="items-center bg-muted/30 rounded-xl p-4 gap-2 border border-dashed border-border">
+                  <View className="bg-white p-3 rounded-xl">
+                    <QRCode value={existingPass.qr_code} size={160} />
                   </View>
-                )}
-                <Text className="text-xs text-muted-foreground text-center">
-                  You'll be redirected to a secure Razorpay payment.
-                </Text>
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onPress={handleConfirmPaid}
-                  disabled={
+                  <Text className="text-[10px] text-muted-foreground font-mono">
+                    {existingPass.qr_code}
+                  </Text>
+                </View>
+              ) : null}
+              <Button
+                variant="outline"
+                className="w-full"
+                onPress={() => navigation.navigate("MyPasses")}
+              >
+                View All Passes
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="mt-4">
+            <CardContent className="p-5 gap-4">
+              {legacy ? (
+                <LegacyTicketBlock
+                  event={event}
+                  onRegister={handleRegisterPress}
+                  busy={
+                    isProcessing ||
                     registerMutation.isPending ||
                     paymentIntentMutation.isPending
                   }
-                >
-                  {registerMutation.isPending || paymentIntentMutation.isPending
-                    ? "Processing Payment..."
-                    : `Confirm & Pay — ₹${event.ticket_price}`}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onPress={() => setShowPriceConfirm(false)}
-                >
-                  Cancel
-                </Button>
-              </View>
-            ) : (
-              <Button
-                className="w-full"
-                size="lg"
-                onPress={handleRegisterPress}
-                disabled={
-                  registerMutation.isPending || paymentIntentMutation.isPending
-                }
-              >
-                {registerMutation.isPending || paymentIntentMutation.isPending
-                  ? "Registering..."
-                  : isFree
-                    ? "Register Now →"
-                    : `Register — ₹${event.ticket_price}`}
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+                  cancelled={eventCancelled}
+                  onJoinWaitlist={handleJoinWaitlist}
+                  waitlistBusy={isProcessing || waitlistMutation.isPending}
+                />
+              ) : (
+                <TieredTicketBlock
+                  tiers={realTiers}
+                  selectedTierKey={selectedTierKey}
+                  onSelectTier={setSelectedTierKey}
+                  quantity={quantity}
+                  onQuantityChange={setQuantity}
+                  onRegister={handleRegisterPress}
+                  onJoinWaitlist={handleJoinWaitlist}
+                  busy={
+                    isProcessing ||
+                    registerMutation.isPending ||
+                    paymentIntentMutation.isPending
+                  }
+                  waitlistBusy={isProcessing || waitlistMutation.isPending}
+                  cancelled={eventCancelled}
+                  selectedTier={selectedTier}
+                />
+              )}
+            </CardContent>
+          </Card>
+        )}
       </ScrollView>
 
-      {/* Razorpay WebView fallback for Expo Go */}
-      {razorpayWebViewVisible && razorpayWebViewOptions && (
+      {webViewVisible && webViewOptions ? (
         <RazorpayWebView
-          visible={razorpayWebViewVisible}
-          options={razorpayWebViewOptions}
+          visible={webViewVisible}
+          options={webViewOptions}
           onSuccess={async (data) => {
-            console.log(
-              "[EventDetail.RazorpayWebView] onSuccess — order:",
-              data.razorpay_order_id,
-              "payment:",
-              data.razorpay_payment_id,
-            );
-            setRazorpayWebViewVisible(false);
-            setRazorpayWebViewOptions(null);
+            setWebViewVisible(false);
+            setWebViewOptions(null);
             try {
               await completeRegistration(data);
             } catch (err: any) {
-              console.log(
-                "[EventDetail.RazorpayWebView] registration error:",
-                err?.data?.error || err?.message,
-              );
               toast.error(
                 err?.data?.error ||
                   err?.message ||
@@ -568,21 +708,307 @@ const EventDetail = () => {
             }
           }}
           onCancel={() => {
-            console.log("[EventDetail.RazorpayWebView] cancelled");
-            setRazorpayWebViewVisible(false);
-            setRazorpayWebViewOptions(null);
+            setWebViewVisible(false);
+            setWebViewOptions(null);
             toast.error("Payment cancelled");
           }}
           onError={(msg) => {
-            console.log("[EventDetail.RazorpayWebView] error:", msg);
-            setRazorpayWebViewVisible(false);
-            setRazorpayWebViewOptions(null);
+            setWebViewVisible(false);
+            setWebViewOptions(null);
             toast.error(msg || "Payment failed");
           }}
         />
-      )}
+      ) : null}
     </View>
   );
 };
+
+// ─── Sub-views ────────────────────────────────────────────────────────
+
+interface LegacyBlockProps {
+  event: AppEvent;
+  onRegister: () => void;
+  onJoinWaitlist: () => void;
+  busy: boolean;
+  cancelled: boolean;
+  waitlistBusy: boolean;
+}
+
+function LegacyTicketBlock({
+  event,
+  onRegister,
+  onJoinWaitlist,
+  busy,
+  cancelled,
+  waitlistBusy,
+}: LegacyBlockProps) {
+  const free = legacyIsFree(event);
+  const isFull =
+    !!event.max_attendees && (event.attendee_count ?? 0) >= event.max_attendees;
+
+  if (cancelled) {
+    return (
+      <View>
+        <Text className="text-base font-bold text-foreground">Tickets</Text>
+        <View className="mt-3 rounded-xl bg-destructive/10 p-4">
+          <Text className="text-sm font-semibold text-destructive">
+            This event has been cancelled.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View>
+      <Text className="text-base font-bold text-foreground">
+        {free ? "Register for this event" : "Get your ticket"}
+      </Text>
+      <View className="flex-row items-baseline gap-2 mt-1">
+        <Text className="text-3xl font-bold text-primary">
+          {free ? "Free" : `\u20B9${event.ticket_price}`}
+        </Text>
+        {!free ? (
+          <Text className="text-xs text-muted-foreground">per ticket</Text>
+        ) : null}
+      </View>
+
+      {isFull ? (
+        <View className="mt-4 gap-2">
+          <View className="rounded-xl bg-warning/10 p-3">
+            <Text className="text-sm font-semibold text-warning">
+              This event is sold out.
+            </Text>
+            <Text className="text-xs text-muted-foreground mt-0.5">
+              Join the waitlist and we'll notify you when a seat opens.
+            </Text>
+          </View>
+          <Button
+            className="w-full"
+            size="lg"
+            onPress={onJoinWaitlist}
+            disabled={waitlistBusy}
+          >
+            {waitlistBusy ? "Joining…" : "Join Waitlist"}
+          </Button>
+        </View>
+      ) : (
+        <Button
+          className="w-full mt-4"
+          size="lg"
+          onPress={onRegister}
+          disabled={busy}
+        >
+          {busy
+            ? "Processing…"
+            : free
+              ? "Register Free"
+              : `Register — \u20B9${event.ticket_price}`}
+        </Button>
+      )}
+    </View>
+  );
+}
+
+interface TieredBlockProps {
+  tiers: AppTicketTier[];
+  selectedTierKey: TierKey | null;
+  onSelectTier: (k: TierKey) => void;
+  quantity: number;
+  onQuantityChange: (n: number) => void;
+  onRegister: () => void;
+  onJoinWaitlist: () => void;
+  busy: boolean;
+  waitlistBusy: boolean;
+  cancelled: boolean;
+  selectedTier: AppTicketTier | null;
+}
+
+function TieredTicketBlock({
+  tiers,
+  selectedTierKey,
+  onSelectTier,
+  quantity,
+  onQuantityChange,
+  onRegister,
+  onJoinWaitlist,
+  busy,
+  waitlistBusy,
+  cancelled,
+  selectedTier,
+}: TieredBlockProps) {
+  if (cancelled) {
+    return (
+      <View>
+        <Text className="text-base font-bold text-foreground">Tickets</Text>
+        <View className="mt-3 rounded-xl bg-destructive/10 p-4">
+          <Text className="text-sm font-semibold text-destructive">
+            This event has been cancelled.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const allSoldOut =
+    tiers.length > 0 && tiers.every((t) => t.is_sold_out || !t.is_active);
+
+  return (
+    <View>
+      <TicketSelector
+        tiers={tiers}
+        selectedTier={selectedTierKey}
+        onSelectTier={onSelectTier}
+        quantity={quantity}
+        onQuantityChange={onQuantityChange}
+      />
+
+      <View className="mt-4">
+        {allSoldOut ? (
+          <View className="gap-2">
+            <View className="rounded-xl bg-warning/10 p-3">
+              <Text className="text-sm font-semibold text-warning">
+                All tickets are sold out.
+              </Text>
+              <Text className="text-xs text-muted-foreground mt-0.5">
+                Join the waitlist and we'll notify you when a seat opens.
+              </Text>
+            </View>
+            <Button
+              className="w-full"
+              size="lg"
+              onPress={onJoinWaitlist}
+              disabled={waitlistBusy}
+            >
+              {waitlistBusy ? "Joining…" : "Join Waitlist"}
+            </Button>
+          </View>
+        ) : selectedTier && selectedTier.is_sold_out ? (
+          <Button
+            className="w-full"
+            size="lg"
+            onPress={onJoinWaitlist}
+            disabled={waitlistBusy}
+          >
+            {waitlistBusy ? "Joining…" : "Join Waitlist"}
+          </Button>
+        ) : selectedTier && !selectedTier.is_active ? (
+          <Button className="w-full" size="lg" disabled>
+            Not available
+          </Button>
+        ) : selectedTier && selectedTier.is_free ? (
+          <Button
+            className="w-full"
+            size="lg"
+            onPress={onRegister}
+            disabled={busy}
+          >
+            {busy ? "Processing…" : "Register Free"}
+          </Button>
+        ) : selectedTier ? (
+          <Button
+            className="w-full"
+            size="lg"
+            onPress={onRegister}
+            disabled={busy}
+          >
+            {busy
+              ? "Processing…"
+              : `Buy Now — \u20B9${selectedTier.price * quantity}`}
+          </Button>
+        ) : (
+          <Button className="w-full" size="lg" disabled>
+            Select a ticket
+          </Button>
+        )}
+      </View>
+    </View>
+  );
+}
+
+interface SuccessQrProps {
+  event: AppEvent;
+  registration: any;
+  onBack: () => void;
+}
+
+function SuccessQrView({ event, registration, onBack }: SuccessQrProps) {
+  const colors = useColors();
+  return (
+    <View className="flex-1 bg-background">
+      <View className="bg-primary px-4 py-4">
+        <Pressable onPress={onBack} className="flex-row items-center gap-2">
+          <ArrowLeft size={20} color={colors.primaryForeground} />
+          <Text className="font-medium text-primary-foreground">
+            Back to Events
+          </Text>
+        </Pressable>
+      </View>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 16 }}
+        className="px-4 py-8"
+      >
+        <Card className="overflow-hidden">
+          <View className="bg-success/10 p-6 items-center">
+            <Text className="text-5xl">🎉</Text>
+            <Text className="text-xl font-bold text-foreground mt-3">
+              You're Registered!
+            </Text>
+            <Text className="text-sm text-muted-foreground mt-1">
+              {event.title}
+            </Text>
+          </View>
+          <CardContent className="p-6 gap-6">
+            <View className="items-center">
+              <View className="bg-white p-4 rounded-2xl shadow-md">
+                <QRCode value={registration.qr_code} size={200} />
+              </View>
+            </View>
+            <View className="items-center">
+              <Text className="text-xs text-muted-foreground">
+                Your QR Code
+              </Text>
+              <Text className="text-sm font-mono font-medium text-foreground mt-1">
+                {registration.qr_code}
+              </Text>
+            </View>
+            {registration.payment_status === "paid" ? (
+              <View className="flex-row items-center justify-center gap-2 bg-success/10 rounded-lg px-3 py-2">
+                <CheckCircle size={14} color={colors.success} />
+                <Text className="text-sm font-semibold text-success">
+                  Payment Confirmed
+                </Text>
+                {registration.amount_paid != null ? (
+                  <Text className="text-sm text-success">
+                    — ₹{registration.amount_paid}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+            <View className="gap-2 rounded-xl bg-muted p-4">
+              <View className="flex-row items-center gap-2">
+                <Calendar size={14} color={colors.mutedForeground} />
+                <Text className="text-sm text-muted-foreground">
+                  {new Date(event.date).toLocaleDateString()} • {event.time}
+                </Text>
+              </View>
+              {event.location || event.venue ? (
+                <View className="flex-row items-center gap-2">
+                  <MapPin size={14} color={colors.mutedForeground} />
+                  <Text className="text-sm text-muted-foreground">
+                    {event.venue || event.location}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <Text className="text-center text-xs text-muted-foreground">
+              Show this QR code at the event entrance for verification
+            </Text>
+          </CardContent>
+        </Card>
+      </ScrollView>
+    </View>
+  );
+}
 
 export default EventDetail;
