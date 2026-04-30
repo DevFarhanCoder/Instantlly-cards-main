@@ -13,7 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import {
   ArrowLeft,
   Bell,
@@ -697,10 +697,21 @@ const StartChatModal = ({
 const Messaging = () => {
   const iconColor = useIconColor();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { user } = useAuth();
   const { permission, requestPermission, sendPushNotification } = usePushNotifications();
 
-  const [activeTab, setActiveTab] = useState("Chats");
+  const initialTabParam = route?.params?.initialTab;
+  const [activeTab, setActiveTab] = useState<string>(
+    typeof initialTabParam === "string" && tabs.includes(initialTabParam) ? initialTabParam : "Chats"
+  );
+
+  // React to subsequent navigations that pass a new initialTab param.
+  useEffect(() => {
+    if (typeof initialTabParam === "string" && tabs.includes(initialTabParam)) {
+      setActiveTab(initialTabParam);
+    }
+  }, [initialTabParam]);
   const [selectedConv, setSelectedConv] = useState<DbConversation | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);

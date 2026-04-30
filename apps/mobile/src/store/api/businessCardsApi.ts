@@ -40,6 +40,17 @@ export const businessCardsApi = baseApi.injectEndpoints({
       query: (body) => ({ url: '/cards/share', method: 'POST', body }),
       invalidatesTags: ['SharedCard'],
     }),
+    exchangeCards: builder.mutation<
+      { outgoing: any; incoming: any; alreadyExists: boolean },
+      { my_card_id: number; scanned_card_id: number }
+    >({
+      query: (body) => ({ url: '/cards/exchange', method: 'POST', body }),
+      invalidatesTags: ['SharedCard'],
+    }),
+    saveReceivedCard: builder.mutation<any, { scanned_card_id: number }>({
+      query: (body) => ({ url: '/cards/save-received', method: 'POST', body }),
+      invalidatesTags: ['SharedCard'],
+    }),
     bulkSendCard: builder.mutation<
       { sent: number; audience: string; level: string; message: string },
       { card_id: number; audience: string; audience_type: 'category' | 'subcategory'; level: string }
@@ -70,6 +81,8 @@ export const {
   useUpdateCardMutation,
   useDeleteCardMutation,
   useShareCardMutation,
+  useExchangeCardsMutation,
+  useSaveReceivedCardMutation,
   useBulkSendCardMutation,
   useGetSharedCardsQuery,
   useUploadImageMutation,

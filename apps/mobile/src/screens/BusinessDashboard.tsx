@@ -546,7 +546,7 @@ const BusinessDashboard = () => {
               {selectedCardId && (
                 <View className="items-center gap-3">
                   <View className="bg-white p-4 rounded-xl">
-                    <QRCode value={`https://instantlly.lovable.app/card/${selectedCardId}`} size={160} />
+                    <QRCode value={`instantllycards://card/card-${selectedCardId}`} size={160} />
                   </View>
                   <Text className="text-xs text-muted-foreground text-center">
                     Scan to view your business card
