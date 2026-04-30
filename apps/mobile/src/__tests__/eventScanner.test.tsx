@@ -112,4 +112,39 @@ describe('EventScanner', () => {
     fireEvent.press(getByText('Back to Events'));
     expect(mockNavigate).toHaveBeenCalledWith('Events');
   });
+
+  it('shows orange already-checked-in warning when backend returns already_used', async () => {
+    mockMutateAsync.mockResolvedValue({
+      registration_id: 12,
+      qr_code: 'EVT-7-dup',
+      ticket_count: 1,
+      already_used: true,
+      checked_in_at: '2025-01-01T10:00:00Z',
+      user: { name: 'Sam', phone: '+91 9000000000' },
+      event: { title: 'Tech Expo' },
+    });
+
+    const { getAllByText, getByPlaceholderText, getByTestId, findByText } = renderScreen();
+    fireEvent.press(getAllByText(/Manual/)[0]);
+    fireEvent.changeText(getByPlaceholderText(/Enter QR code/), 'EVT-7-dup');
+    await act(async () => {
+      fireEvent.press(getByTestId('verify-btn'));
+    });
+    expect(await findByText(/Already Checked In/i)).toBeTruthy();
+  });
+
+  it('shows red cancelled banner on 410 REGISTRATION_CANCELLED', async () => {
+    const err: any = new Error('Cancelled');
+    err.status = 410;
+    err.data = { code: 'REGISTRATION_CANCELLED', error: 'Pass cancelled' };
+    mockMutateAsync.mockRejectedValue(err);
+
+    const { getAllByText, getByPlaceholderText, getByTestId, findByText } = renderScreen();
+    fireEvent.press(getAllByText(/Manual/)[0]);
+    fireEvent.changeText(getByPlaceholderText(/Enter QR code/), 'EVT-bad');
+    await act(async () => {
+      fireEvent.press(getByTestId('verify-btn'));
+    });
+    expect(await findByText(/Cancelled or Refunded/i)).toBeTruthy();
+  });
 });
