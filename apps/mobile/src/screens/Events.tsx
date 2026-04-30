@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+// Use the same eventCategories as EventCreate
 import {
   Calendar,
   Filter,
@@ -93,6 +94,20 @@ const EventCard = ({
 );
 
 const Events = () => {
+    // Category filter state
+    const [activeCategory, setActiveCategory] = useState<string | null>(null);
+    const eventCategories = [
+      "Awards",
+      "Conference",
+      "Networking",
+      "Workshop",
+      "Seminar",
+      "Exhibition",
+      "Concert",
+      "Sports",
+      "Festival",
+      "Other",
+    ];
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
@@ -129,14 +144,15 @@ const Events = () => {
       limit,
       search: searchQuery || undefined,
       city: cityFilter,
+      category: activeCategory || undefined,
     },
     { refetchOnMountOrArgChange: true }
   );
 
-  // Reset limit when search or tab changes
+  // Reset limit when search, tab, or category changes
   useEffect(() => {
     setLimit(PAGE_SIZE);
-  }, [searchQuery, activeTab]);
+  }, [searchQuery, activeTab, activeCategory]);
 
   // When switching to nearby and city just resolved, reset limit so we refetch
   useEffect(() => {
@@ -189,6 +205,51 @@ const Events = () => {
   const keyExtractor = useCallback(
     (item: AppEvent) => String(item.id),
     []
+  );
+
+  // Category filter bar
+  const CategoryBar = (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ marginBottom: 12, marginTop: 2 }}
+      contentContainerStyle={{ paddingHorizontal: 2, gap: 6, alignItems: "center" }}
+    >
+      <Pressable
+        onPress={() => setActiveCategory(null)}
+        style={{
+          paddingHorizontal: 14,
+          paddingVertical: 7,
+          borderRadius: 999,
+          backgroundColor: !activeCategory ? "#2563eb" : "#f1f5f9",
+          borderWidth: 1.5,
+          borderColor: !activeCategory ? "#2563eb" : "#e2e8f0",
+          marginRight: 2,
+        }}
+      >
+        <Text style={{ color: !activeCategory ? "#fff" : "#2563eb", fontWeight: "600", fontSize: 13 }}>All</Text>
+      </Pressable>
+      {eventCategories.map((cat) => (
+        <Pressable
+          key={cat}
+          onPress={() => setActiveCategory(cat)}
+          style={{
+            paddingHorizontal: 14,
+            paddingVertical: 7,
+            borderRadius: 999,
+            backgroundColor: activeCategory === cat ? "#2563eb" : "#f1f5f9",
+            borderWidth: 1.5,
+            borderColor: activeCategory === cat ? "#2563eb" : "#e2e8f0",
+            marginRight: 2,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <Text style={{ color: activeCategory === cat ? "#fff" : "#2563eb", fontWeight: "600", fontSize: 13 }}>{cat}</Text>
+        </Pressable>
+      ))}
+    </ScrollView>
   );
 
   const ListHeader = (
@@ -248,6 +309,9 @@ const Events = () => {
           </Text>
         </Pressable>
       </View>
+
+      {/* Category filter bar */}
+      {CategoryBar}
 
       {/* Location status for Near Me tab */}
       {activeTab === "nearby" && !nearbyCity && (
