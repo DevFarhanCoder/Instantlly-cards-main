@@ -116,7 +116,7 @@ const BusinessDetail = () => {
     [reviews, user]
   );
 
-  const shareUrl = card ? `https://instantlly.lovable.app/card/${businessId}` : "";
+  const shareUrl = card ? `instantllycards://card/${card.id}` : "";
 
   const handleSubmitReview = async () => {
     if (reviewRating === 0) {

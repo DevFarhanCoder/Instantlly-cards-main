@@ -33,7 +33,7 @@ const PublicCard = () => {
   const businessId = card?.business_card_id ?? card?.id ?? "";
 
   const shareUrl = useMemo(
-    () => (id ? `https://instantlly.lovable.app/card/${id}` : "https://instantlly.lovable.app"),
+    () => (id ? `instantllycards://card/${id}` : "instantllycards://"),
     [id]
   );
 
