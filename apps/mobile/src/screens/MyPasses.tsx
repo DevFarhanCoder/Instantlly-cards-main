@@ -29,6 +29,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useMyRegistrations } from "../hooks/useEvents";
 import { useColors, useMutedIconColor } from "../theme/colors";
 import type { EventRegistration } from "../store/api/eventsApi";
+import { socketService } from "../services/socketService";
 
 /**
  * MyPasses — list of the current user's event registrations with status,
@@ -127,6 +128,13 @@ const MyPasses = () => {
     } finally {
       setRefreshing(false);
     }
+  }, [refetch]);
+
+  // Refresh immediately when the organizer checks us in (real-time socket event)
+  useEffect(() => {
+    const handler = () => { refetch(); };
+    socketService.on("event:checkin", handler);
+    return () => socketService.off("event:checkin", handler);
   }, [refetch]);
 
   // Tick every minute for the countdown without re-rendering individual cards

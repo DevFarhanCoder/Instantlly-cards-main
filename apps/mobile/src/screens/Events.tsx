@@ -4,6 +4,7 @@ import {
   BackHandler,
   FlatList,
   Keyboard,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -115,6 +116,11 @@ const Events = () => {
   const searchInputRef = useRef<TextInput | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
   const [priceType, setPriceType] = useState<"all" | "free" | "paid">("all");
   const { isBusiness } = useUserRole();
   const { registrations } = useMyRegistrations();
@@ -320,16 +326,139 @@ const Events = () => {
       {/* Date & Price Type Filter */}
       <View style={{ flexDirection: "row", gap: 8, marginBottom: 16, alignItems: "center" }}>
         {/* Date Picker */}
+        {/* Calendar modal */}
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <Pressable
+            style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", alignItems: "center" }}
+            onPress={() => setShowDatePicker(false)}
+          >
+            <Pressable
+              style={{ backgroundColor: "#fff", borderRadius: 16, padding: 20, width: 320 }}
+              onPress={(e) => e.stopPropagation()}
+            >
+              {/* Month navigation */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <Pressable
+                  onPress={() => setCalendarMonth((m) => {
+                    const d = new Date(m.year, m.month - 1);
+                    return { year: d.getFullYear(), month: d.getMonth() };
+                  })}
+                  style={{ padding: 8 }}
+                >
+                  <Text style={{ fontSize: 18, color: "#2563eb", fontWeight: "700" }}>‹</Text>
+                </Pressable>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: "#0f172a" }}>
+                  {new Date(calendarMonth.year, calendarMonth.month).toLocaleString("default", { month: "long", year: "numeric" })}
+                </Text>
+                <Pressable
+                  onPress={() => setCalendarMonth((m) => {
+                    const d = new Date(m.year, m.month + 1);
+                    return { year: d.getFullYear(), month: d.getMonth() };
+                  })}
+                  style={{ padding: 8 }}
+                >
+                  <Text style={{ fontSize: 18, color: "#2563eb", fontWeight: "700" }}>›</Text>
+                </Pressable>
+              </View>
+
+              {/* Day-of-week headers */}
+              <View style={{ flexDirection: "row", marginBottom: 6 }}>
+                {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
+                  <View key={d} style={{ flex: 1, alignItems: "center" }}>
+                    <Text style={{ fontSize: 11, fontWeight: "600", color: "#94a3b8" }}>{d}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Calendar grid */}
+              {(() => {
+                const year = calendarMonth.year;
+                const month = calendarMonth.month;
+                const firstDay = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const cells: (number | null)[] = [
+                  ...Array(firstDay).fill(null),
+                  ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+                ];
+                // Pad end to complete last row
+                while (cells.length % 7 !== 0) cells.push(null);
+                const rows: (number | null)[][] = [];
+                for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
+                return rows.map((row, ri) => (
+                  <View key={ri} style={{ flexDirection: "row", marginBottom: 4 }}>
+                    {row.map((day, di) => {
+                      const isSelected =
+                        day !== null &&
+                        selectedDate !== null &&
+                        selectedDate.getFullYear() === year &&
+                        selectedDate.getMonth() === month &&
+                        selectedDate.getDate() === day;
+                      return (
+                        <Pressable
+                          key={di}
+                          onPress={() => {
+                            if (!day) return;
+                            setSelectedDate(new Date(year, month, day));
+                            setShowDatePicker(false);
+                          }}
+                          style={{
+                            flex: 1,
+                            alignItems: "center",
+                            paddingVertical: 7,
+                            borderRadius: 8,
+                            backgroundColor: isSelected ? "#2563eb" : "transparent",
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              fontWeight: isSelected ? "700" : "400",
+                              color: day ? (isSelected ? "#fff" : "#0f172a") : "transparent",
+                            }}
+                          >
+                            {day ?? "·"}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ));
+              })()}
+
+              {/* Clear & Cancel */}
+              <View style={{ flexDirection: "row", marginTop: 12, gap: 8 }}>
+                <Pressable
+                  onPress={() => { setSelectedDate(null); setShowDatePicker(false); }}
+                  style={{ flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1.5, borderColor: "#e2e8f0", alignItems: "center" }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#64748b" }}>Clear</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setShowDatePicker(false)}
+                  style={{ flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: "#2563eb", alignItems: "center" }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#fff" }}>Done</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Date picker trigger button */}
         <Pressable
           onPress={() => {
-            const date = new Date();
-            // Simple date picker: show current date, user can tap to open OS date picker
-            // For now, show button with option to clear
             if (selectedDate) {
-              setSelectedDate(null);
+              setCalendarMonth({ year: selectedDate.getFullYear(), month: selectedDate.getMonth() });
             } else {
-              setSelectedDate(new Date());
+              const d = new Date();
+              setCalendarMonth({ year: d.getFullYear(), month: d.getMonth() });
             }
+            setShowDatePicker(true);
           }}
           style={{
             flex: 1,
@@ -353,11 +482,13 @@ const Events = () => {
               flex: 1,
             }}
           >
-            {selectedDate
-              ? selectedDate.toLocaleDateString()
-              : "Pick Date"}
+            {selectedDate ? selectedDate.toLocaleDateString() : "Pick Date"}
           </Text>
-          {selectedDate && <X size={14} color="#2563eb" />}
+          {selectedDate && (
+            <Pressable onPress={(e) => { e.stopPropagation(); setSelectedDate(null); }}>
+              <X size={14} color="#2563eb" />
+            </Pressable>
+          )}
         </Pressable>
 
         {/* Price Type Filter */}
@@ -536,17 +667,19 @@ const Events = () => {
             </View>
           </Pressable>
 
-          <Pressable
-            onPress={() => navigation.navigate("EventScanner")}
-            className="flex-1"
-          >
-            <View className="bg-white rounded-lg p-2.5 flex-row items-center justify-center gap-1.5">
-              <Text className="text-base">{"\uD83D\uDCF7"}</Text>
-              <Text className="text-sm font-semibold text-primary">
-                Scan QR
-              </Text>
-            </View>
-          </Pressable>
+          {isBusiness && (
+            <Pressable
+              onPress={() => navigation.navigate("EventScanner")}
+              className="flex-1"
+            >
+              <View className="bg-white rounded-lg p-2.5 flex-row items-center justify-center gap-1.5">
+                <Text className="text-base">{"\uD83D\uDCF7"}</Text>
+                <Text className="text-sm font-semibold text-primary">
+                  Scan QR
+                </Text>
+              </View>
+            </Pressable>
+          )}
 
           {isBusiness && (
             <Pressable
