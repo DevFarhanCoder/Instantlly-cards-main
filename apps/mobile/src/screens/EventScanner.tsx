@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
   AlertTriangle,
@@ -42,9 +42,6 @@ const EventScanner = () => {
     setResult(null);
     try {
       const data = await verifyMutation.mutateAsync(code.trim());
-      // Backend marks `already_used: true` when this QR was previously
-      // scanned. Treat as a warning (orange), not a success — the
-      // attendee should NOT be admitted again.
       if (data?.already_used) {
         setResult({ kind: "already_used", data });
       } else {
@@ -52,12 +49,12 @@ const EventScanner = () => {
       }
     } catch (err: any) {
       const status = err?.status;
-      const code = err?.data?.code;
+      const errCode = err?.data?.code;
       const message: string =
         err?.data?.error ||
         err?.message ||
         "Verification failed";
-      if (status === 410 || code === "REGISTRATION_CANCELLED") {
+      if (status === 410 || errCode === "REGISTRATION_CANCELLED") {
         setResult({ kind: "cancelled", message });
       } else {
         setResult({ kind: "error", message });
@@ -65,9 +62,11 @@ const EventScanner = () => {
     }
   };
 
-  useEffect(() => {
+  const resetScanner = () => {
+    setResult(null);
     setScanned(false);
-  }, [mode]);
+    setQrInput("");
+  };
 
   return (
     <View className="flex-1 bg-background">
@@ -82,111 +81,18 @@ const EventScanner = () => {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-6 gap-6">
-        <View className="items-center">
-          <View className="h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 mb-4">
-            <QrCode size={40} color="#2563eb" />
-          </View>
-          <Text className="text-xl font-bold text-foreground">Verify Attendee</Text>
-          <Text className="text-sm text-muted-foreground mt-1 text-center">
-            Scan or enter the QR code to verify registration
-          </Text>
-        </View>
 
-        <View className="flex-row gap-2">
-          <Button
-            variant={mode === "camera" ? "default" : "outline"}
-            className="flex-1"
-            onPress={() => setMode("camera")}
-          >
-            <Camera size={16} color={mode === "camera" ? "#ffffff" : "#111827"} /> Camera
-          </Button>
-          <Button
-            variant={mode === "manual" ? "default" : "outline"}
-            className="flex-1"
-            onPress={() => setMode("manual")}
-          >
-            <Keyboard size={16} color={mode === "manual" ? "#ffffff" : "#111827"} /> Manual
-          </Button>
-        </View>
-
-        {mode === "camera" && (
-          <Card>
-            <CardContent className="p-4 gap-3">
-              {!permission?.granted ? (
-                <View className="items-center gap-3 py-6">
-                  <Text className="text-sm text-muted-foreground text-center">
-                    Camera permission is required to scan QR codes
-                  </Text>
-                  <Button onPress={() => requestPermission()} className="rounded-xl">
-                    Grant Permission
-                  </Button>
-                </View>
-              ) : (
-                <View className="overflow-hidden rounded-lg">
-                  <CameraView
-                    style={{ width: "100%", height: 280 }}
-                    onBarcodeScanned={
-                      scanned
-                        ? undefined
-                        : ({ data }) => {
-                            setScanned(true);
-                            handleVerify(String(data || ""));
-                          }
-                    }
-                    barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-                  />
-                </View>
-              )}
-              {scanned && (
-                <Button
-                  variant="outline"
-                  className="rounded-xl"
-                  onPress={() => setScanned(false)}
-                >
-                  Scan Again
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {mode === "manual" && (
-          <Card>
-            <CardContent className="p-5 gap-4">
-              <View className="gap-2">
-                <Text className="text-sm font-medium text-foreground">QR Code</Text>
-                <View className="flex-row gap-2">
-                  <Input
-                    placeholder="Enter QR code (e.g., EVT-abc12345-...)"
-                    value={qrInput}
-                    onChangeText={setQrInput}
-                    className="flex-1"
-                  />
-                  <Button
-                    onPress={() => handleVerify(qrInput)}
-                    disabled={verifyMutation.isPending}
-                    testID="verify-btn"
-                  >
-                    {verifyMutation.isPending ? "..." : <Search size={16} color="#ffffff" />}
-                  </Button>
-                </View>
-              </View>
-            </CardContent>
-          </Card>
-        )}
-
-        {result && (
-          <View>
+        {/* ── RESULT VIEW — camera is hidden, only result shown ── */}
+        {result ? (
+          <View className="gap-4">
             {result.kind === "ok" ? (
               <Card className="border-success/50 bg-success/5">
                 <CardContent className="p-5 gap-3">
                   <View className="flex-row items-center gap-3">
-                    <CheckCircle2 size={32} color="#16a34a" />
-                    <View>
-                      <Text className="font-bold text-foreground">✅ Verified — Allow Entry</Text>
-                      <Text className="text-xs text-muted-foreground">
-                        Attendee checked in just now.
-                      </Text>
+                    <CheckCircle2 size={36} color="#16a34a" />
+                    <View className="flex-1">
+                      <Text className="font-bold text-lg text-foreground">✅ Verified — Allow Entry</Text>
+                      <Text className="text-xs text-muted-foreground">Attendee checked in just now.</Text>
                     </View>
                   </View>
                   <AttendeeBlock data={result.data} />
@@ -196,16 +102,15 @@ const EventScanner = () => {
               <Card className="border-amber-500/60 bg-amber-50">
                 <CardContent className="p-5 gap-3">
                   <View className="flex-row items-center gap-3">
-                    <AlertTriangle size={32} color="#d97706" />
-                    <View>
-                      <Text className="font-bold text-foreground">
-                        ⚠️ Already Checked In — Do NOT Allow Re-Entry
-                      </Text>
+                    <AlertTriangle size={36} color="#d97706" />
+                    <View className="flex-1">
+                      <Text className="font-bold text-lg text-foreground">⚠️ Already Checked In</Text>
                       <Text className="text-xs text-amber-700">
                         {result.data?.checked_in_at
                           ? `Scanned ${format(new Date(result.data.checked_in_at), "MMM d, p")}`
                           : "This QR has already been used."}
                       </Text>
+                      <Text className="text-xs text-amber-700 font-semibold mt-0.5">Do NOT allow re-entry.</Text>
                     </View>
                   </View>
                   <AttendeeBlock data={result.data} amber />
@@ -215,14 +120,10 @@ const EventScanner = () => {
               <Card className="border-destructive/50 bg-destructive/5">
                 <CardContent className="p-5">
                   <View className="flex-row items-center gap-3">
-                    <XCircle size={32} color="#ef4444" />
-                    <View>
-                      <Text className="font-bold text-foreground">
-                        ❌ Cancelled or Refunded
-                      </Text>
-                      <Text className="text-sm text-muted-foreground">
-                        This pass is no longer valid. Do not allow entry.
-                      </Text>
+                    <XCircle size={36} color="#ef4444" />
+                    <View className="flex-1">
+                      <Text className="font-bold text-lg text-foreground">❌ Cancelled or Refunded</Text>
+                      <Text className="text-sm text-muted-foreground">This pass is no longer valid. Do not allow entry.</Text>
                     </View>
                   </View>
                 </CardContent>
@@ -231,18 +132,113 @@ const EventScanner = () => {
               <Card className="border-destructive/50 bg-destructive/5">
                 <CardContent className="p-5">
                   <View className="flex-row items-center gap-3">
-                    <XCircle size={32} color="#ef4444" />
-                    <View>
-                      <Text className="font-bold text-foreground">❌ Verification Failed</Text>
-                      <Text className="text-sm text-muted-foreground">
-                        {result.message}
-                      </Text>
+                    <XCircle size={36} color="#ef4444" />
+                    <View className="flex-1">
+                      <Text className="font-bold text-lg text-foreground">❌ Verification Failed</Text>
+                      <Text className="text-sm text-muted-foreground">{result.message}</Text>
                     </View>
                   </View>
                 </CardContent>
               </Card>
             )}
+
+            <Button onPress={resetScanner} className="rounded-xl">
+              <QrCode size={16} color="#ffffff" /> Scan Next Attendee
+            </Button>
           </View>
+        ) : (
+          /* ── SCANNER VIEW — shown only when no result yet ── */
+          <>
+            <View className="items-center">
+              <View className="h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 mb-4">
+                <QrCode size={40} color="#2563eb" />
+              </View>
+              <Text className="text-xl font-bold text-foreground">Verify Attendee</Text>
+              <Text className="text-sm text-muted-foreground mt-1 text-center">
+                Scan or enter the QR code to verify registration
+              </Text>
+            </View>
+
+            <View className="flex-row gap-2">
+              <Button
+                variant={mode === "camera" ? "default" : "outline"}
+                className="flex-1"
+                onPress={() => { setMode("camera"); setScanned(false); }}
+              >
+                <Camera size={16} color={mode === "camera" ? "#ffffff" : "#111827"} /> Camera
+              </Button>
+              <Button
+                variant={mode === "manual" ? "default" : "outline"}
+                className="flex-1"
+                onPress={() => setMode("manual")}
+              >
+                <Keyboard size={16} color={mode === "manual" ? "#ffffff" : "#111827"} /> Manual
+              </Button>
+            </View>
+
+            {mode === "camera" && (
+              <Card>
+                <CardContent className="p-4 gap-3">
+                  {!permission?.granted ? (
+                    <View className="items-center gap-3 py-6">
+                      <Text className="text-sm text-muted-foreground text-center">
+                        Camera permission is required to scan QR codes
+                      </Text>
+                      <Button onPress={() => requestPermission()} className="rounded-xl">
+                        Grant Permission
+                      </Button>
+                    </View>
+                  ) : (
+                    <View className="overflow-hidden rounded-lg">
+                      <CameraView
+                        style={{ width: "100%", height: 280 }}
+                        onBarcodeScanned={
+                          scanned
+                            ? undefined
+                            : ({ data }) => {
+                                setScanned(true);
+                                handleVerify(String(data || ""));
+                              }
+                        }
+                        barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+                      />
+                    </View>
+                  )}
+                  {scanned && !result && (
+                    <View className="items-center py-2">
+                      <ActivityIndicator size="small" color="#2563eb" />
+                      <Text className="text-sm text-muted-foreground mt-2">Verifying...</Text>
+                    </View>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {mode === "manual" && (
+              <Card>
+                <CardContent className="p-5 gap-4">
+                  <View className="gap-2">
+                    <Text className="text-sm font-medium text-foreground">QR Code</Text>
+                    <View className="flex-row gap-2">
+                      <Input
+                        placeholder="Enter QR code (e.g., EVT-abc12345-...)"
+                        value={qrInput}
+                        onChangeText={setQrInput}
+                        className="flex-1"
+                      />
+                      <Button
+                        onPress={() => handleVerify(qrInput)}
+                        disabled={verifyMutation.isPending}
+                        testID="verify-btn"
+                      >
+                        {verifyMutation.isPending ? "..." : <Search size={16} color="#ffffff" />}
+                      </Button>
+                    </View>
+                  </View>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </ScrollView>
     </View>

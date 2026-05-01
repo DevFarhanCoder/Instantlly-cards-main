@@ -29,41 +29,70 @@ import { useAuth } from "../hooks/useAuth";
 import { useMyRegistrations } from "../hooks/useEvents";
 import { useColors, useMutedIconColor } from "../theme/colors";
 import type { EventRegistration } from "../store/api/eventsApi";
+import { socketService } from "../services/socketService";
 
 /**
  * MyPasses — list of the current user's event registrations with status,
  * countdown, and a tappable mini-QR that opens the full QR view.
  *
  * Status order (first match wins, mirrors QRView):
- *   refunded → cancelled → checked-in → upcoming/past
+ *   refunded → cancelled → checked-in → past → partial-active → upcoming
  */
 
-type PassStatus = "upcoming" | "past" | "checked-in" | "cancelled" | "refunded";
+type PassStatus = "upcoming" | "partial-active" | "past" | "checked-in" | "cancelled" | "refunded";
 
 interface DerivedPass extends EventRegistration {
   status: PassStatus;
   startsAt: number | null;
+  activeTickets: number;
+}
+
+function getEventStartTs(event: EventRegistration["event"] | undefined): number | null {
+  if (!event?.date) return null;
+
+  // Build a local Date from yyyy-mm-dd + HH:mm so status doesn't flip to "past"
+  // at midnight when the event time is later in the day.
+  const datePart = String(event.date).split("T")[0];
+  const [y, m, d] = datePart.split("-").map((v) => parseInt(v, 10));
+  if (!y || !m || !d) return null;
+
+  let hh = 0;
+  let mm = 0;
+  const timeRaw = String((event as any).time ?? "").trim();
+  const m24 = timeRaw.match(/^(\d{1,2}):(\d{2})$/);
+  if (m24) {
+    hh = parseInt(m24[1], 10);
+    mm = parseInt(m24[2], 10);
+  }
+
+  const ts = new Date(y, m - 1, d, hh, mm, 0, 0).getTime();
+  return Number.isNaN(ts) ? null : ts;
 }
 
 function deriveStatus(reg: EventRegistration): PassStatus {
-  if (reg.refund_status === "refunded") return "refunded";
-  if (reg.cancelled_at) return "cancelled";
+  const totalTickets = reg.ticket_count ?? 0;
+  const cancelledTickets = reg.cancelled_count ?? 0;
+  const activeTickets = Math.max(0, totalTickets - cancelledTickets);
+
+  // Fully refunded/cancelled means no active tickets are left.
+  // This also protects against stale refund_status="refunded" from old partial-cancel runs.
+  if (reg.cancelled_at || activeTickets <= 0) return "refunded";
+
   const ev = reg.event as any;
   if (ev?.cancelled_at || ev?.status === "cancelled") return "cancelled";
   if (reg.checked_in) return "checked-in";
-  if (reg.event?.date) {
-    const start = new Date(reg.event.date).getTime();
+  const start = getEventStartTs(reg.event);
+  if (start !== null) {
     if (!Number.isNaN(start) && start < Date.now() - 12 * 60 * 60 * 1000) {
       return "past";
     }
   }
+  if (cancelledTickets > 0 && activeTickets > 0) return "partial-active";
   return "upcoming";
 }
 
 function getStartsAt(reg: EventRegistration): number | null {
-  if (!reg.event?.date) return null;
-  const ts = new Date(reg.event.date).getTime();
-  return Number.isNaN(ts) ? null : ts;
+  return getEventStartTs(reg.event);
 }
 
 /** "Starts in 5h", "Starts in 12 min", or "Started" — coarse, no flicker. */
@@ -101,6 +130,13 @@ const MyPasses = () => {
     }
   }, [refetch]);
 
+  // Refresh immediately when the organizer checks us in (real-time socket event)
+  useEffect(() => {
+    const handler = () => { refetch(); };
+    socketService.on("event:checkin", handler);
+    return () => socketService.off("event:checkin", handler);
+  }, [refetch]);
+
   // Tick every minute for the countdown without re-rendering individual cards
   // unnecessarily — the derived `now` flows down via memoized props.
   const [now, setNow] = useState(() => Date.now());
@@ -115,6 +151,7 @@ const MyPasses = () => {
       ...r,
       status: deriveStatus(r),
       startsAt: getStartsAt(r),
+      activeTickets: Math.max(0, (r.ticket_count ?? 0) - (r.cancelled_count ?? 0)),
     }));
   }, [registrations]);
 
@@ -228,7 +265,9 @@ const PassCard = memo(function PassCard({ pass, now, onPress }: PassCardProps) {
   const mutedIcon = useMutedIconColor();
   const dim = pass.status === "cancelled" || pass.status === "refunded";
   const countdown =
-    pass.status === "upcoming" ? formatCountdown(now, pass.startsAt) : null;
+    pass.status === "upcoming" || pass.status === "partial-active"
+      ? formatCountdown(now, pass.startsAt)
+      : null;
 
   return (
     <Pressable onPress={onPress} accessibilityLabel="Open pass">
@@ -242,7 +281,7 @@ const PassCard = memo(function PassCard({ pass, now, onPress }: PassCardProps) {
               >
                 {pass.event?.title ?? "Event"}
               </Text>
-              <StatusPill status={pass.status} />
+              <StatusPill status={pass.status} activeTickets={pass.activeTickets} />
             </View>
 
             {pass.ticket_tier ? (
@@ -314,7 +353,7 @@ const PassCard = memo(function PassCard({ pass, now, onPress }: PassCardProps) {
   );
 });
 
-function StatusPill({ status }: { status: PassStatus }) {
+function StatusPill({ status, activeTickets }: { status: PassStatus; activeTickets: number }) {
   const colors = useColors();
   if (status === "checked-in") {
     return (
@@ -345,6 +384,15 @@ function StatusPill({ status }: { status: PassStatus }) {
       <Badge className="bg-muted text-muted-foreground border-none text-[10px]">
         Past
       </Badge>
+    );
+  }
+  if (status === "partial-active") {
+    return (
+      <View className="rounded-full bg-success/10 px-2 py-0.5 shrink-0">
+        <Text className="text-[10px] font-semibold text-success" numberOfLines={1}>
+          {activeTickets} Active
+        </Text>
+      </View>
     );
   }
   return (

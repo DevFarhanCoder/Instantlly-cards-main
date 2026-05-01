@@ -86,6 +86,7 @@ export interface EventRegistration {
   event_id: number;
   user_id: number;
   ticket_count: number;
+  cancelled_count?: number; // Number of tickets already cancelled (partial refund support)
   registered_at: string;
   qr_code?: string;
   payment_status?: string;
@@ -174,13 +175,16 @@ export const eventsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     listEvents: builder.query<
       { data: AppEvent[]; page: number; limit: number; total: number },
-      { page?: number; limit?: number; search?: string; city?: string } | void
+      { page?: number; limit?: number; search?: string; city?: string; category?: string; date?: string; priceType?: string } | void
     >({
       query: (params) => {
-        const { page = 1, limit = 20, search, city } = params || {};
+        const { page = 1, limit = 20, search, city, category, date, priceType } = params || {};
         let url = `/events?page=${page}&limit=${limit}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
         if (city) url += `&city=${encodeURIComponent(city)}`;
+        if (category) url += `&category=${encodeURIComponent(category)}`;
+        if (date) url += `&date=${encodeURIComponent(date)}`;
+        if (priceType) url += `&priceType=${encodeURIComponent(priceType)}`;
         console.log('[eventsApi.listEvents] url:', url);
         return url;
       },
@@ -530,6 +534,33 @@ export const eventsApi = baseApi.injectEndpoints({
         'Event',
       ],
     }),
+    /** Partial cancel — user cancels N of their own tickets.
+     *  cancel_count: number of tickets to cancel (must be ≤ active tickets).
+     *  Returns remaining_active_tickets and refund info. */
+    partialCancelTickets: builder.mutation<
+      {
+        registration_id: number;
+        cancelled_count: number;
+        remaining_active_tickets: number;
+        is_fully_cancelled: boolean;
+        refund_id: string | null;
+        refund_amount: number | null;
+      },
+      { eventId: number; cancel_count: number; reason?: string }
+    >({
+      query: ({ eventId, cancel_count, reason }) => {
+        console.log('[eventsApi.partialCancelTickets] eventId:', eventId, 'cancel_count:', cancel_count);
+        return {
+          url: `/events/${eventId}/partial-cancel`,
+          method: 'POST',
+          body: { cancel_count, reason },
+        };
+      },
+      invalidatesTags: (_r, _e, arg) => [
+        { type: 'Event', id: arg.eventId },
+        'Event',
+      ],
+    }),
   }),
 });
 
@@ -552,4 +583,5 @@ export const {
   useCancelEventMutation,
   useRefundRegistrationMutation,
   usePromoteWaitlistMutation,
+  usePartialCancelTicketsMutation,
 } = eventsApi;
