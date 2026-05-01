@@ -19,6 +19,7 @@ export type RootStackParamList = {
   EventDetail: { id: string } | undefined;
   EventScanner: undefined;
   CardScanner: undefined;
+  UnifiedScanner: undefined;
   EventCreate: undefined;
   VoucherCreate: { promotionId?: number } | undefined;
   PublicCard: { id: string } | undefined;

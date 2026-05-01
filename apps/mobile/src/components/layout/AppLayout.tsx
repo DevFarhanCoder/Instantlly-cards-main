@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { Bell, MessageCircle, Send, User } from "lucide-react-native";
+import { Bell, MessageCircle, QrCode, Send, User } from "lucide-react-native";
 import BottomNav from "./BottomNav";
 import BannerAdSlot from "../ads/BannerAdSlot";
 import { colors as defaultColors, useColors } from "../../theme/colors";
@@ -52,6 +52,9 @@ const AppLayout = ({
   const enterAnim = useRef(new Animated.Value(0)).current;
   const [showBulkSend, setShowBulkSend] = useState(false);
   const compactHeader = width < 390;
+  const isBusinessRole = Boolean(user && activeRole === "business");
+  const denseHeader = compactHeader || (isBusinessRole && width < 440);
+  const narrowBusinessHeader = isBusinessRole && width < 390;
   const effectiveHideAdBar = Boolean(hideAdBar || route?.params?.hideAdBar);
 
   useEffect(() => {
@@ -65,32 +68,62 @@ const AppLayout = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={[styles.header, compactHeader && styles.headerCompact]}>
+      <View style={[styles.header, compactHeader && styles.headerCompact, denseHeader && styles.headerDense]}>
         <View style={styles.brandCol}>
           <Pressable
             style={styles.brand}
             onPress={() => navigation.navigate("Home")}
           >
-            <Image source={iconImg} style={styles.logo} />
-            <Text style={[styles.brandText, compactHeader && styles.brandTextCompact]} numberOfLines={1}>
+            <Image source={iconImg} style={[styles.logo, denseHeader && styles.logoDense]} />
+            <Text
+              style={[
+                styles.brandText,
+                compactHeader && styles.brandTextCompact,
+                denseHeader && styles.brandTextDense,
+                narrowBusinessHeader && styles.brandTextNarrowBusiness,
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+            >
               <Text style={styles.brandDark}>Instant</Text>
               <Text style={styles.brandBlue}>lly</Text>
               <Text style={styles.brandDark}> Cards</Text>
             </Text>
+            {isBusinessRole && (
+              <View
+                style={[
+                  styles.roleBadgeBusiness,
+                  compactHeader && styles.roleBadgeBusinessCompact,
+                  denseHeader && styles.roleBadgeBusinessDense,
+                  narrowBusinessHeader && styles.roleBadgeBusinessNarrow,
+                  styles.roleBadgeNearBrand,
+                ]}
+              >
+                <View style={styles.roleDotBusiness} />
+                <Text style={[styles.roleBadgeTextBusiness, compactHeader && styles.roleBadgeTextBusinessCompact]}>
+                  BUSINESS
+                </Text>
+              </View>
+            )}
           </Pressable>
         </View>
-        <View style={[styles.headerActions, compactHeader && styles.headerActionsCompact]}>
-          {user && activeRole === 'business' && (
-            <View style={[styles.roleBadgeBusiness, compactHeader && styles.roleBadgeBusinessCompact]}>
-              <View style={styles.roleDotBusiness} />
-              <Text style={[styles.roleBadgeTextBusiness, compactHeader && styles.roleBadgeTextBusinessCompact]}>
-                BUSINESS
-              </Text>
-            </View>
-          )}
+        <View
+          style={[
+            styles.headerActions,
+            compactHeader && styles.headerActionsCompact,
+            denseHeader && styles.headerActionsDense,
+            narrowBusinessHeader && styles.headerActionsNarrowBusiness,
+          ]}
+        >
           <Pressable
             onPress={() => navigation.navigate("Notifications")}
-            style={[styles.iconButton, compactHeader && styles.iconButtonCompact]}
+            style={[
+              styles.iconButton,
+              compactHeader && styles.iconButtonCompact,
+              denseHeader && styles.iconButtonDense,
+              narrowBusinessHeader && styles.iconButtonNarrowBusiness,
+            ]}
           >
             <Bell size={20} color={colors.foreground} />
             {combinedUnreadCount > 0 && (
@@ -102,8 +135,24 @@ const AppLayout = ({
             )}
           </Pressable>
           <Pressable
+            onPress={() => navigation.navigate("UnifiedScanner")}
+            style={[
+              styles.iconButton,
+              compactHeader && styles.iconButtonCompact,
+              denseHeader && styles.iconButtonDense,
+              narrowBusinessHeader && styles.iconButtonNarrowBusiness,
+            ]}
+          >
+            <QrCode size={20} color={colors.foreground} />
+          </Pressable>
+          <Pressable
             onPress={() => navigation.navigate("Messaging")}
-            style={[styles.iconButton, compactHeader && styles.iconButtonCompact]}
+            style={[
+              styles.iconButton,
+              compactHeader && styles.iconButtonCompact,
+              denseHeader && styles.iconButtonDense,
+              narrowBusinessHeader && styles.iconButtonNarrowBusiness,
+            ]}
           >
             <MessageCircle size={20} color={colors.foreground} />
             {chatUnreadCount > 0 && (
@@ -116,7 +165,12 @@ const AppLayout = ({
           </Pressable>
           <Pressable
             onPress={() => navigation.navigate(user ? "Profile" : "Auth")}
-            style={[styles.iconButton, compactHeader && styles.iconButtonCompact]}
+            style={[
+              styles.iconButton,
+              compactHeader && styles.iconButtonCompact,
+              denseHeader && styles.iconButtonDense,
+              narrowBusinessHeader && styles.iconButtonNarrowBusiness,
+            ]}
           >
             {user?.email ? (
               <Text style={styles.avatarText}>
@@ -197,6 +251,10 @@ const makeStyles = (colors: typeof defaultColors) =>
   headerCompact: {
     paddingHorizontal: 10,
   },
+  headerDense: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   brandCol: {
     flex: 1,
     minWidth: 0,
@@ -215,6 +273,10 @@ const makeStyles = (colors: typeof defaultColors) =>
     width: 28,
     borderRadius: 6,
   },
+  logoDense: {
+    height: 24,
+    width: 24,
+  },
   brandText: {
     fontSize: 16,
     fontWeight: "700",
@@ -222,6 +284,12 @@ const makeStyles = (colors: typeof defaultColors) =>
   },
   brandTextCompact: {
     fontSize: 14,
+  },
+  brandTextDense: {
+    fontSize: 14,
+  },
+  brandTextNarrowBusiness: {
+    fontSize: 13,
   },
   brandDark: {
     color: colors.foreground,
@@ -240,6 +308,14 @@ const makeStyles = (colors: typeof defaultColors) =>
     gap: 4,
     marginLeft: 6,
   },
+  headerActionsDense: {
+    gap: 4,
+    marginLeft: 6,
+  },
+  headerActionsNarrowBusiness: {
+    gap: 3,
+    marginLeft: 4,
+  },
   iconButton: {
     height: 40,
     width: 40,
@@ -252,6 +328,16 @@ const makeStyles = (colors: typeof defaultColors) =>
     height: 36,
     width: 36,
     borderRadius: 18,
+  },
+  iconButtonDense: {
+    height: 34,
+    width: 34,
+    borderRadius: 17,
+  },
+  iconButtonNarrowBusiness: {
+    height: 32,
+    width: 32,
+    borderRadius: 16,
   },
   fab: {
     position: "absolute",
@@ -325,6 +411,23 @@ const makeStyles = (colors: typeof defaultColors) =>
     marginLeft: 4,
     marginRight: 2,
   },
+  roleBadgeBusinessDense: {
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    gap: 3,
+    marginLeft: 1,
+    marginRight: 1,
+  },
+  roleBadgeNearBrand: {
+    marginLeft: 8,
+    marginRight: 0,
+    flexShrink: 0,
+  },
+  roleBadgeBusinessNarrow: {
+    paddingHorizontal: 3,
+    paddingVertical: 2,
+    marginLeft: 5,
+  },
   roleDotBusiness: {
     width: 5,
     height: 5,
@@ -339,8 +442,8 @@ const makeStyles = (colors: typeof defaultColors) =>
     color: "#2563eb",
   },
   roleBadgeTextBusinessCompact: {
-    fontSize: 8,
-    letterSpacing: 0.4,
+    fontSize: 7,
+    letterSpacing: 0.3,
   },
   });
 

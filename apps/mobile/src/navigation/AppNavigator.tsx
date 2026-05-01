@@ -69,6 +69,7 @@ import EventDetail from "../screens/EventDetail";
 import EventCreate from "../screens/EventCreate";
 import EventScanner from "../screens/EventScanner";
 import CardScanner from "../screens/CardScanner";
+import UnifiedScanner from "../screens/UnifiedScanner";
 import CardCreate from "../screens/CardCreate";
 import BusinessPromotionForm from "../screens/BusinessPromotionForm";
 import PremiumPlanSelection from "../screens/PremiumPlanSelection";
@@ -148,6 +149,7 @@ const EventsScreen         = withLayout(Events);
 const EventDetailScreen    = withLayout(EventDetail);
 const EventScannerScreen   = withLayout(EventScanner);
 const CardScannerScreen    = withLayout(CardScanner);
+const UnifiedScannerScreen = withLayout(UnifiedScanner);
 const EventCreateScreen    = withLayout(EventCreate);
 const VoucherCreateScreen  = withLayout(VoucherCreate);
 const PublicCardScreen     = withLayout(PublicCard);
@@ -703,6 +705,7 @@ const AppNavigator = () => {
         <Stack.Screen name="AdCreate" component={AdCreateScreen} />
         <Stack.Screen name="AdDashboard" component={AdDashboardScreen} />
         <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+        <Stack.Screen name="UnifiedScanner" component={UnifiedScannerScreen} />
         <Stack.Screen name="EventScanner" component={EventScannerScreen} />
         <Stack.Screen name="CardScanner" component={CardScannerScreen} />
         <Stack.Screen name="EventCreate" component={EventCreateScreen} />

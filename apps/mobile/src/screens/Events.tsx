@@ -669,7 +669,7 @@ const Events = () => {
 
           {isBusiness && (
             <Pressable
-              onPress={() => navigation.navigate("EventScanner")}
+              onPress={() => navigation.navigate("UnifiedScanner")}
               className="flex-1"
             >
               <View className="bg-white rounded-lg p-2.5 flex-row items-center justify-center gap-1.5">

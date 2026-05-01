@@ -519,7 +519,7 @@ const MyCards = () => {
             />
           </View>
           <Pressable
-            onPress={() => navigation.navigate("CardScanner")}
+            onPress={() => navigation.navigate("UnifiedScanner")}
             className="h-10 w-10 items-center justify-center rounded-full bg-primary/10"
           >
             <QrCode size={18} color="#2563eb" />
