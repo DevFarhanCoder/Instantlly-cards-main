@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+// Use the same eventCategories as EventCreate
 import {
   Calendar,
   Filter,
@@ -93,12 +94,28 @@ const EventCard = ({
 );
 
 const Events = () => {
+    // Category filter state
+    const [activeCategory, setActiveCategory] = useState<string | null>(null);
+    const eventCategories = [
+      "Awards",
+      "Conference",
+      "Networking",
+      "Workshop",
+      "Seminar",
+      "Exhibition",
+      "Concert",
+      "Sports",
+      "Festival",
+      "Other",
+    ];
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [chipsOpen, setChipsOpen] = useState(false);
   const searchInputRef = useRef<TextInput | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>("all");
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [priceType, setPriceType] = useState<"all" | "free" | "paid">("all");
   const { isBusiness } = useUserRole();
   const { registrations } = useMyRegistrations();
   const passCount = registrations.length;
@@ -129,14 +146,17 @@ const Events = () => {
       limit,
       search: searchQuery || undefined,
       city: cityFilter,
+      category: activeCategory || undefined,
+      date: selectedDate ? selectedDate.toISOString().split("T")[0] : undefined,
+      priceType: priceType === "all" ? undefined : priceType,
     },
     { refetchOnMountOrArgChange: true }
   );
 
-  // Reset limit when search or tab changes
+  // Reset limit when search, tab, category, date, or price type changes
   useEffect(() => {
     setLimit(PAGE_SIZE);
-  }, [searchQuery, activeTab]);
+  }, [searchQuery, activeTab, activeCategory, selectedDate, priceType]);
 
   // When switching to nearby and city just resolved, reset limit so we refetch
   useEffect(() => {
@@ -189,6 +209,51 @@ const Events = () => {
   const keyExtractor = useCallback(
     (item: AppEvent) => String(item.id),
     []
+  );
+
+  // Category filter bar
+  const CategoryBar = (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ marginBottom: 12, marginTop: 2 }}
+      contentContainerStyle={{ paddingHorizontal: 2, gap: 6, alignItems: "center" }}
+    >
+      <Pressable
+        onPress={() => setActiveCategory(null)}
+        style={{
+          paddingHorizontal: 14,
+          paddingVertical: 7,
+          borderRadius: 999,
+          backgroundColor: !activeCategory ? "#2563eb" : "#f1f5f9",
+          borderWidth: 1.5,
+          borderColor: !activeCategory ? "#2563eb" : "#e2e8f0",
+          marginRight: 2,
+        }}
+      >
+        <Text style={{ color: !activeCategory ? "#fff" : "#2563eb", fontWeight: "600", fontSize: 13 }}>All</Text>
+      </Pressable>
+      {eventCategories.map((cat) => (
+        <Pressable
+          key={cat}
+          onPress={() => setActiveCategory(cat)}
+          style={{
+            paddingHorizontal: 14,
+            paddingVertical: 7,
+            borderRadius: 999,
+            backgroundColor: activeCategory === cat ? "#2563eb" : "#f1f5f9",
+            borderWidth: 1.5,
+            borderColor: activeCategory === cat ? "#2563eb" : "#e2e8f0",
+            marginRight: 2,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <Text style={{ color: activeCategory === cat ? "#fff" : "#2563eb", fontWeight: "600", fontSize: 13 }}>{cat}</Text>
+        </Pressable>
+      ))}
+    </ScrollView>
   );
 
   const ListHeader = (
@@ -247,6 +312,100 @@ const Events = () => {
             Near Me
           </Text>
         </Pressable>
+      </View>
+
+      {/* Category filter bar */}
+      {CategoryBar}
+
+      {/* Date & Price Type Filter */}
+      <View style={{ flexDirection: "row", gap: 8, marginBottom: 16, alignItems: "center" }}>
+        {/* Date Picker */}
+        <Pressable
+          onPress={() => {
+            const date = new Date();
+            // Simple date picker: show current date, user can tap to open OS date picker
+            // For now, show button with option to clear
+            if (selectedDate) {
+              setSelectedDate(null);
+            } else {
+              setSelectedDate(new Date());
+            }
+          }}
+          style={{
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderRadius: 8,
+            borderWidth: 1.5,
+            borderColor: selectedDate ? "#2563eb" : "#e2e8f0",
+            backgroundColor: selectedDate ? "#2563eb15" : "#f1f5f9",
+          }}
+        >
+          <Calendar size={16} color={selectedDate ? "#2563eb" : "#6a7181"} />
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "500",
+              color: selectedDate ? "#2563eb" : "#6a7181",
+              flex: 1,
+            }}
+          >
+            {selectedDate
+              ? selectedDate.toLocaleDateString()
+              : "Pick Date"}
+          </Text>
+          {selectedDate && <X size={14} color="#2563eb" />}
+        </Pressable>
+
+        {/* Price Type Filter */}
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          <Pressable
+            onPress={() => setPriceType(priceType === "free" ? "all" : "free")}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              borderWidth: 1.5,
+              borderColor: priceType === "free" ? "#2563eb" : "#e2e8f0",
+              backgroundColor: priceType === "free" ? "#2563eb" : "#f1f5f9",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "600",
+                color: priceType === "free" ? "#fff" : "#6a7181",
+              }}
+            >
+              Free
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setPriceType(priceType === "paid" ? "all" : "paid")}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 8,
+              borderWidth: 1.5,
+              borderColor: priceType === "paid" ? "#2563eb" : "#e2e8f0",
+              backgroundColor: priceType === "paid" ? "#2563eb" : "#f1f5f9",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: "600",
+                color: priceType === "paid" ? "#fff" : "#6a7181",
+              }}
+            >
+              Paid
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Location status for Near Me tab */}
