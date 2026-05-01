@@ -85,6 +85,8 @@ type SocketEvents = {
   'voucher:transferred': (data: { voucherTitle?: string; fromName?: string }) => void;
   // Event registration
   'event:registered': (data: { eventName?: string; userName?: string }) => void;
+  // Event check-in — fired when the organizer scans the user's QR
+  'event:checkin': (data: { registrationId: number; eventId: number; eventName?: string | null }) => void;
   // Promotion / ad / card admin events
   'promotion:rejected': (data: { title?: string; reason?: string }) => void;
   'ad:approved': (data: { title?: string }) => void;

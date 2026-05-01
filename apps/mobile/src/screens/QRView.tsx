@@ -20,6 +20,7 @@ import { useColors } from "../theme/colors";
 import { useMyRegistrations } from "../hooks/useEvents";
 import type { EventRegistration } from "../store/api/eventsApi";
 import { usePartialCancelTicketsMutation } from "../store/api/eventsApi";
+import { socketService } from "../services/socketService";
 
 /**
  * QRView — full-screen QR pass. Reads the registration row from the
@@ -85,6 +86,13 @@ const QRView = () => {
   const { registrations, isLoading, isError, refetch } = useMyRegistrations();
   const [partialCancel, { isLoading: isCancelling }] = usePartialCancelTicketsMutation();
   const [cancelCount, setCancelCount] = useState(1);
+
+  // Refresh immediately when the organizer checks us in (real-time socket event)
+  useEffect(() => {
+    const handler = () => { refetch(); };
+    socketService.on("event:checkin", handler);
+    return () => socketService.off("event:checkin", handler);
+  }, [refetch]);
 
   const pass = useMemo<EventRegistration | undefined>(
     () =>
