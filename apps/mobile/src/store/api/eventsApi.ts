@@ -165,14 +165,16 @@ export const eventsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     listEvents: builder.query<
       { data: AppEvent[]; page: number; limit: number; total: number },
-      { page?: number; limit?: number; search?: string; city?: string; category?: string } | void
+      { page?: number; limit?: number; search?: string; city?: string; category?: string; date?: string; priceType?: string } | void
     >({
       query: (params) => {
-        const { page = 1, limit = 20, search, city, category } = params || {};
+        const { page = 1, limit = 20, search, city, category, date, priceType } = params || {};
         let url = `/events?page=${page}&limit=${limit}`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
         if (city) url += `&city=${encodeURIComponent(city)}`;
         if (category) url += `&category=${encodeURIComponent(category)}`;
+        if (date) url += `&date=${encodeURIComponent(date)}`;
+        if (priceType) url += `&priceType=${encodeURIComponent(priceType)}`;
         console.log('[eventsApi.listEvents] url:', url);
         return url;
       },
