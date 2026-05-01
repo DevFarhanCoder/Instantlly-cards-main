@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   BackHandler,
   FlatList,
+  Image,
   Keyboard,
   Pressable,
   RefreshControl,
@@ -45,8 +46,12 @@ const EventCard = ({
     onPress={onPress}
     className="flex-row gap-3 bg-card rounded-xl overflow-hidden mb-3"
   >
-    <View className="w-24 h-28 bg-primary/10 items-center justify-center">
-      <Text className="text-4xl">{"\uD83C\uDF89"}</Text>
+    <View style={{ width: 96, height: 112 }} className="bg-primary/10 items-center justify-center overflow-hidden rounded-l-xl">
+      {event.company_logo && typeof event.company_logo === "string" && event.company_logo.startsWith("http") ? (
+        <Image source={{ uri: event.company_logo }} style={{ width: 96, height: 112 }} resizeMode="cover" onError={(e) => console.log("[EventCard] image error", event.id, e.nativeEvent.error)} />
+      ) : (
+        <Image source={require("../../assets/Instantlly_Logo-removebg.png")} style={{ width: 64, height: 64 }} resizeMode="contain" />
+      )}
     </View>
     <View className="py-3 pr-4 flex-1">
       <View className="flex-row items-center gap-1.5 mb-1">
@@ -55,9 +60,7 @@ const EventCard = ({
             FREE
           </Badge>
         ) : (
-          <Badge className="bg-accent/10 text-accent border-none text-[10px]">
-            {"\u20B9"}{event.ticket_price}
-          </Badge>
+          <Badge className="bg-accent/10 text-accent border-none text-[10px] px-2 py-0.5"><Text className="text-accent text-[10px] font-semibold">{"\u20B9" + event.ticket_price}</Text></Badge>
         )}
         {event.city && (
           <Badge className="bg-muted text-muted-foreground border-none text-[10px]">
@@ -336,7 +339,7 @@ const Events = () => {
       <View className="bg-primary px-4 py-3">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center gap-2">
-            <Text className="text-lg">{"\uD83C\uDF89"}</Text>
+            <Image source={require("../../assets/Instantlly_Logo-removebg.png")} style={{ width: 20, height: 20 }} resizeMode="contain" />
             <Text className="text-lg font-bold text-primary-foreground">
               Events Market
             </Text>

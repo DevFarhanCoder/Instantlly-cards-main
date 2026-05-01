@@ -1,11 +1,13 @@
 import { useState, useMemo, useCallback } from "react";
-import { Modal, Pressable, ScrollView, Text, View, KeyboardAvoidingView, Platform } from "react-native";
+import { Image, Modal, Pressable, ScrollView, Text, View, KeyboardAvoidingView, Platform } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import {
   ArrowLeft,
   Calendar,
   CheckCircle2,
   Clock,
+  Image as ImageIcon,
   MapPin,
   Plus,
   Ticket,
@@ -36,6 +38,24 @@ import {
 } from "../store/api/eventsApi";
 import { toast } from "../lib/toast";
 import { useColors, useIconColor, useMutedIconColor } from "../theme/colors";
+import { API_URL } from "../store/api/baseApi";
+import * as SecureStore from "expo-secure-store";
+
+async function uploadEventMedia(uri: string, folder: "logo" | "venue", token: string): Promise<string> {
+  const filename = uri.split("/").pop() ?? "image.jpg";
+  const ext = filename.split(".").pop() ?? "jpg";
+  const mimeType = ext === "png" ? "image/png" : "image/jpeg";
+  const formData = new FormData();
+  formData.append("file", { uri, name: filename, type: mimeType } as any);
+  const res = await fetch(`${API_URL}/api/uploads/event-media?folder=${folder}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+  if (!res.ok) throw new Error("Upload failed");
+  const json = await res.json();
+  return json.url as string;
+}
 
 /**
  * EventCreate — three-step creation flow.
@@ -104,6 +124,7 @@ const EventCreate = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const preselectedCardId = route?.params?.cardId || "";
+  const cloneFrom = route?.params?.cloneFrom ?? null;
   const { user } = useAuth();
   const { isBusiness } = useUserRole();
   const { selectedPromotion, selectedPromotionId, promotions, selectPromotion } = usePromotionContext();
@@ -113,31 +134,54 @@ const EventCreate = () => {
   // ── Form state ────────────────────────────────────────────────────────────
   const defaultPromotionId = selectedPromotionId
     ? Number(selectedPromotionId)
-    : 0;
-  const defaultOrganizer = selectedPromotion?.business_name || "";
+    : (cloneFrom?.business_promotion_id ? Number(cloneFrom.business_promotion_id) : 0);
+  const defaultOrganizer = selectedPromotion?.business_name || (cloneFrom?.business_promotion?.business_name ?? "");
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [submitting, setSubmitting] = useState(false);
 
   const [basic, setBasic] = useState({
-    title: "",
-    description: "",
-    category: "",
-    venue: "",
+    title: cloneFrom?.title ?? "",
+    description: cloneFrom?.description ?? "",
+    category: (cloneFrom as any)?.category ?? "",
+    venue: cloneFrom?.location ?? (cloneFrom as any)?.venue ?? "",
     date: "",
+    end_date: "",
     time: "",
-    max_attendees: "",
-    organizer_name: defaultOrganizer,
+    max_attendees: cloneFrom?.max_attendees ? String(cloneFrom.max_attendees) : "",
+    organizer_name: (cloneFrom as any)?.organizer_name ?? defaultOrganizer,
     business_promotion_id: defaultPromotionId,
+    company_logo: (cloneFrom as any)?.company_logo ?? "",
+    venue_images: (cloneFrom as any)?.venue_images ?? [] as string[],
   });
 
-  const [pricingMode, setPricingMode] = useState<PricingMode>("free");
-  const [tiers, setTiers] = useState<TierDraft[]>([
-    { ...newTierDraft(0), name: "General Admission", price: 500 },
-  ]);
+  // Pre-fill tiers from the cloned event (non-virtual tiers only)
+  const clonedTiers: TierDraft[] = cloneFrom?.ticket_tiers
+    ?.filter((t: any) => !t.is_virtual)
+    .map((t: any, i: number) => ({
+      _localId: `clone-tier-${Date.now()}-${i}`,
+      name: t.name ?? "",
+      price: t.price ?? 0,
+      quantity_total: t.quantity_total ?? null,
+      min_per_order: t.min_per_order ?? 1,
+      max_per_order: t.max_per_order ?? 10,
+      sort_order: i,
+    })) ?? [];
+
+  const [pricingMode, setPricingMode] = useState<PricingMode>(
+    clonedTiers.length > 0 ? "tiered" : "free"
+  );
+  const [tiers, setTiers] = useState<TierDraft[]>(
+    clonedTiers.length > 0
+      ? clonedTiers
+      : [{ ...newTierDraft(0), name: "General Admission", price: 500 }]
+  );
 
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
 
   // ── Auth / role guard ─────────────────────────────────────────────────────
   if (!isBusiness) {
@@ -164,6 +208,58 @@ const EventCreate = () => {
     [],
   );
 
+  const handlePickLogo = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") { toast.error("Gallery permission required"); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const uri = result.assets[0].uri;
+    try {
+      setUploadingMedia(true);
+      const token = await SecureStore.getItemAsync("accessToken");
+      const url = await uploadEventMedia(uri, "logo", token ?? "");
+      updateBasic("company_logo", url);
+    } catch { toast.error("Logo upload failed"); } finally { setUploadingMedia(false); }
+  }, [updateBasic]);
+
+  const handlePickVenueImage = useCallback(async () => {
+    const current = basic.venue_images as string[];
+    const remaining = 5 - current.length;
+    if (remaining <= 0) { toast.error("Maximum 5 venue images"); return; }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") { toast.error("Gallery permission required"); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: false,
+      allowsMultipleSelection: true,
+      selectionLimit: remaining,
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    const assets = result.assets.slice(0, remaining);
+    try {
+      setUploadingMedia(true);
+      const token = await SecureStore.getItemAsync("accessToken");
+      const urls: string[] = [];
+      for (const a of assets) {
+        try { const u = await uploadEventMedia(a.uri, "venue", token ?? ""); urls.push(u); }
+        catch { /* skip failed */ }
+      }
+      if (urls.length === 0) { toast.error("Image upload failed"); return; }
+      updateBasic("venue_images", [...current, ...urls]);
+      if (urls.length < assets.length) toast.error(`Uploaded ${urls.length} of ${assets.length}`);
+    } finally { setUploadingMedia(false); }
+  }, [basic.venue_images, updateBasic]);
+
+  const handleRemoveVenueImage = useCallback((idx: number) => {
+    updateBasic("venue_images", (basic.venue_images as string[]).filter((_: string, i: number) => i !== idx));
+  }, [basic.venue_images, updateBasic]);
+
   const todayStr = new Date().toISOString().split("T")[0];
   const formattedDate = basic.date
     ? new Date(basic.date + "T00:00:00").toLocaleDateString("en-IN", {
@@ -173,6 +269,15 @@ const EventCreate = () => {
         year: "numeric",
       })
     : "";
+  const formattedEndDate = basic.end_date
+    ? new Date(basic.end_date + "T00:00:00").toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "";
+
   const formattedTime = basic.time
     ? (() => {
         const [hh, mm] = basic.time.split(":");
@@ -187,6 +292,7 @@ const EventCreate = () => {
   const step1Valid =
     !!basic.title.trim() &&
     !!basic.venue.trim() &&
+    !!basic.category &&
     !!basic.date &&
     !!basic.time &&
     !!basic.business_promotion_id;
@@ -245,6 +351,7 @@ const EventCreate = () => {
         title: basic.title.trim(),
         description: basic.description.trim() || undefined,
         date: basic.date,
+        end_date: basic.end_date || undefined,
         time: basic.time,
         location: basic.venue.trim(),
         ticket_price: headlinePrice,
@@ -252,6 +359,8 @@ const EventCreate = () => {
           ? parseInt(basic.max_attendees, 10)
           : undefined,
         business_promotion_id: basic.business_promotion_id,
+        company_logo: basic.company_logo || undefined,
+        venue_images: basic.venue_images.length > 0 ? basic.venue_images : undefined,
       };
       console.log("[EventCreate] step A — payload:", JSON.stringify(payload));
       const created = await createEvent.mutateAsync(payload);
@@ -313,13 +422,14 @@ const EventCreate = () => {
 
   const goNext = () => {
     if (step === 1 && !step1Valid) {
-      toast.error("Please complete the basics first");
+      setShowErrors(true);
       return;
     }
     if (step === 2 && !step2Valid) {
       toast.error(tierErrors[0] ?? "Please fix tier setup");
       return;
     }
+    setShowErrors(false);
     setStep((s) => (s === 3 ? 3 : ((s + 1) as 1 | 2 | 3)));
   };
   const goBack = () => {
@@ -342,7 +452,7 @@ const EventCreate = () => {
         </Pressable>
         <View className="flex-1">
           <Text className="text-lg font-bold text-foreground">
-            Create Event
+            {cloneFrom ? "Duplicate Event" : "Create Event"}
           </Text>
           <Text className="text-xs text-muted-foreground">
             Step {step} of 3 ·{" "}
@@ -376,9 +486,15 @@ const EventCreate = () => {
             }}
             onCreatePromotion={() => navigation.navigate("BusinessPromotionForm" as never)}
             formattedDate={formattedDate}
+            formattedEndDate={formattedEndDate}
             formattedTime={formattedTime}
             onPickDate={() => setShowDatePicker(true)}
+            onPickEndDate={() => setShowEndDatePicker(true)}
             onPickTime={() => setShowTimePicker(true)}
+            onPickLogo={handlePickLogo}
+            onPickVenueImage={handlePickVenueImage}
+            onRemoveVenueImage={handleRemoveVenueImage}
+            showErrors={showErrors}
           />
         ) : step === 2 ? (
           <Step2Tickets
@@ -394,6 +510,7 @@ const EventCreate = () => {
           <Step3Review
             basic={basic}
             formattedDate={formattedDate}
+            formattedEndDate={formattedEndDate}
             formattedTime={formattedTime}
             mode={pricingMode}
             tiers={tiers}
@@ -417,9 +534,6 @@ const EventCreate = () => {
           <Button
             className="flex-1 rounded-xl"
             onPress={goNext}
-            disabled={
-              (step === 1 && !step1Valid) || (step === 2 && !step2Valid)
-            }
           >
             Continue
           </Button>
@@ -428,7 +542,7 @@ const EventCreate = () => {
             className="flex-1 rounded-xl"
             onPress={handleSubmit}
             disabled={
-              submitting || createEvent.isPending || createTierState.isLoading
+              submitting || createEvent.isPending || createTierState.isLoading || uploadingMedia
             }
           >
             {submitting ? "Creating…" : "Create Event"}
@@ -468,6 +582,58 @@ const EventCreate = () => {
                 basic.date
                   ? {
                       [basic.date]: {
+                        selected: true,
+                        selectedColor: colors.primary,
+                      },
+                    }
+                  : {}
+              }
+              theme={{
+                todayTextColor: colors.primary,
+                selectedDayBackgroundColor: colors.primary,
+                selectedDayTextColor: "#ffffff",
+                arrowColor: colors.primary,
+                textDayFontSize: 15,
+                textMonthFontSize: 16,
+                textDayHeaderFontSize: 13,
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* End Date Picker */}
+      <Modal
+        visible={showEndDatePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEndDatePicker(false)}
+      >
+        <View className="flex-1 justify-end bg-black/40">
+          <Pressable
+            className="absolute inset-0"
+            onPress={() => setShowEndDatePicker(false)}
+          />
+          <View className="mx-3 mb-6 rounded-2xl bg-card border border-border overflow-hidden">
+            <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+              <Text className="text-base font-bold text-foreground">
+                Select End Date
+              </Text>
+              <Pressable onPress={() => setShowEndDatePicker(false)}>
+                <Text className="text-sm font-semibold text-primary">Done</Text>
+              </Pressable>
+            </View>
+            <RNCalendar
+              current={basic.end_date || basic.date || todayStr}
+              minDate={basic.date || todayStr}
+              onDayPress={(day: any) => {
+                updateBasic("end_date", day.dateString);
+                setShowEndDatePicker(false);
+              }}
+              markedDates={
+                basic.end_date
+                  ? {
+                      [basic.end_date]: {
                         selected: true,
                         selectedColor: colors.primary,
                       },
@@ -591,9 +757,15 @@ interface Step1Props {
   onSelectPromotion: (id: number, name?: string) => void;
   onCreatePromotion: () => void;
   formattedDate: string;
+  formattedEndDate: string;
   formattedTime: string;
   onPickDate: () => void;
+  onPickEndDate: () => void;
   onPickTime: () => void;
+  onPickLogo: () => void;
+  onPickVenueImage: () => void;
+  onRemoveVenueImage: (idx: number) => void;
+  showErrors?: boolean;
 }
 
 function Step1Basics({
@@ -606,10 +778,20 @@ function Step1Basics({
   onSelectPromotion,
   onCreatePromotion,
   formattedDate,
+  formattedEndDate,
   formattedTime,
   onPickDate,
+  onPickEndDate,
   onPickTime,
+  onPickLogo,
+  onPickVenueImage,
+  onRemoveVenueImage,
+  showErrors,
 }: Step1Props) {
+  const err = (val: boolean, msg: string) =>
+    showErrors && !val ? (
+      <Text className="text-xs text-destructive mt-0.5">{msg}</Text>
+    ) : null;
   return (
     <>
       <View
@@ -679,7 +861,9 @@ function Step1Basics({
           placeholder="e.g. Digital Marketing Summit 2026"
           value={basic.title}
           onChangeText={(v) => update("title", v)}
+          className={showErrors && !basic.title.trim() ? "border-destructive" : ""}
         />
+        {err(!!basic.title.trim(), "Event title is required")}
       </View>
 
       <View className="gap-2">
@@ -693,12 +877,12 @@ function Step1Basics({
       </View>
 
       <View className="gap-2">
-        <Label>Category</Label>
+        <Label>Category *</Label>
         <Select
           value={basic.category}
           onValueChange={(v) => update("category", v)}
         >
-          <SelectTrigger className="rounded-xl">
+          <SelectTrigger className={`rounded-xl ${showErrors && !basic.category ? "border-destructive" : ""}`}>
             <Text
               className={`text-sm ${
                 basic.category ? "text-foreground" : "text-muted-foreground"
@@ -715,20 +899,23 @@ function Step1Basics({
             ))}
           </SelectContent>
         </Select>
+        {err(!!basic.category, "Please select a category")}
       </View>
 
       <View className="flex-row gap-3">
         <View className="flex-1 gap-2">
           <View className="flex-row items-center gap-1">
             <Calendar size={14} color={mutedIcon} />
-            <Label>Date *</Label>
+            <Label>Start Date *</Label>
           </View>
           <Pressable
             onPress={onPickDate}
             testID="date-picker-trigger"
-            className="h-10 w-full flex-row items-center rounded-xl border border-input bg-background px-3"
+            className={`h-10 w-full flex-row items-center rounded-xl border bg-background px-3 ${
+              showErrors && !basic.date ? "border-destructive" : "border-input"
+            }`}
           >
-            <Calendar size={16} color={basic.date ? mutedIcon : mutedIcon} />
+            <Calendar size={16} color={mutedIcon} />
             <Text
               className={`ml-2 text-sm flex-1 ${
                 basic.date ? "text-foreground" : "text-muted-foreground"
@@ -737,6 +924,7 @@ function Step1Basics({
               {formattedDate || "Pick a date"}
             </Text>
           </Pressable>
+          {err(!!basic.date, "Start date is required")}
         </View>
 
         <View className="flex-1 gap-2">
@@ -747,7 +935,9 @@ function Step1Basics({
           <Pressable
             onPress={onPickTime}
             testID="time-picker-trigger"
-            className="h-10 w-full flex-row items-center rounded-xl border border-input bg-background px-3"
+            className={`h-10 w-full flex-row items-center rounded-xl border bg-background px-3 ${
+              showErrors && !basic.time ? "border-destructive" : "border-input"
+            }`}
           >
             <Clock size={16} color={mutedIcon} />
             <Text
@@ -758,19 +948,48 @@ function Step1Basics({
               {formattedTime || "Pick a time"}
             </Text>
           </Pressable>
+          {err(!!basic.time, "Time is required")}
         </View>
       </View>
 
       <View className="gap-2">
         <View className="flex-row items-center gap-1">
-          <MapPin size={14} color={mutedIcon} />
-          <Label>Venue *</Label>
+          <Calendar size={14} color={mutedIcon} />
+          <Label>End Date</Label>
         </View>
+        <Pressable
+          onPress={onPickEndDate}
+          testID="end-date-picker-trigger"
+          className="h-10 w-full flex-row items-center rounded-xl border border-input bg-background px-3"
+        >
+          <Calendar size={16} color={mutedIcon} />
+          <Text
+            className={`ml-2 text-sm flex-1 ${
+              basic.end_date ? "text-foreground" : "text-muted-foreground"
+            }`}
+          >
+            {formattedEndDate || "Pick an end date (optional)"}
+          </Text>
+          {basic.end_date ? (
+            <Pressable
+              onPress={() => update("end_date", "")}
+              hitSlop={8}
+            >
+              <Text className="text-xs text-muted-foreground">✕</Text>
+            </Pressable>
+          ) : null}
+        </Pressable>
+      </View>
+
+      <View className="gap-2">
+        <Label>Venue *</Label>
         <Input
           placeholder="e.g. Jio Convention Centre, Mumbai"
           value={basic.venue}
           onChangeText={(v) => update("venue", v)}
+          className={showErrors && !basic.venue.trim() ? "border-destructive" : ""}
         />
+        {err(!!basic.venue.trim(), "Venue is required")}
       </View>
 
       <View className="gap-2">
@@ -780,6 +999,73 @@ function Step1Basics({
           value={basic.organizer_name}
           onChangeText={(v) => update("organizer_name", v)}
         />
+      </View>
+
+      {/* Company Logo */}
+      <View className="gap-2">
+        <View className="flex-row items-center gap-1">
+          <ImageIcon size={14} color={mutedIcon} />
+          <Label>Company Logo</Label>
+        </View>
+        {basic.company_logo ? (
+          <View className="relative w-24 h-24">
+            <Image
+              source={{ uri: basic.company_logo }}
+              className="w-24 h-24 rounded-xl"
+              resizeMode="cover"
+            />
+            <Pressable
+              onPress={() => update("company_logo", "")}
+              className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive items-center justify-center"
+              hitSlop={8}
+            >
+              <Text className="text-[10px] text-white font-bold">✕</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            onPress={onPickLogo}
+            className="h-24 w-24 rounded-xl border-2 border-dashed border-input items-center justify-center gap-1"
+          >
+            <ImageIcon size={20} color={mutedIcon} />
+            <Text className="text-[10px] text-muted-foreground">Upload Logo</Text>
+          </Pressable>
+        )}
+      </View>
+
+      {/* Venue Images */}
+      <View className="gap-2">
+        <View className="flex-row items-center gap-1">
+          <ImageIcon size={14} color={mutedIcon} />
+          <Label>Venue Images (up to 5)</Label>
+        </View>
+        <View className="flex-row flex-wrap gap-2">
+          {(basic.venue_images as string[]).map((uri: string, idx: number) => (
+            <View key={idx} className="relative w-24 h-24">
+              <Image
+                source={{ uri }}
+                className="w-24 h-24 rounded-xl"
+                resizeMode="cover"
+              />
+              <Pressable
+                onPress={() => onRemoveVenueImage(idx)}
+                className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive items-center justify-center"
+                hitSlop={8}
+              >
+                <Text className="text-[10px] text-white font-bold">✕</Text>
+              </Pressable>
+            </View>
+          ))}
+          {(basic.venue_images as string[]).length < 5 ? (
+            <Pressable
+              onPress={onPickVenueImage}
+              className="h-24 w-24 rounded-xl border-2 border-dashed border-input items-center justify-center gap-1"
+            >
+              <Plus size={20} color={mutedIcon} />
+              <Text className="text-[10px] text-muted-foreground">Add Image</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       <View className="gap-2">
@@ -1026,6 +1312,7 @@ function TicketTierForm({
 interface Step3Props {
   basic: any;
   formattedDate: string;
+  formattedEndDate: string;
   formattedTime: string;
   mode: PricingMode;
   tiers: TierDraft[];
@@ -1035,6 +1322,7 @@ interface Step3Props {
 function Step3Review({
   basic,
   formattedDate,
+  formattedEndDate,
   formattedTime,
   mode,
   tiers,
@@ -1051,13 +1339,16 @@ function Step3Review({
         ) : null}
         {basic.category ? <Row label="Category" value={basic.category} /> : null}
         <Row
-          label="When"
+          label="Starts"
           value={
             formattedDate
               ? `${formattedDate}${formattedTime ? " · " + formattedTime : ""}`
               : "—"
           }
         />
+        {formattedEndDate ? (
+          <Row label="Ends" value={formattedEndDate} />
+        ) : null}
         <Row label="Where" value={basic.venue || "—"} />
         {basic.max_attendees ? (
           <Row label="Capacity" value={basic.max_attendees} />

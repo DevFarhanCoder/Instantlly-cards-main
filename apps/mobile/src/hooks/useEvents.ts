@@ -129,7 +129,11 @@ export function useVerifyRegistration() {
 
 export function useMyRegistrations() {
   const { user } = useAuth();
-  const { data, isLoading, isError, refetch } = useGetMyRegistrationsQuery(undefined, { skip: !user });
+  const { data, isLoading, isError, refetch } = useGetMyRegistrationsQuery(undefined, {
+    skip: !user,
+    // Use cached data when navigating to QRView — avoids full reload on every mount.
+    refetchOnMountOrArgChange: false,
+  });
   return {
     registrations: data ?? [],
     isLoading,

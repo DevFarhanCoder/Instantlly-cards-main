@@ -11,12 +11,12 @@ import { ArrowLeft, Calendar, CheckCircle2, Clock, MapPin } from "lucide-react-n
 import QRCode from "react-native-qrcode-svg";
 import { format } from "date-fns";
 
-import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { ErrorState } from "../components/ui/error-state";
 import { PageLoader } from "../components/ui/page-loader";
 import { useColors } from "../theme/colors";
 import { useMyRegistrations } from "../hooks/useEvents";
+import { Ticket } from "lucide-react-native";
 import type { EventRegistration } from "../store/api/eventsApi";
 
 /**
@@ -189,16 +189,47 @@ const QRView = () => {
             <Text className="text-xl font-bold text-foreground">
               {event?.title || "Event"}
             </Text>
-            <View className="flex-row flex-wrap gap-2">
-              {pass.payment_status === "paid" ? (
-                <Badge className="bg-success/10 text-success border-none text-xs">
-                  Paid{pass.amount_paid != null ? ` ₹${pass.amount_paid}` : ""}
-                </Badge>
-              ) : null}
-              <Badge className="bg-primary/10 text-primary border-none text-xs">
-                {pass.ticket_count}{" "}
-                {pass.ticket_count > 1 ? "tickets" : "ticket"}
-              </Badge>
+
+            {/* Ticket type card — shown for tiered registrations */}
+            {pass.ticket_tier ? (
+              <View className="rounded-xl border border-accent/30 bg-accent/5 p-3 flex-row items-center gap-3">
+                <View className="rounded-lg bg-accent/15 p-2">
+                  <Ticket size={18} color={colors.accent} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-xs text-muted-foreground uppercase tracking-wide">Ticket Type</Text>
+                  <Text className="text-base font-bold text-foreground">{pass.ticket_tier.name}</Text>
+                </View>
+                <View className="items-end">
+                  <Text className="text-xs text-muted-foreground">Price</Text>
+                  <Text className="text-base font-bold text-accent">
+                    {pass.ticket_tier.price === 0 ? "Free" : `₹${pass.ticket_tier.price}`}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
+            <View className="flex-row gap-3">
+              {/* Payment stat */}
+              <View className="flex-1 rounded-xl bg-success/10 px-3 py-2.5 items-center">
+                <Text className="text-[10px] uppercase tracking-wide text-success/70 font-medium">
+                  {pass.payment_status === "paid" ? "Amount Paid" : "Entry"}
+                </Text>
+                <Text className="text-lg font-bold text-success mt-0.5">
+                  {pass.payment_status === "paid" && pass.amount_paid != null
+                    ? `₹${pass.amount_paid}`
+                    : "Free"}
+                </Text>
+              </View>
+              {/* Ticket count stat */}
+              <View className="flex-1 rounded-xl bg-primary/10 px-3 py-2.5 items-center">
+                <Text className="text-[10px] uppercase tracking-wide text-primary/70 font-medium">
+                  {pass.ticket_count > 1 ? "Tickets" : "Ticket"}
+                </Text>
+                <Text className="text-lg font-bold text-primary mt-0.5">
+                  {pass.ticket_count}
+                </Text>
+              </View>
             </View>
 
             <View className="gap-2 rounded-xl bg-muted p-3 mt-1">

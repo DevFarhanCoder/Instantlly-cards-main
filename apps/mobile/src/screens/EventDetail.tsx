@@ -1,5 +1,11 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
+  Dimensions,
+  Image,
+  ImageSourcePropType,
+  Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -452,6 +458,19 @@ const EventDetail = () => {
 
   const eventCancelled =
     (event as any).status === "cancelled" || !!event.cancelled_at;
+  const venueImages = Array.isArray((event as any).venue_images)
+    ? ((event as any).venue_images as string[])
+    : [];
+  const companyLogo =
+    typeof (event as any).company_logo === "string" && (event as any).company_logo.trim()
+      ? (event as any).company_logo
+      : null;
+  const hasHeroMedia = venueImages.length > 0 || !!companyLogo;
+  const heroImageSources: ImageSourcePropType[] = venueImages.length > 0
+    ? venueImages.map((uri) => ({ uri }))
+    : companyLogo
+      ? [{ uri: companyLogo }]
+      : [];
 
   return (
     <View className="flex-1 bg-background">
@@ -465,8 +484,18 @@ const EventDetail = () => {
         </Pressable>
       </View>
 
-      <View className="h-48 bg-primary/10 items-center justify-center">
-        <Text className="text-7xl">🎉</Text>
+      <View className="h-48 bg-primary/10 overflow-hidden">
+        {hasHeroMedia ? (
+          <VenueImageSlider images={heroImageSources} />
+        ) : (
+          <View className="flex-1 items-center justify-center px-4">
+            <Image
+              source={require("../../assets/Instantlly_Logo-removebg.png")}
+              style={{ width: 118, height: 118 }}
+              resizeMode="contain"
+            />
+          </View>
+        )}
       </View>
 
       <ScrollView
@@ -511,40 +540,60 @@ const EventDetail = () => {
               </Text>
             </View>
 
-            <View className="gap-2.5 rounded-xl bg-muted p-4">
-              <View className="flex-row items-center gap-3">
-                <Calendar size={16} color={colors.primary} />
-                <Text className="text-sm text-foreground">
-                  {new Date(event.date).toLocaleDateString()}
-                </Text>
-              </View>
-              <View className="flex-row items-center gap-3">
-                <Clock size={16} color={colors.primary} />
-                <Text className="text-sm text-foreground">{event.time}</Text>
-              </View>
-              {event.venue || event.location ? (
-                <View className="flex-row items-center gap-3">
-                  <MapPin size={16} color={colors.primary} />
-                  <Text className="text-sm text-foreground">
-                    {event.venue || event.location}
-                  </Text>
+            <View className="rounded-xl bg-muted p-4 gap-3">
+              <View className="flex-row gap-3">
+                <View className="flex-1 flex-row items-start gap-2">
+                  <Calendar size={15} color={colors.primary} />
+                  <View className="flex-1">
+                    <Text className="text-[10px] text-muted-foreground uppercase tracking-wide">Date</Text>
+                    <Text className="text-sm text-foreground font-medium">
+                      {new Date(event.date).toLocaleDateString()}
+                    </Text>
+                  </View>
                 </View>
-              ) : null}
-              {event.max_attendees ? (
-                <View className="flex-row items-center gap-3">
-                  <Users size={16} color={colors.primary} />
-                  <Text className="text-sm text-foreground">
-                    {event.max_attendees} seats ({event.attendee_count || 0}{" "}
-                    registered)
-                  </Text>
+                <View className="flex-1 flex-row items-start gap-2">
+                  <Clock size={15} color={colors.primary} />
+                  <View className="flex-1">
+                    <Text className="text-[10px] text-muted-foreground uppercase tracking-wide">Time</Text>
+                    <Text className="text-sm text-foreground font-medium">{event.time}</Text>
+                  </View>
+                </View>
+              </View>
+              {(event.venue || event.location || event.max_attendees) ? (
+                <View className="flex-row gap-3">
+                  {event.venue || event.location ? (
+                    <View className="flex-1 flex-row items-start gap-2">
+                      <MapPin size={15} color={colors.primary} />
+                      <View className="flex-1">
+                        <Text className="text-[10px] text-muted-foreground uppercase tracking-wide">Location</Text>
+                        <Text className="text-sm text-foreground font-medium" numberOfLines={2}>
+                          {event.venue || event.location}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : <View className="flex-1" />}
+                  {event.max_attendees ? (
+                    <View className="flex-1 flex-row items-start gap-2">
+                      <Users size={15} color={colors.primary} />
+                      <View className="flex-1">
+                        <Text className="text-[10px] text-muted-foreground uppercase tracking-wide">Capacity</Text>
+                        <Text className="text-sm text-foreground font-medium">
+                          {event.attendee_count || 0}/{event.max_attendees}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : <View className="flex-1" />}
                 </View>
               ) : null}
               {event.business ? (
-                <View className="flex-row items-center gap-3">
-                  <Tag size={16} color={colors.primary} />
-                  <Text className="text-sm text-foreground">
-                    By {event.business.company_name || event.business.full_name}
-                  </Text>
+                <View className="flex-row items-start gap-2">
+                  <Tag size={15} color={colors.primary} />
+                  <View>
+                    <Text className="text-[10px] text-muted-foreground uppercase tracking-wide">Organiser</Text>
+                    <Text className="text-sm text-foreground font-medium">
+                      {event.business.company_name || event.business.full_name}
+                    </Text>
+                  </View>
                 </View>
               ) : null}
             </View>
@@ -734,6 +783,97 @@ interface LegacyBlockProps {
   waitlistBusy: boolean;
 }
 
+function VenueImageSlider({ images }: { images: ImageSourcePropType[] }) {
+  const { width, height } = Dimensions.get("window");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const viewerScrollRef = useRef<ScrollView>(null);
+
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / width);
+    setActiveIndex(idx);
+  };
+
+  const onViewerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const idx = Math.round(e.nativeEvent.contentOffset.x / width);
+    setViewerIndex(idx);
+  };
+
+  const openViewer = (idx: number) => {
+    setViewerIndex(idx);
+    setViewerOpen(true);
+    setTimeout(() => {
+      viewerScrollRef.current?.scrollTo({ x: idx * width, animated: false });
+    }, 50);
+  };
+
+  return (
+    <View className="w-full h-48">
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onScroll}
+        style={{ width, height: 192 }}
+      >
+        {images.map((source, i) => (
+          <Pressable key={i} onPress={() => openViewer(i)}>
+            <Image source={source} style={{ width, height: 192 }} resizeMode="cover" />
+          </Pressable>
+        ))}
+      </ScrollView>
+      {images.length > 1 ? (
+        <View className="absolute bottom-2 left-0 right-0 flex-row justify-center gap-1">
+          {images.map((_, i) => (
+            <View
+              key={i}
+              className={`h-1.5 rounded-full ${i === activeIndex ? "w-4 bg-white" : "w-1.5 bg-white/50"}`}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      <Modal visible={viewerOpen} transparent animationType="fade" onRequestClose={() => setViewerOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.95)" }}>
+          <ScrollView
+            ref={viewerScrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={onViewerScroll}
+            style={{ flex: 1 }}
+          >
+            {images.map((source, i) => (
+              <Pressable key={i} onPress={() => setViewerOpen(false)} style={{ width, height, justifyContent: "center", alignItems: "center" }}>
+                <Image source={source} style={{ width, height: height * 0.85 }} resizeMode="contain" />
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Pressable
+            onPress={() => setViewerOpen(false)}
+            style={{ position: "absolute", top: 40, right: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}
+          >
+            <Text style={{ color: "white", fontSize: 22, fontWeight: "600" }}>{"\u00D7"}</Text>
+          </Pressable>
+          {images.length > 1 ? (
+            <View style={{ position: "absolute", bottom: 40, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 6 }}>
+              {images.map((_, i) => (
+                <View
+                  key={i}
+                  style={{ height: 8, borderRadius: 4, width: i === viewerIndex ? 20 : 8, backgroundColor: i === viewerIndex ? "#fff" : "rgba(255,255,255,0.4)" }}
+                />
+              ))}
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 function LegacyTicketBlock({
   event,
   onRegister,
@@ -761,17 +901,14 @@ function LegacyTicketBlock({
 
   return (
     <View>
-      <Text className="text-base font-bold text-foreground">
-        {free ? "Register for this event" : "Get your ticket"}
-      </Text>
-      <View className="flex-row items-baseline gap-2 mt-1">
-        <Text className="text-3xl font-bold text-primary">
-          {free ? "Free" : `\u20B9${event.ticket_price}`}
-        </Text>
-        {!free ? (
+      {!free ? (
+        <View className="flex-row items-baseline gap-2 mb-2">
+          <Text className="text-3xl font-bold text-primary">
+            {`\u20B9${event.ticket_price}`}
+          </Text>
           <Text className="text-xs text-muted-foreground">per ticket</Text>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
 
       {isFull ? (
         <View className="mt-4 gap-2">

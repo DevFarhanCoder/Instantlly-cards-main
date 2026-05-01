@@ -245,6 +245,14 @@ const PassCard = memo(function PassCard({ pass, now, onPress }: PassCardProps) {
               <StatusPill status={pass.status} />
             </View>
 
+            {pass.ticket_tier ? (
+              <View className="self-start rounded-full bg-accent/10 px-2.5 py-0.5">
+                <Text className="text-[11px] font-semibold text-accent">
+                  {pass.ticket_tier.name}
+                </Text>
+              </View>
+            ) : null}
+
             <View className="flex-row flex-wrap gap-3">
               {pass.event?.date ? (
                 <View className="flex-row items-center gap-1">
