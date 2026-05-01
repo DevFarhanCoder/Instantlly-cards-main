@@ -50,6 +50,7 @@ export interface AppEvent {
   title: string;
   description: string | null;
   date: string;
+  end_date?: string | null;
   time: string;
   location: string | null;
   venue?: string | null;
@@ -76,6 +77,8 @@ export interface AppEvent {
   _count?: { registrations: number };
   cancelled_at?: string | null;
   views_count?: number;
+  company_logo?: string | null;
+  venue_images?: string[];
 }
 
 export interface EventRegistration {
@@ -93,6 +96,7 @@ export interface EventRegistration {
   /** Phase 5 — check-in / cancel / refund tracking. All optional so older
    *  cached responses still type-check. */
   ticket_tier_id?: number | null;
+  ticket_tier?: { id: number; name: string; price: number; currency: string } | null;
   checked_in?: boolean;
   checked_in_at?: string | null;
   cancelled_at?: string | null;
@@ -124,11 +128,14 @@ export interface CreateEventInput {
   title: string;
   description?: string;
   date: string;
+  end_date?: string;
   time: string;
   location?: string;
   image_url?: string;
   ticket_price?: number;
   max_attendees?: number;
+  company_logo?: string;
+  venue_images?: string[];
 }
 
 export interface UpdateEventInput {
@@ -136,12 +143,15 @@ export interface UpdateEventInput {
   title?: string;
   description?: string;
   date?: string;
+  end_date?: string;
   time?: string;
   location?: string;
   image_url?: string;
   ticket_price?: number;
   max_attendees?: number;
   status?: string;
+  company_logo?: string;
+  venue_images?: string[];
 }
 
 /** Tier draft used by Create-Event flow before the tier rows exist on the
@@ -196,6 +206,8 @@ export const eventsApi = baseApi.injectEndpoints({
         console.log(
           '[eventsApi.listEvents] got', list.length, 'of', total, 'events',
         );
+        const withLogo = list.filter((e: any) => e.company_logo);
+        console.log('[eventsApi.listEvents] events with logo:', withLogo.length, withLogo.map((e: any) => e.id + ':' + e.company_logo?.slice(-20)));
         return { data: list, page, limit, total };
       },
       providesTags: ['Event'],
@@ -287,9 +299,12 @@ export const eventsApi = baseApi.injectEndpoints({
           body: { ticket_count, tier_id: tier_id ?? undefined, payment },
         };
       },
-      transformResponse: (response: EventRegistration & { qr_code: string }) => {
-        console.log('[eventsApi.registerForEvent] SUCCESS — regId:', response.id, 'qr:', response.qr_code, 'paymentStatus:', response.payment_status);
-        return response;
+      transformResponse: (response: any) => {
+        // Normalize both flat (legacy) and nested (tiered) response shapes.
+        const reg: EventRegistration & { qr_code: string } =
+          response?.registration ? { ...response.registration, qr_code: response.qr_code } : response;
+        console.log('[eventsApi.registerForEvent] SUCCESS — regId:', reg.id, 'qr:', reg.qr_code, 'tier:', reg.ticket_tier?.name);
+        return reg;
       },
       invalidatesTags: ['Event'],
     }),

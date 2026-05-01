@@ -1,4 +1,11 @@
-import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Alert,
   Animated,
@@ -8,7 +15,15 @@ import {
   View,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { ArrowLeft, Calendar, CheckCircle2, Clock, MapPin, Minus, Plus } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  MapPin,
+  Minus,
+  Plus,
+} from "lucide-react-native";
 import QRCode from "react-native-qrcode-svg";
 import { format } from "date-fns";
 
@@ -18,6 +33,7 @@ import { ErrorState } from "../components/ui/error-state";
 import { PageLoader } from "../components/ui/page-loader";
 import { useColors } from "../theme/colors";
 import { useMyRegistrations } from "../hooks/useEvents";
+import { Ticket } from "lucide-react-native";
 import type { EventRegistration } from "../store/api/eventsApi";
 import { usePartialCancelTicketsMutation } from "../store/api/eventsApi";
 import { socketService } from "../services/socketService";
@@ -84,12 +100,15 @@ const QRView = () => {
   const colors = useColors();
 
   const { registrations, isLoading, isError, refetch } = useMyRegistrations();
-  const [partialCancel, { isLoading: isCancelling }] = usePartialCancelTicketsMutation();
+  const [partialCancel, { isLoading: isCancelling }] =
+    usePartialCancelTicketsMutation();
   const [cancelCount, setCancelCount] = useState(1);
 
   // Refresh immediately when the organizer checks us in (real-time socket event)
   useEffect(() => {
-    const handler = () => { refetch(); };
+    const handler = () => {
+      refetch();
+    };
     socketService.on("event:checkin", handler);
     return () => socketService.off("event:checkin", handler);
   }, [refetch]);
@@ -214,8 +233,10 @@ const QRView = () => {
                 </Badge>
               ) : null}
               {(() => {
-                const activeT = (pass.ticket_count ?? 0) - (pass.cancelled_count ?? 0);
-                const hasPartialCancel = (pass.cancelled_count ?? 0) > 0 && activeT > 0;
+                const activeT =
+                  (pass.ticket_count ?? 0) - (pass.cancelled_count ?? 0);
+                const hasPartialCancel =
+                  (pass.cancelled_count ?? 0) > 0 && activeT > 0;
                 return (
                   <Badge className="bg-primary/10 text-primary border-none text-xs">
                     {hasPartialCancel
@@ -269,13 +290,17 @@ const QRView = () => {
           </Button>
 
           {/* Partial ticket cancellation — only for upcoming paid/free registrations */}
-          {status === "upcoming" && !pass.checked_in && (
+          {status === "upcoming" &&
+            !pass.checked_in &&
             (() => {
-              const activeTickets = (pass.ticket_count ?? 0) - (pass.cancelled_count ?? 0);
+              const activeTickets =
+                (pass.ticket_count ?? 0) - (pass.cancelled_count ?? 0);
               if (activeTickets < 1) return null;
 
               const perTicketAmount =
-                pass.payment_status === "paid" && pass.amount_paid && pass.ticket_count
+                pass.payment_status === "paid" &&
+                pass.amount_paid &&
+                pass.ticket_count
                   ? pass.amount_paid / pass.ticket_count
                   : 0;
               const refundAmount = perTicketAmount * cancelCount;
@@ -311,7 +336,11 @@ const QRView = () => {
                           setCancelCount(1);
                           refetch();
                         } catch (e: any) {
-                          Alert.alert("Error", e?.data?.error ?? "Could not cancel tickets. Please try again.");
+                          Alert.alert(
+                            "Error",
+                            e?.data?.error ??
+                              "Could not cancel tickets. Please try again.",
+                          );
                         }
                       },
                     },
@@ -321,9 +350,12 @@ const QRView = () => {
 
               return (
                 <View className="mt-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 gap-3">
-                  <Text className="text-sm font-semibold text-destructive">Cancel Tickets</Text>
+                  <Text className="text-sm font-semibold text-destructive">
+                    Cancel Tickets
+                  </Text>
                   <Text className="text-xs text-muted-foreground">
-                    You have {activeTickets} active ticket{activeTickets > 1 ? "s" : ""}. Select how many to cancel:
+                    You have {activeTickets} active ticket
+                    {activeTickets > 1 ? "s" : ""}. Select how many to cancel:
                   </Text>
                   <View className="flex-row items-center justify-center gap-4">
                     <Pressable
@@ -333,27 +365,41 @@ const QRView = () => {
                         width: 36,
                         height: 36,
                         borderRadius: 18,
-                        backgroundColor: cancelCount <= 1 ? "#f1f5f9" : "#fee2e2",
+                        backgroundColor:
+                          cancelCount <= 1 ? "#f1f5f9" : "#fee2e2",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <Minus size={16} color={cancelCount <= 1 ? "#94a3b8" : "#dc2626"} />
+                      <Minus
+                        size={16}
+                        color={cancelCount <= 1 ? "#94a3b8" : "#dc2626"}
+                      />
                     </Pressable>
-                    <Text className="text-2xl font-bold text-foreground w-8 text-center">{cancelCount}</Text>
+                    <Text className="text-2xl font-bold text-foreground w-8 text-center">
+                      {cancelCount}
+                    </Text>
                     <Pressable
-                      onPress={() => setCancelCount((v) => Math.min(activeTickets, v + 1))}
+                      onPress={() =>
+                        setCancelCount((v) => Math.min(activeTickets, v + 1))
+                      }
                       disabled={cancelCount >= activeTickets}
                       style={{
                         width: 36,
                         height: 36,
                         borderRadius: 18,
-                        backgroundColor: cancelCount >= activeTickets ? "#f1f5f9" : "#fee2e2",
+                        backgroundColor:
+                          cancelCount >= activeTickets ? "#f1f5f9" : "#fee2e2",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <Plus size={16} color={cancelCount >= activeTickets ? "#94a3b8" : "#dc2626"} />
+                      <Plus
+                        size={16}
+                        color={
+                          cancelCount >= activeTickets ? "#94a3b8" : "#dc2626"
+                        }
+                      />
                     </Pressable>
                   </View>
                   <Button
@@ -362,19 +408,26 @@ const QRView = () => {
                     onPress={handleCancel}
                     disabled={isCancelling}
                   >
-                    {isCancelling ? "Cancelling…" : `Cancel ${cancelCount} Ticket${cancelCount > 1 ? "s" : ""}`}
+                    {isCancelling
+                      ? "Cancelling…"
+                      : `Cancel ${cancelCount} Ticket${cancelCount > 1 ? "s" : ""}`}
                   </Button>
                 </View>
               );
-            })()
-          )}
+            })()}
         </ScrollView>
       </Animated.View>
     </View>
   );
 };
 
-function StatusBanner({ status, pass }: { status: PassStatus; pass: EventRegistration }) {
+function StatusBanner({
+  status,
+  pass,
+}: {
+  status: PassStatus;
+  pass: EventRegistration;
+}) {
   const colors = useColors();
   const activeTickets = (pass.ticket_count ?? 0) - (pass.cancelled_count ?? 0);
   const hasPartialCancel = (pass.cancelled_count ?? 0) > 0 && activeTickets > 0;
@@ -403,9 +456,7 @@ function StatusBanner({ status, pass }: { status: PassStatus; pass: EventRegistr
   if (status === "refunded") {
     return (
       <View className="rounded-xl bg-muted px-4 py-3">
-        <Text className="text-sm font-semibold text-foreground">
-          Refunded
-        </Text>
+        <Text className="text-sm font-semibold text-foreground">Refunded</Text>
         <Text className="text-xs text-muted-foreground mt-0.5">
           Your payment has been refunded.
         </Text>
@@ -426,7 +477,10 @@ function StatusBanner({ status, pass }: { status: PassStatus; pass: EventRegistr
             {activeTickets} of {pass.ticket_count} tickets active
           </Text>
           <Text className="text-xs text-amber-600 mt-0.5">
-            {pass.cancelled_count} ticket{(pass.cancelled_count ?? 0) > 1 ? "s" : ""} cancelled and refunded. This QR admits {activeTickets} {activeTickets > 1 ? "people" : "person"}.
+            {pass.cancelled_count} ticket
+            {(pass.cancelled_count ?? 0) > 1 ? "s" : ""} cancelled and refunded.
+            This QR admits {activeTickets}{" "}
+            {activeTickets > 1 ? "people" : "person"}.
           </Text>
         </View>
       )}

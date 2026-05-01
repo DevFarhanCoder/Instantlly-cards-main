@@ -6,6 +6,7 @@ import {
   BarChart3,
   Ban,
   CalendarDays,
+  Copy,
   Edit3,
   Plus,
   QrCode,
@@ -159,6 +160,9 @@ const MyEvents = () => {
               onEdit={() =>
                 navigation.navigate("EventEdit", { id: event.id })
               }
+              onDuplicate={() =>
+                navigation.navigate("EventCreate", { cloneFrom: event })
+              }
               onCancel={() => setCancelTarget(event)}
             />
           ))
@@ -231,6 +235,7 @@ interface EventRowProps {
   onRegistrations: () => void;
   onAnalytics: () => void;
   onEdit: () => void;
+  onDuplicate: () => void;
   onCancel: () => void;
 }
 
@@ -241,6 +246,7 @@ function EventRow({
   onRegistrations,
   onAnalytics,
   onEdit,
+  onDuplicate,
   onCancel,
 }: EventRowProps) {
   const cancelled = (event as any).status === "cancelled" || (event as any).cancelled_at;
@@ -329,6 +335,17 @@ function EventRow({
             <View className="flex-row items-center gap-1">
               <Edit3 size={12} color={mutedIcon} />
               <Text className="text-xs font-medium text-foreground">Edit</Text>
+            </View>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1 min-w-[44%]"
+            onPress={onDuplicate}
+          >
+            <View className="flex-row items-center gap-1">
+              <Copy size={12} color={mutedIcon} />
+              <Text className="text-xs font-medium text-foreground">Duplicate</Text>
             </View>
           </Button>
           <Button
