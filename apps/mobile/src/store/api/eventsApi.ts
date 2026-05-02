@@ -437,6 +437,8 @@ export const eventsApi = baseApi.injectEndpoints({
         registrations: number;
         check_ins: number;
         conversion_rate: number;
+        gross_revenue: number;
+        refund_amount: number;
       },
       number
     >({
