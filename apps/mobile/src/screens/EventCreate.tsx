@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Image, Modal, Pressable, ScrollView, Text, View, KeyboardAvoidingView, Platform } from "react-native";
+import { Image, Modal, Pressable, ScrollView, Switch, Text, View, KeyboardAvoidingView, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import {
@@ -183,6 +183,13 @@ const EventCreate = () => {
   const [showErrors, setShowErrors] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
 
+  // Recurrence state
+  const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
+  const [recurrenceFreq, setRecurrenceFreq] = useState<"weekly" | "monthly">("weekly");
+  const [recurrenceDays, setRecurrenceDays] = useState<string[]>([]);
+  const [recurrenceEndsAt, setRecurrenceEndsAt] = useState("");
+  const [showRecurrenceEndPicker, setShowRecurrenceEndPicker] = useState(false);
+
   // ── Auth / role guard ─────────────────────────────────────────────────────
   if (!isBusiness) {
     return (
@@ -347,6 +354,14 @@ const EventCreate = () => {
           ? Math.min(...tiers.map((t) => Number(t.price) || 0))
           : undefined;
 
+      const recurrenceRule = recurrenceEnabled
+        ? JSON.stringify({
+            freq: recurrenceFreq,
+            days: recurrenceFreq === "weekly" ? recurrenceDays : undefined,
+            interval: 1,
+          })
+        : undefined;
+
       const payload = {
         title: basic.title.trim(),
         description: basic.description.trim() || undefined,
@@ -361,6 +376,8 @@ const EventCreate = () => {
         business_promotion_id: basic.business_promotion_id,
         company_logo: basic.company_logo || undefined,
         venue_images: basic.venue_images.length > 0 ? basic.venue_images : undefined,
+        recurrence_rule: recurrenceRule,
+        recurrence_ends_at: recurrenceEnabled && recurrenceEndsAt ? recurrenceEndsAt : undefined,
       };
       console.log("[EventCreate] step A — payload:", JSON.stringify(payload));
       const created = await createEvent.mutateAsync(payload);
@@ -418,6 +435,10 @@ const EventCreate = () => {
     createEvent,
     createTier,
     navigation,
+    recurrenceEnabled,
+    recurrenceFreq,
+    recurrenceDays,
+    recurrenceEndsAt,
   ]);
 
   const goNext = () => {
@@ -495,6 +516,18 @@ const EventCreate = () => {
             onPickVenueImage={handlePickVenueImage}
             onRemoveVenueImage={handleRemoveVenueImage}
             showErrors={showErrors}
+            recurrenceEnabled={recurrenceEnabled}
+            onToggleRecurrence={setRecurrenceEnabled}
+            recurrenceFreq={recurrenceFreq}
+            onSetRecurrenceFreq={setRecurrenceFreq}
+            recurrenceDays={recurrenceDays}
+            onToggleRecurrenceDay={(day) =>
+              setRecurrenceDays((prev) =>
+                prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+              )
+            }
+            recurrenceEndsAt={recurrenceEndsAt}
+            onPickRecurrenceEnd={() => setShowRecurrenceEndPicker(true)}
           />
         ) : step === 2 ? (
           <Step2Tickets
@@ -724,6 +757,52 @@ const EventCreate = () => {
           </View>
         </View>
       </Modal>
+      {/* Recurrence End Date Picker */}
+      <Modal
+        visible={showRecurrenceEndPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowRecurrenceEndPicker(false)}
+      >
+        <View className="flex-1 justify-end bg-black/40">
+          <Pressable
+            className="absolute inset-0"
+            onPress={() => setShowRecurrenceEndPicker(false)}
+          />
+          <View className="mx-3 mb-6 rounded-2xl bg-card border border-border overflow-hidden">
+            <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+              <Text className="text-base font-bold text-foreground">
+                Repeat Until
+              </Text>
+              <Pressable onPress={() => setShowRecurrenceEndPicker(false)}>
+                <Text className="text-sm font-semibold text-primary">Done</Text>
+              </Pressable>
+            </View>
+            <RNCalendar
+              current={recurrenceEndsAt || basic.date || todayStr}
+              minDate={basic.date || todayStr}
+              onDayPress={(day: any) => {
+                setRecurrenceEndsAt(day.dateString);
+                setShowRecurrenceEndPicker(false);
+              }}
+              markedDates={
+                recurrenceEndsAt
+                  ? { [recurrenceEndsAt]: { selected: true, selectedColor: colors.primary } }
+                  : {}
+              }
+              theme={{
+                todayTextColor: colors.primary,
+                selectedDayBackgroundColor: colors.primary,
+                selectedDayTextColor: "#ffffff",
+                arrowColor: colors.primary,
+                textDayFontSize: 15,
+                textMonthFontSize: 16,
+                textDayHeaderFontSize: 13,
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -766,6 +845,15 @@ interface Step1Props {
   onPickVenueImage: () => void;
   onRemoveVenueImage: (idx: number) => void;
   showErrors?: boolean;
+  // Recurrence
+  recurrenceEnabled: boolean;
+  onToggleRecurrence: (v: boolean) => void;
+  recurrenceFreq: "weekly" | "monthly";
+  onSetRecurrenceFreq: (v: "weekly" | "monthly") => void;
+  recurrenceDays: string[];
+  onToggleRecurrenceDay: (day: string) => void;
+  recurrenceEndsAt: string;
+  onPickRecurrenceEnd: () => void;
 }
 
 function Step1Basics({
@@ -787,6 +875,14 @@ function Step1Basics({
   onPickVenueImage,
   onRemoveVenueImage,
   showErrors,
+  recurrenceEnabled,
+  onToggleRecurrence,
+  recurrenceFreq,
+  onSetRecurrenceFreq,
+  recurrenceDays,
+  onToggleRecurrenceDay,
+  recurrenceEndsAt,
+  onPickRecurrenceEnd,
 }: Step1Props) {
   const err = (val: boolean, msg: string) =>
     showErrors && !val ? (
@@ -979,6 +1075,98 @@ function Step1Basics({
             </Pressable>
           ) : null}
         </Pressable>
+      </View>
+
+      {/* Repeat Event (Recurrence) */}
+      <View className="rounded-xl border border-border bg-card p-3 gap-3">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center gap-2">
+            <Text className="text-sm font-semibold text-foreground">Repeat Event</Text>
+          </View>
+          <Switch
+            value={recurrenceEnabled}
+            onValueChange={onToggleRecurrence}
+          />
+        </View>
+
+        {recurrenceEnabled && (
+          <>
+            {/* Frequency selector */}
+            <View className="flex-row gap-2">
+              {(["weekly", "monthly"] as const).map((freq) => (
+                <Pressable
+                  key={freq}
+                  onPress={() => onSetRecurrenceFreq(freq)}
+                  className={`flex-1 py-2 rounded-xl border items-center ${
+                    recurrenceFreq === freq
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-background"
+                  }`}
+                >
+                  <Text
+                    className={`text-sm font-medium capitalize ${
+                      recurrenceFreq === freq ? "text-primary" : "text-muted-foreground"
+                    }`}
+                  >
+                    {freq}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Day chips for weekly */}
+            {recurrenceFreq === "weekly" && (
+              <View>
+                <Text className="text-xs text-muted-foreground mb-2">Repeat on days:</Text>
+                <View className="flex-row flex-wrap gap-1.5">
+                  {["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map((day) => (
+                    <Pressable
+                      key={day}
+                      onPress={() => onToggleRecurrenceDay(day)}
+                      className={`px-3 py-1.5 rounded-full border ${
+                        recurrenceDays.includes(day)
+                          ? "border-primary bg-primary"
+                          : "border-border bg-background"
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-semibold ${
+                          recurrenceDays.includes(day) ? "text-white" : "text-muted-foreground"
+                        }`}
+                      >
+                        {day}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {recurrenceFreq === "monthly" && (
+              <Text className="text-xs text-muted-foreground">
+                Repeats on the same day each month.
+              </Text>
+            )}
+
+            {/* Repeat Until date */}
+            <View>
+              <Text className="text-xs text-muted-foreground mb-1">Repeat until:</Text>
+              <Pressable
+                onPress={onPickRecurrenceEnd}
+                className="h-10 flex-row items-center rounded-xl border border-input bg-background px-3"
+              >
+                <Calendar size={16} color="#999" />
+                <Text
+                  className={`ml-2 text-sm flex-1 ${
+                    recurrenceEndsAt ? "text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  {recurrenceEndsAt || "Pick end date (required)"}
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        )}
       </View>
 
       <View className="gap-2">

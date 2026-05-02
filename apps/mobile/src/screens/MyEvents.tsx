@@ -263,15 +263,22 @@ function EventRow({
             >
               {event.title}
             </Text>
-            {cancelled ? (
-              <Badge className="bg-destructive/10 text-destructive border-none text-[10px]">
-                Cancelled
-              </Badge>
-            ) : (
-              <Badge className="bg-success/10 text-success border-none text-[10px]">
-                Live
-              </Badge>
-            )}
+            <View className="flex-row gap-1 items-center">
+              {(event as any).recurrence_rule && (
+                <Badge className="bg-blue-500/10 text-blue-500 border-none text-[10px]">
+                  🔄 Recurring
+                </Badge>
+              )}
+              {cancelled ? (
+                <Badge className="bg-destructive/10 text-destructive border-none text-[10px]">
+                  Cancelled
+                </Badge>
+              ) : (
+                <Badge className="bg-success/10 text-success border-none text-[10px]">
+                  Live
+                </Badge>
+              )}
+            </View>
           </View>
           <View className="flex-row items-center gap-3 mt-1">
             {event.date ? (
@@ -296,6 +303,11 @@ function EventRow({
                 </Text>
               </View>
             ) : null}
+            {(event as any)._count?.occurrences > 0 && (
+              <Text className="text-xs text-blue-500">
+                {(event as any)._count.occurrences} occurrences
+              </Text>
+            )}
           </View>
         </Pressable>
 

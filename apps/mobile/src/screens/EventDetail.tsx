@@ -32,8 +32,7 @@ import { ErrorState } from "../components/ui/error-state";
 import { EmptyState } from "../components/ui/empty-state";
 import {
   TicketSelector,
-  tierKey,
-  type TierKey,
+  TierKey,
 } from "../components/ui/ticket-selector";
 
 import { useAuth } from "../hooks/useAuth";
@@ -52,6 +51,10 @@ import {
 } from "../lib/payments/razorpayCheckout";
 import type { RazorpayCheckoutOptions } from "../lib/payments/razorpayCheckout";
 import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
+import {
+  useCreateCartPaymentIntentMutation,
+  useRegisterCartMutation,
+} from "../store/api/eventsApi";
 import type { AppEvent, AppTicketTier } from "../store/api/eventsApi";
 import { promptAddToCalendar } from "../utils/calendar";
 
@@ -102,14 +105,21 @@ const EventDetail = () => {
   } = useEvent(id || "");
   const registerMutation = useRegisterForEvent();
   const paymentIntentMutation = useCreateEventPaymentIntent();
+  const [createCartPaymentIntentMutation] = useCreateCartPaymentIntentMutation();
+  const [registerCartMutation] = useRegisterCartMutation();
   const waitlistMutation = useJoinWaitlist();
   const { user } = useAuth();
   const { registrations, refetch: refetchRegistrations } = useMyRegistrations();
 
-  const existingPass = useMemo(
-    () =>
-      registrations.find((r: any) => String(r.event_id) === String(id)),
+  // All registrations the user already has for this event (multi-tier aware)
+  const existingPasses = useMemo(
+    () => registrations.filter((r: any) => String(r.event_id) === String(id)),
     [registrations, id],
+  );
+  // Tier IDs already purchased so we can show "already bought" state
+  const purchasedTierIds = useMemo(
+    () => new Set(existingPasses.map((r: any) => r.ticket_tier_id).filter(Boolean)),
+    [existingPasses],
   );
 
   const [refreshing, setRefreshing] = useState(false);
@@ -126,54 +136,39 @@ const EventDetail = () => {
   const realTiers = useMemo(() => pickRealTiers(event), [event]);
   const legacy = isLegacyMode(event);
 
-  // Default tier MUST satisfy: not sold out AND is_on_sale AND is_active.
-  // Falls back to first sellable, then to the first row so the UI still
-  // renders something meaningful when everything is unavailable.
-  const initialTierKey: TierKey | null = useMemo(() => {
-    if (legacy) return null;
-    const firstSelectable = realTiers.find(
-      (t) => t.is_on_sale && !t.is_sold_out && t.is_active,
-    );
-    const fallback = firstSelectable ?? realTiers[0];
-    return fallback ? tierKey(fallback) : null;
-  }, [legacy, realTiers]);
+  // Cart: maps String(tier.id ?? "virtual") → quantity
+  const [cartItems, setCartItems] = useState<Record<string, number>>({});
+  const updateCart = useCallback((key: string, qty: number) => {
+    setCartItems((prev) => {
+      if (qty <= 0) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: qty };
+    });
+  }, []);
 
-  const [selectedTierKey, setSelectedTierKey] = useState<TierKey | null>(
-    initialTierKey,
-  );
-  // Re-sync selection if the event payload changes (refresh, refetch).
-  React.useEffect(() => {
-    setSelectedTierKey(initialTierKey);
-  }, [initialTierKey]);
+  // Reset cart whenever event data changes (refetch / navigate back)
+  React.useEffect(() => { setCartItems({}); }, [event?.id]);
 
-  const selectedTier = useMemo(
+  const cartItemsList = useMemo(
     () =>
-      legacy
-        ? null
-        : realTiers.find((t) => tierKey(t) === selectedTierKey) ?? null,
-    [legacy, realTiers, selectedTierKey],
+      realTiers
+        .map((t) => ({ tier: t, qty: cartItems[String(t.id ?? "virtual")] ?? 0 }))
+        .filter((x) => x.qty > 0),
+    [realTiers, cartItems],
   );
+  const cartHasItems = cartItemsList.length > 0;
+  const cartTotal = useMemo(
+    () => cartItemsList.reduce((sum, x) => sum + (x.tier.is_free ? 0 : x.tier.price * x.qty), 0),
+    [cartItemsList],
+  );
+  const cartIsAllFree = cartItemsList.every((x) => x.tier.is_free);
 
-  // Quantity is clamped on every tier change so we never exceed the new
-  // tier's max/available; if the previous quantity is still valid we keep it
-  // (avoids forcing the user back to 1 when switching tiers).
-  const [quantity, setQuantity] = useState(1);
-  React.useEffect(() => {
-    if (!selectedTier) {
-      setQuantity(1);
-      return;
-    }
-    const min = selectedTier.min_per_order ?? 1;
-    const cap = Math.max(
-      min,
-      Math.min(
-        selectedTier.max_per_order ?? 10,
-        selectedTier.quantity_available ?? selectedTier.max_per_order ?? 10,
-      ),
-    );
-    setQuantity((q) => Math.min(Math.max(q, min), cap));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTier?.id]);
+  // For legacy single-tier flow — keep backward compat
+  const firstCartTier = cartItemsList[0]?.tier ?? null;
+  const firstCartQty = cartItemsList[0]?.qty ?? 1;
 
   // Local UX state — protects against double-tap and exposes payment retry.
   const [isProcessing, setIsProcessing] = useState(false);
@@ -182,13 +177,16 @@ const EventDetail = () => {
   const [waitlistAlreadyJoined, setWaitlistAlreadyJoined] = useState(false);
 
   // Razorpay WebView fallback state
-  const [registration, setRegistration] = useState<any>(null);
+  const [newRegistrations, setNewRegistrations] = useState<any[]>([]);
   const [webViewVisible, setWebViewVisible] = useState(false);
   const [webViewOptions, setWebViewOptions] =
     useState<RazorpayCheckoutOptions | null>(null);
+  // Pending cart items for WebView flow (paid cart needs payment before registering)
+  const [pendingCartItems, setPendingCartItems] = useState<Array<{ tier: AppTicketTier; qty: number }>>([]);
 
   // ─── Action handlers ────────────────────────────────────────────────
 
+  /** Complete a SINGLE-tier or legacy registration (existing flow). */
   const completeRegistration = useCallback(
     async (paymentPayload?: {
       razorpay_order_id: string;
@@ -197,21 +195,15 @@ const EventDetail = () => {
     }) => {
       if (!event) return;
       const tierIdForCall =
-        !legacy && selectedTier?.id ? selectedTier.id : null;
-      const ticketCount = legacy ? 1 : quantity;
+        !legacy && firstCartTier?.id ? firstCartTier.id : null;
+      const ticketCount = legacy ? 1 : firstCartQty;
       const result = await registerMutation.mutateAsync({
         event_id: id!,
         ticket_count: ticketCount,
         tier_id: tierIdForCall,
         payment: paymentPayload,
       });
-      console.log(
-        "[EventDetail.completeRegistration] SUCCESS — regId:",
-        result.id,
-        "qr:",
-        result.qr_code,
-      );
-      setRegistration(result);
+      setNewRegistrations([result]);
       toast.success("Registration successful! Your QR pass is ready");
       if (event) {
         promptAddToCalendar({
@@ -224,7 +216,30 @@ const EventDetail = () => {
         });
       }
     },
-    [event, legacy, selectedTier, quantity, id, registerMutation],
+    [event, legacy, firstCartTier, firstCartQty, id, registerMutation],
+  );
+
+  /** Complete a MULTI-tier cart registration. */
+  const completeCartRegistration = useCallback(
+    async (paymentPayload?: {
+      razorpay_order_id: string;
+      razorpay_payment_id: string;
+      razorpay_signature: string;
+    }, overrideItems?: Array<{ tier: AppTicketTier; qty: number }>) => {
+      if (!event) return;
+      const items = (overrideItems ?? cartItemsList).map((x) => ({
+        tier_id: x.tier.id!,
+        ticket_count: x.qty,
+      }));
+      const result = await registerCartMutation({
+        eventId: id!,
+        items,
+        payment: paymentPayload,
+      }).unwrap();
+      setNewRegistrations(result.registrations);
+      toast.success(`Registered! ${result.registrations.length} ticket type${result.registrations.length > 1 ? "s" : ""} confirmed`);
+    },
+    [event, cartItemsList, id, registerCartMutation],
   );
 
   const startPaidCheckout = useCallback(
@@ -236,6 +251,8 @@ const EventDetail = () => {
         currency: string;
         event_title: string;
       },
+      isCart = false,
+      cartSnapshot?: Array<{ tier: AppTicketTier; qty: number }>,
     ) => {
       if (!event) return false;
       const checkoutOptions: RazorpayCheckoutOptions = {
@@ -255,10 +272,15 @@ const EventDetail = () => {
       if (isNativeRazorpayAvailable()) {
         try {
           const res = await openRazorpayCheckout(checkoutOptions);
-          await completeRegistration(res);
+          if (isCart) {
+            await completeCartRegistration(res, cartSnapshot);
+          } else {
+            await completeRegistration(res);
+          }
           return true;
         } catch (nativeErr: any) {
           if (/null|undefined|not a function/i.test(nativeErr?.message || "")) {
+            setPendingCartItems(isCart ? (cartSnapshot ?? cartItemsList) : []);
             setWebViewOptions(checkoutOptions);
             setWebViewVisible(true);
             return true;
@@ -266,11 +288,12 @@ const EventDetail = () => {
           throw nativeErr;
         }
       }
+      setPendingCartItems(isCart ? (cartSnapshot ?? cartItemsList) : []);
       setWebViewOptions(checkoutOptions);
       setWebViewVisible(true);
       return true;
     },
-    [event, user, colors.primary, completeRegistration],
+    [event, user, colors.primary, completeRegistration, completeCartRegistration, cartItemsList],
   );
 
   const handleRegisterPress = useCallback(async () => {
@@ -280,21 +303,15 @@ const EventDetail = () => {
       return;
     }
     if (!event) return;
-    // Guard against double-taps / re-entry from rapid presses.
-    if (isProcessing) {
-      console.log("[EventDetail.handleRegisterPress] ignored — already processing");
-      return;
-    }
+    if (isProcessing) return;
     setIsProcessing(true);
     setPaymentError(null);
 
     try {
+      // ── Legacy single-tier flow ──────────────────────────────────────
       if (legacy) {
         const free = legacyIsFree(event);
-        if (free) {
-          await completeRegistration();
-          return;
-        }
+        if (free) { await completeRegistration(); return; }
         const intent = await paymentIntentMutation.mutateAsync({
           event_id: id!,
           ticket_count: 1,
@@ -308,31 +325,54 @@ const EventDetail = () => {
         return;
       }
 
-      if (!selectedTier) {
-        toast.error("Please pick a ticket");
+      // ── Cart flow ────────────────────────────────────────────────────
+      if (!cartHasItems) {
+        toast.error("Please add at least one ticket");
         return;
       }
-      if (selectedTier.is_free) {
+
+      // Single free tier — use existing endpoint
+      if (cartItemsList.length === 1 && cartItemsList[0].tier.is_free) {
         await completeRegistration();
         return;
       }
-      const intent = await paymentIntentMutation.mutateAsync({
-        event_id: id!,
-        ticket_count: quantity,
-        tier_id: selectedTier.id ?? undefined,
-      });
-      await startPaidCheckout(intent.amount, {
-        key_id: intent.key_id,
-        order_id: intent.order_id,
-        currency: intent.currency,
-        event_title: intent.event_title,
-      });
+
+      // All free cart — use cart register endpoint directly
+      if (cartIsAllFree) {
+        await completeCartRegistration();
+        return;
+      }
+
+      // Has paid items — single cart uses single-tier intent for simplicity,
+      // multi-tier uses cart intent
+      if (cartItemsList.length === 1) {
+        const item = cartItemsList[0];
+        const intent = await paymentIntentMutation.mutateAsync({
+          event_id: id!,
+          ticket_count: item.qty,
+          tier_id: item.tier.id ?? undefined,
+        });
+        await startPaidCheckout(intent.amount, {
+          key_id: intent.key_id,
+          order_id: intent.order_id,
+          currency: intent.currency,
+          event_title: intent.event_title,
+        });
+      } else {
+        // Multi-tier paid cart
+        const snapshot = [...cartItemsList];
+        const intent = await createCartPaymentIntentMutation({
+          eventId: id!,
+          items: snapshot.map((x) => ({ tier_id: x.tier.id!, ticket_count: x.qty })),
+        }).unwrap();
+        await startPaidCheckout(intent.amount, {
+          key_id: intent.key_id,
+          order_id: intent.order_id,
+          currency: intent.currency,
+          event_title: intent.event_title,
+        }, true, snapshot);
+      }
     } catch (err: any) {
-      console.log(
-        "[EventDetail.handleRegisterPress] ERROR:",
-        err?.status,
-        err?.data?.error || err?.message,
-      );
       if (
         err?.code === 0 ||
         /cancel/i.test(err?.description || err?.message || "")
@@ -352,16 +392,9 @@ const EventDetail = () => {
       setIsProcessing(false);
     }
   }, [
-    user,
-    event,
-    legacy,
-    selectedTier,
-    quantity,
-    id,
-    isProcessing,
-    paymentIntentMutation,
-    startPaidCheckout,
-    completeRegistration,
+    user, event, legacy, cartHasItems, cartItemsList, cartIsAllFree,
+    id, isProcessing, paymentIntentMutation, startPaidCheckout,
+    completeRegistration, completeCartRegistration, createCartPaymentIntentMutation,
     navigation,
   ]);
 
@@ -380,7 +413,7 @@ const EventDetail = () => {
     try {
       const res = await waitlistMutation.mutateAsync({
         event_id: id!,
-        ticket_count: legacy ? 1 : quantity,
+        ticket_count: legacy ? 1 : (cartItemsList[0]?.qty ?? 1),
       });
       console.log(
         "[EventDetail.handleJoinWaitlist] SUCCESS — pos:",
@@ -416,7 +449,7 @@ const EventDetail = () => {
     user,
     id,
     legacy,
-    quantity,
+    cartItemsList,
     isProcessing,
     waitlistMutation,
     refetchEvent,
@@ -455,11 +488,11 @@ const EventDetail = () => {
 
   // ─── Render: success QR view after fresh registration ───────────────
 
-  if (registration) {
+  if (newRegistrations.length > 0) {
     return (
       <SuccessQrView
         event={event}
-        registration={registration}
+        registrations={newRegistrations}
         onBack={() => navigation.navigate("Events")}
       />
     );
@@ -549,6 +582,31 @@ const EventDetail = () => {
               <Text className="text-xl font-bold text-foreground">
                 {event.title}
               </Text>
+              {/* Recurrence info */}
+              {event.recurrence_rule && !event.parent_event_id ? (
+                <View className="flex-row items-center gap-1.5 mt-1">
+                  <Text className="text-xs text-blue-500 font-medium">
+                    🔄 Repeating{" "}
+                    {(() => {
+                      try {
+                        const rule = JSON.parse(event.recurrence_rule!);
+                        if (rule.freq === "weekly" && rule.days?.length) {
+                          return `weekly on ${rule.days.join(", ")}`;
+                        }
+                        return rule.freq;
+                      } catch {
+                        return "";
+                      }
+                    })()}
+                  </Text>
+                </View>
+              ) : event.parent_event_id ? (
+                <View className="flex-row items-center gap-1.5 mt-1">
+                  <Text className="text-xs text-blue-500 font-medium">
+                    🔄 Part of a recurring series
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
             <View className="rounded-xl bg-muted p-4 gap-3">
@@ -677,7 +735,7 @@ const EventDetail = () => {
           </Card>
         ) : null}
 
-        {existingPass ? (
+        {existingPasses.length > 0 ? (
           <Card className="mt-4">
             <CardContent className="p-5 gap-3">
               <View className="flex-row items-center gap-2 bg-success/10 rounded-xl p-4">
@@ -687,20 +745,27 @@ const EventDetail = () => {
                     Already Registered
                   </Text>
                   <Text className="text-xs text-muted-foreground">
-                    You have a pass for this event
+                    You have {existingPasses.length} pass{existingPasses.length > 1 ? "es" : ""} for this event
                   </Text>
                 </View>
               </View>
-              {existingPass.qr_code ? (
-                <View className="items-center bg-muted/30 rounded-xl p-4 gap-2 border border-dashed border-border">
-                  <View className="bg-white p-3 rounded-xl">
-                    <QRCode value={existingPass.qr_code} size={160} />
+              {existingPasses.map((pass: any, idx: number) => (
+                pass.qr_code ? (
+                  <View key={pass.id ?? idx} className="items-center bg-muted/30 rounded-xl p-4 gap-2 border border-dashed border-border">
+                    {existingPasses.length > 1 && (
+                      <Text className="text-xs font-semibold text-muted-foreground">
+                        {pass.ticket_tier?.name ?? `Ticket ${idx + 1}`}
+                      </Text>
+                    )}
+                    <View className="bg-white p-3 rounded-xl">
+                      <QRCode value={pass.qr_code} size={160} />
+                    </View>
+                    <Text className="text-[10px] text-muted-foreground font-mono">
+                      {pass.qr_code}
+                    </Text>
                   </View>
-                  <Text className="text-[10px] text-muted-foreground font-mono">
-                    {existingPass.qr_code}
-                  </Text>
-                </View>
-              ) : null}
+                ) : null
+              ))}
               <Button
                 variant="outline"
                 className="w-full"
@@ -729,10 +794,10 @@ const EventDetail = () => {
               ) : (
                 <TieredTicketBlock
                   tiers={realTiers}
-                  selectedTierKey={selectedTierKey}
-                  onSelectTier={setSelectedTierKey}
-                  quantity={quantity}
-                  onQuantityChange={setQuantity}
+                  cartItems={cartItems}
+                  onCartChange={updateCart}
+                  cartTotal={cartTotal}
+                  cartHasItems={cartHasItems}
                   onRegister={handleRegisterPress}
                   onJoinWaitlist={handleJoinWaitlist}
                   busy={
@@ -742,7 +807,6 @@ const EventDetail = () => {
                   }
                   waitlistBusy={isProcessing || waitlistMutation.isPending}
                   cancelled={eventCancelled}
-                  selectedTier={selectedTier}
                 />
               )}
             </CardContent>
@@ -758,7 +822,11 @@ const EventDetail = () => {
             setWebViewVisible(false);
             setWebViewOptions(null);
             try {
-              await completeRegistration(data);
+              if (pendingCartItems.length > 1) {
+                await completeCartRegistration(data, pendingCartItems);
+              } else {
+                await completeRegistration(data);
+              }
             } catch (err: any) {
               toast.error(
                 err?.data?.error ||
@@ -960,30 +1028,28 @@ function LegacyTicketBlock({
 
 interface TieredBlockProps {
   tiers: AppTicketTier[];
-  selectedTierKey: TierKey | null;
-  onSelectTier: (k: TierKey) => void;
-  quantity: number;
-  onQuantityChange: (n: number) => void;
+  cartItems: Record<string, number>;
+  onCartChange: (key: string, qty: number) => void;
+  cartTotal: number;
+  cartHasItems: boolean;
   onRegister: () => void;
   onJoinWaitlist: () => void;
   busy: boolean;
   waitlistBusy: boolean;
   cancelled: boolean;
-  selectedTier: AppTicketTier | null;
 }
 
 function TieredTicketBlock({
   tiers,
-  selectedTierKey,
-  onSelectTier,
-  quantity,
-  onQuantityChange,
+  cartItems,
+  onCartChange,
+  cartTotal,
+  cartHasItems,
   onRegister,
   onJoinWaitlist,
   busy,
   waitlistBusy,
   cancelled,
-  selectedTier,
 }: TieredBlockProps) {
   if (cancelled) {
     return (
@@ -1005,12 +1071,9 @@ function TieredTicketBlock({
     <View>
       <TicketSelector
         tiers={tiers}
-        selectedTier={selectedTierKey}
-        onSelectTier={onSelectTier}
-        quantity={quantity}
-        onQuantityChange={onQuantityChange}
+        cartItems={cartItems}
+        onCartChange={onCartChange}
       />
-
       <View className="mt-4">
         {allSoldOut ? (
           <View className="gap-2">
@@ -1031,29 +1094,7 @@ function TieredTicketBlock({
               {waitlistBusy ? "Joining…" : "Join Waitlist"}
             </Button>
           </View>
-        ) : selectedTier && selectedTier.is_sold_out ? (
-          <Button
-            className="w-full"
-            size="lg"
-            onPress={onJoinWaitlist}
-            disabled={waitlistBusy}
-          >
-            {waitlistBusy ? "Joining…" : "Join Waitlist"}
-          </Button>
-        ) : selectedTier && !selectedTier.is_active ? (
-          <Button className="w-full" size="lg" disabled>
-            Not available
-          </Button>
-        ) : selectedTier && selectedTier.is_free ? (
-          <Button
-            className="w-full"
-            size="lg"
-            onPress={onRegister}
-            disabled={busy}
-          >
-            {busy ? "Processing…" : "Register Free"}
-          </Button>
-        ) : selectedTier ? (
+        ) : !cancelled && cartHasItems ? (
           <Button
             className="w-full"
             size="lg"
@@ -1062,13 +1103,15 @@ function TieredTicketBlock({
           >
             {busy
               ? "Processing…"
-              : `Buy Now — \u20B9${selectedTier.price * quantity}`}
+              : cartTotal > 0
+              ? `Buy Now — \u20B9${cartTotal}`
+              : "Register Free"}
           </Button>
-        ) : (
+        ) : !cancelled ? (
           <Button className="w-full" size="lg" disabled>
-            Select a ticket
+            Add tickets above
           </Button>
-        )}
+        ) : null}
       </View>
     </View>
   );
@@ -1076,12 +1119,13 @@ function TieredTicketBlock({
 
 interface SuccessQrProps {
   event: AppEvent;
-  registration: any;
+  registrations: any[];
   onBack: () => void;
 }
 
-function SuccessQrView({ event, registration, onBack }: SuccessQrProps) {
+function SuccessQrView({ event, registrations, onBack }: SuccessQrProps) {
   const colors = useColors();
+  const totalPaid = registrations.reduce((s, r) => s + (r.amount_paid ?? 0), 0);
   return (
     <View className="flex-1 bg-background">
       <View className="bg-primary px-4 py-4">
@@ -1107,29 +1151,33 @@ function SuccessQrView({ event, registration, onBack }: SuccessQrProps) {
             </Text>
           </View>
           <CardContent className="p-6 gap-6">
-            <View className="items-center">
-              <View className="bg-white p-4 rounded-2xl shadow-md">
-                <QRCode value={registration.qr_code} size={200} />
+            {registrations.map((reg, idx) => (
+              <View key={reg.id ?? idx} className="items-center gap-3">
+                {registrations.length > 1 && (
+                  <Text className="text-sm font-semibold text-muted-foreground">
+                    Ticket {idx + 1}
+                    {reg.ticket_tier?.name ? ` — ${reg.ticket_tier.name}` : ""}
+                  </Text>
+                )}
+                <View className="bg-white p-4 rounded-2xl shadow-md">
+                  <QRCode value={reg.qr_code} size={200} />
+                </View>
+                <View className="items-center">
+                  <Text className="text-xs text-muted-foreground">Your QR Code</Text>
+                  <Text className="text-sm font-mono font-medium text-foreground mt-1">
+                    {reg.qr_code}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <View className="items-center">
-              <Text className="text-xs text-muted-foreground">
-                Your QR Code
-              </Text>
-              <Text className="text-sm font-mono font-medium text-foreground mt-1">
-                {registration.qr_code}
-              </Text>
-            </View>
-            {registration.payment_status === "paid" ? (
+            ))}
+            {registrations.some((r) => r.payment_status === "paid") ? (
               <View className="flex-row items-center justify-center gap-2 bg-success/10 rounded-lg px-3 py-2">
                 <CheckCircle size={14} color={colors.success} />
                 <Text className="text-sm font-semibold text-success">
                   Payment Confirmed
                 </Text>
-                {registration.amount_paid != null ? (
-                  <Text className="text-sm text-success">
-                    — ₹{registration.amount_paid}
-                  </Text>
+                {totalPaid > 0 ? (
+                  <Text className="text-sm text-success">— ₹{totalPaid}</Text>
                 ) : null}
               </View>
             ) : null}
