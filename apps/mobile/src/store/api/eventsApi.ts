@@ -79,6 +79,11 @@ export interface AppEvent {
   views_count?: number;
   company_logo?: string | null;
   venue_images?: string[];
+  // Recurring events
+  recurrence_rule?: string | null;         // JSON string: {"freq":"weekly","days":["TUE"],"interval":1}
+  recurrence_ends_at?: string | null;
+  parent_event_id?: number | null;         // set on occurrence rows
+  occurrences_count?: number;              // number of generated occurrences (on parent)
 }
 
 export interface EventRegistration {
@@ -123,6 +128,28 @@ export interface EventPaymentPayload {
   razorpay_signature: string;
 }
 
+/** One item in a multi-tier cart */
+export interface CartItem {
+  tier_id: number;
+  ticket_count: number;
+}
+
+/** Response from POST /events/:id/payment-intent-cart */
+export interface CartPaymentIntent {
+  key_id: string;
+  order_id: string;
+  amount: number;
+  currency: string;
+  event_id: number;
+  event_title: string;
+  items: Array<{ tier_id: number; tier_name: string; ticket_count: number; unit_price: number }>;
+}
+
+/** Response from POST /events/:id/register-cart */
+export interface CartRegistrationResult {
+  registrations: Array<EventRegistration & { qr_code: string }>;
+}
+
 export interface CreateEventInput {
   business_promotion_id: number;
   title: string;
@@ -136,6 +163,9 @@ export interface CreateEventInput {
   max_attendees?: number;
   company_logo?: string;
   venue_images?: string[];
+  // Recurring events
+  recurrence_rule?: string;        // JSON: {"freq":"weekly","days":["TUE"],"interval":1}
+  recurrence_ends_at?: string;     // ISO date string
 }
 
 export interface UpdateEventInput {
@@ -561,6 +591,39 @@ export const eventsApi = baseApi.injectEndpoints({
         'Event',
       ],
     }),
+    /** Multi-tier cart — create one Razorpay order for multiple tiers. */
+    createCartPaymentIntent: builder.mutation<
+      CartPaymentIntent,
+      { eventId: number; items: CartItem[] }
+    >({
+      query: ({ eventId, items }) => {
+        console.log('[eventsApi.createCartPaymentIntent] eventId:', eventId, 'items:', JSON.stringify(items));
+        return {
+          url: `/events/${eventId}/payment-intent-cart`,
+          method: 'POST',
+          body: { items },
+        };
+      },
+    }),
+    /** Multi-tier cart — register for multiple tiers in one call. */
+    registerCart: builder.mutation<
+      CartRegistrationResult,
+      { eventId: number; items: CartItem[]; payment?: EventPaymentPayload }
+    >({
+      query: ({ eventId, items, payment }) => {
+        console.log('[eventsApi.registerCart] eventId:', eventId, 'items:', JSON.stringify(items), 'hasPayment:', !!payment);
+        return {
+          url: `/events/${eventId}/register-cart`,
+          method: 'POST',
+          body: { items, payment },
+        };
+      },
+      transformResponse: (response: CartRegistrationResult) => {
+        console.log('[eventsApi.registerCart] SUCCESS — registrations:', response.registrations?.length);
+        return response;
+      },
+      invalidatesTags: ['Event'],
+    }),
   }),
 });
 
@@ -584,4 +647,6 @@ export const {
   useRefundRegistrationMutation,
   usePromoteWaitlistMutation,
   usePartialCancelTicketsMutation,
+  useCreateCartPaymentIntentMutation,
+  useRegisterCartMutation,
 } = eventsApi;
