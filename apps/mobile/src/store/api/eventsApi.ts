@@ -8,6 +8,24 @@ export interface EventBusiness {
   phone?: string;
 }
 
+export interface FriendAttendee {
+  user_id: number;
+  name: string;
+  profile_picture: string | null;
+  tickets: number;
+  registrations: number;
+  has_paid_ticket: boolean;
+  has_free_registration: boolean;
+  interaction_count?: number;
+  last_registered_at: string;
+}
+
+export interface FriendAttendeesResponse {
+  event_id: number;
+  total_friends_attending: number;
+  friends: FriendAttendee[];
+}
+
 /**
  * A ticket tier as returned by the backend's event decorator.
  *
@@ -252,6 +270,20 @@ export const eventsApi = baseApi.injectEndpoints({
         return response;
       },
       providesTags: (_r, _e, id) => [{ type: 'Event', id }],
+    }),
+    getFriendAttendees: builder.query<FriendAttendeesResponse, number>({
+      query: (eventId) => {
+        console.log('[eventsApi.getFriendAttendees] eventId:', eventId);
+        return `/events/${eventId}/friend-attendees`;
+      },
+      transformResponse: (response: any) => {
+        return {
+          event_id: Number(response?.event_id ?? 0),
+          total_friends_attending: Number(response?.total_friends_attending ?? 0),
+          friends: Array.isArray(response?.friends) ? response.friends : [],
+        };
+      },
+      providesTags: (_r, _e, eventId) => [{ type: 'Event', id: eventId }],
     }),
     listMyEvents: builder.query<AppEvent[], void>({
       query: () => {
@@ -630,6 +662,7 @@ export const eventsApi = baseApi.injectEndpoints({
 export const {
   useListEventsQuery,
   useGetEventQuery,
+  useGetFriendAttendeesQuery,
   useListMyEventsQuery,
   useCreateEventMutation,
   useUpdateEventMutation,

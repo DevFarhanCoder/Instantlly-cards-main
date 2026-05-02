@@ -53,6 +53,7 @@ import type { RazorpayCheckoutOptions } from "../lib/payments/razorpayCheckout";
 import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
 import {
   useCreateCartPaymentIntentMutation,
+  useGetFriendAttendeesQuery,
   useRegisterCartMutation,
 } from "../store/api/eventsApi";
 import type { AppEvent, AppTicketTier } from "../store/api/eventsApi";
@@ -116,6 +117,42 @@ const EventDetail = () => {
     () => registrations.filter((r: any) => String(r.event_id) === String(id)),
     [registrations, id],
   );
+
+  const eventIdNum =
+    typeof id === "string" ? parseInt(id, 10) : Number(id);
+  const { data: friendAttendees } = useGetFriendAttendeesQuery(eventIdNum, {
+    skip: !user || !Number.isFinite(eventIdNum) || eventIdNum <= 0,
+  });
+
+  const friendNamesSummary = useMemo(() => {
+    const names = (friendAttendees?.friends ?? [])
+      .map((f) => f?.name)
+      .filter((n): n is string => typeof n === "string" && n.trim().length > 0);
+    const uniqueNames = Array.from(new Set(names));
+    const top = uniqueNames.slice(0, 3);
+    const remaining = uniqueNames.length - top.length;
+    const namesText = top.join(", ");
+    if (!namesText) return "";
+    return remaining > 0 ? `${namesText} +${remaining} more` : namesText;
+  }, [friendAttendees]);
+
+  const friendPreview = useMemo(() => {
+    return (friendAttendees?.friends ?? []).slice(0, 5).map((f) => {
+      const cleanName = (f?.name ?? "Friend").trim() || "Friend";
+      const initials = cleanName
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase() ?? "")
+        .join("") || "F";
+      return {
+        userId: f.user_id,
+        name: cleanName,
+        profilePicture: f.profile_picture,
+        initials,
+      };
+    });
+  }, [friendAttendees]);
   // Tier IDs already purchased so we can show "already bought" state
   const purchasedTierIds = useMemo(
     () => new Set(existingPasses.map((r: any) => r.ticket_tier_id).filter(Boolean)),
@@ -674,6 +711,44 @@ const EventDetail = () => {
                 </Text>
                 <Text className="text-sm text-foreground leading-5">
                   {event.description}
+                </Text>
+              </View>
+            ) : null}
+
+            {(friendAttendees?.total_friends_attending ?? 0) > 0 ? (
+              <View className="rounded-xl bg-success/10 p-3">
+                <Text className="text-xs uppercase tracking-wide text-success mb-1">
+                  Friends Attending
+                </Text>
+                <Text className="text-xs text-muted-foreground mb-2">
+                  You have {friendAttendees?.total_friends_attending ?? 0} friend{(friendAttendees?.total_friends_attending ?? 0) > 1 ? "s" : ""} attending
+                </Text>
+                <View className="flex-row flex-wrap gap-2 mb-2">
+                  {friendPreview.map((friend) => (
+                    <View
+                      key={friend.userId}
+                      className="flex-row items-center bg-background/80 rounded-full pl-1 pr-2 py-1"
+                    >
+                      {friend.profilePicture ? (
+                        <Image
+                          source={{ uri: friend.profilePicture }}
+                          style={{ width: 22, height: 22, borderRadius: 11 }}
+                        />
+                      ) : (
+                        <View className="w-[22px] h-[22px] rounded-full bg-primary/20 items-center justify-center">
+                          <Text className="text-[10px] font-semibold text-primary">
+                            {friend.initials}
+                          </Text>
+                        </View>
+                      )}
+                      <Text className="text-xs text-foreground ml-1.5">
+                        {friend.name}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+                <Text className="text-sm text-foreground font-medium">
+                  {friendNamesSummary}
                 </Text>
               </View>
             ) : null}
