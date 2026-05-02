@@ -6,6 +6,8 @@ import {
   BarChart3,
   CheckCircle2,
   Eye,
+  IndianRupee,
+  RotateCcw,
   TrendingUp,
   Users,
 } from "lucide-react-native";
@@ -100,28 +102,36 @@ const EventAnalytics = () => {
           />
         ) : (
           <>
+            {/* Row 1: 3 stat cards */}
             <View className="flex-row gap-3">
               <StatTile
                 label="Views"
                 value={data.views}
-                icon={<Eye size={20} color={colors.primary} />}
+                icon={<Eye size={18} color={colors.primary} />}
               />
               <StatTile
                 label="Registrations"
                 value={data.registrations}
-                icon={<Users size={20} color={colors.primary} />}
+                icon={<Users size={18} color={colors.primary} />}
               />
-            </View>
-            <View className="flex-row gap-3">
               <StatTile
                 label="Check-ins"
                 value={data.check_ins}
-                icon={<CheckCircle2 size={20} color={colors.success} />}
+                icon={<CheckCircle2 size={18} color={colors.success} />}
+              />
+            </View>
+
+            {/* Row 2: Gross Revenue + Refunds */}
+            <View className="flex-row gap-3">
+              <StatTile
+                label="Gross Revenue"
+                value={`₹${(data.gross_revenue ?? 0).toLocaleString('en-IN')}`}
+                icon={<IndianRupee size={18} color={colors.primary} />}
               />
               <StatTile
-                label="Conversion"
-                value={conversionPct}
-                icon={<TrendingUp size={20} color={colors.primary} />}
+                label="Refunded"
+                value={`₹${(data.refund_amount ?? 0).toLocaleString('en-IN')}`}
+                icon={<RotateCcw size={18} color="#ef4444" />}
               />
             </View>
 
