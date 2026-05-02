@@ -56,6 +56,7 @@ import {
   useRegisterCartMutation,
 } from "../store/api/eventsApi";
 import type { AppEvent, AppTicketTier } from "../store/api/eventsApi";
+import { promptAddToCalendar } from "../utils/calendar";
 
 /**
  * EventDetail — Phase 2 frontend.
@@ -204,6 +205,16 @@ const EventDetail = () => {
       });
       setNewRegistrations([result]);
       toast.success("Registration successful! Your QR pass is ready");
+      if (event) {
+        promptAddToCalendar({
+          title: event.title,
+          date: event.date,
+          time: event.time,
+          end_date: event.end_date,
+          location: event.location,
+          description: event.description,
+        });
+      }
     },
     [event, legacy, firstCartTier, firstCartQty, id, registerMutation],
   );
