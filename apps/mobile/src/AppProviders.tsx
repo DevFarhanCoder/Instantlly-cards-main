@@ -10,6 +10,7 @@ import { CreditsProvider, useCredits } from "./contexts/CreditsContext";
 import { checkAndRefreshCredits } from "./lib/creditsRefresh";
 import { PromotionProvider } from "./contexts/PromotionContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { LocationProvider } from "./contexts/LocationContext";
 
 // Keep React Query client for existing hooks that haven't migrated to RTK Query yet
 const queryClient = new QueryClient();
@@ -51,13 +52,15 @@ const AppProviders = ({ children }: { children: ReactNode }) => {
   // any provider/screen can read or update the theme.
   return (
     <ThemeProvider>
-      <ReduxProvider store={store}>
-        <CreditsProvider>
-          <CreditsBootstrap>
-            {tree}
-          </CreditsBootstrap>
-        </CreditsProvider>
-      </ReduxProvider>
+      <LocationProvider>
+        <ReduxProvider store={store}>
+          <CreditsProvider>
+            <CreditsBootstrap>
+              {tree}
+            </CreditsBootstrap>
+          </CreditsProvider>
+        </ReduxProvider>
+      </LocationProvider>
     </ThemeProvider>
   );
 };

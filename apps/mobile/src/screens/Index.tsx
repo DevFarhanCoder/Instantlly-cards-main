@@ -14,6 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import {
   ArrowRight,
   CalendarDays,
+  ChevronDown,
   Clock,
   Gift,
   Heart,
@@ -48,6 +49,8 @@ import { useVouchers } from "../hooks/useVouchers";
 import { useCredits } from "../contexts/CreditsContext";
 import { supabase, SUPABASE_CONFIG_OK } from "../integrations/supabase/client";
 import { colors } from "../theme/colors";
+import { useAppLocation } from "../contexts/LocationContext";
+import { LocationPickerModal } from "../components/ui/LocationPickerModal";
 
 type ServiceMode = "all" | "home" | "visit";
 
@@ -68,6 +71,18 @@ const Index = () => {
   const { data: myCards = [], isLoading: isLoadingMyCards, refetch: refetchMyCards } = useGetMyCardsQuery(undefined, { skip: !user });
   const { data: categoryData = [], isLoading: isLoadingCategories, isFetching: isFetchingCategories, refetch: refetchCategories } = useListMobileCategoriesQuery(undefined, { refetchOnMountOrArgChange: true });
   const { data: categoryTree = [] } = useGetCategoryTreeQuery();
+
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const { city: globalCity, state: globalState, isLoading: locationLoading, isManual, permissionDenied } = useAppLocation();
+  const autoOpenedRef = useRef(false);
+
+  // Auto-open the picker once when the app loads with no city (permission denied or geocoding failed)
+  useEffect(() => {
+    if (!locationLoading && !globalCity && !autoOpenedRef.current) {
+      autoOpenedRef.current = true;
+      setShowLocationPicker(true);
+    }
+  }, [locationLoading, globalCity]);
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -159,6 +174,69 @@ const Index = () => {
 
   return (
     <View className="flex-1 bg-background">
+      {/* ── Zomato/Swiggy-style location header ── */}
+      <Pressable
+        onPress={() => setShowLocationPicker(true)}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          paddingBottom: 10,
+          backgroundColor: colors.card,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+          gap: 10,
+        }}
+      >
+        <View
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: "#ef444415",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <MapPin size={18} color="#ef4444" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 11, color: colors.mutedForeground, fontWeight: "500", marginBottom: 1 }}>
+            {isManual ? "Selected city" : "Your location"}
+          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+            <Text
+              style={{ fontSize: 17, fontWeight: "800", color: permissionDenied && !globalCity ? colors.mutedForeground : colors.foreground, flexShrink: 1 }}
+              numberOfLines={1}
+            >
+              {locationLoading ? "Detecting..." : (globalCity ?? (permissionDenied ? "Tap to set location" : "Select City"))}
+            </Text>
+            <ChevronDown size={16} color={colors.foreground} />
+          </View>
+        </View>
+        {globalState && !locationLoading ? (
+          <View
+            style={{
+              backgroundColor: colors.muted,
+              borderRadius: 8,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              maxWidth: 100,
+            }}
+          >
+            <Text style={{ fontSize: 10, color: colors.mutedForeground, fontWeight: "600" }} numberOfLines={1}>
+              {globalState}
+            </Text>
+          </View>
+        ) : null}
+      </Pressable>
+
+      <LocationPickerModal
+        visible={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+      />
+
       <ScrollView
         className="bg-background"
         contentContainerStyle={{ paddingBottom: 16 }}

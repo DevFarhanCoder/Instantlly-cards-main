@@ -1,11 +1,13 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { ArrowLeft } from "lucide-react-native";
+import { ArrowLeft, MapPin } from "lucide-react-native";
 import { Skeleton } from "../components/ui/skeleton";
 import { useListMobileCategoriesQuery, useGetMobileSubcategoriesQuery } from "../store/api/categoriesApi";
 import type { MobileSubcategoryItem } from "../store/api/categoriesApi";
 import { useIconColor } from "../theme/colors";
+import { useAppLocation } from "../contexts/LocationContext";
+import { useListPromotionsNearbyQuery } from "../store/api/promotionsApi";
 
 const CategoryDetail = () => {
   const iconColor = useIconColor();
@@ -33,6 +35,39 @@ const CategoryDetail = () => {
     try { await Promise.all([refetchCats(), refetchSubs()]); } finally { setRefreshing(false); }
   }, [refetchCats, refetchSubs]);
   const subcategories: MobileSubcategoryItem[] = subcategoryResponse?.data?.subcategories ?? [];
+
+  // --- Location-aware availability ---
+  const { city: globalCity, state: globalState } = useAppLocation();
+  const hasCityFilter = Boolean(globalCity || globalState);
+
+  const { data: cityPromosData, isLoading: cityPromosLoading } = useListPromotionsNearbyQuery(
+    {
+      city: globalCity ?? undefined,
+      state: globalState ?? undefined,
+      category: displayName,
+      limit: 200,
+    },
+    { skip: !hasCityFilter }
+  );
+
+  // Build subcategory → business count map by matching promotion categories
+  const subCountMap = useMemo<Map<string, number> | null>(() => {
+    if (!hasCityFilter || !cityPromosData?.data) return null;
+    const promos = cityPromosData.data as any[];
+    const map = new Map<string, number>();
+    for (const sub of subcategories) {
+      const subLower = sub.name.toLowerCase();
+      const count = promos.filter((p: any) => {
+        const cats: string[] = Array.isArray(p.category) ? p.category : [];
+        return cats.some((c: string) => {
+          const cl = c.toLowerCase();
+          return cl.includes(subLower) || subLower.includes(cl);
+        });
+      }).length;
+      map.set(sub.name, count);
+    }
+    return map;
+  }, [hasCityFilter, cityPromosData, subcategories]);
 
   const handleSubcategoryPress = (sub: MobileSubcategoryItem) => {
     // [DEBUG-CATEGORY] Temporary log — remove after category investigation
@@ -284,9 +319,17 @@ const CategoryDetail = () => {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
         }
       >
-        <Text className="text-sm font-semibold text-foreground mb-3">
-          Select a Subcategory
-        </Text>
+        <View className="flex-row items-center justify-between mb-3">
+          <Text className="text-sm font-semibold text-foreground">
+            Select a Subcategory
+          </Text>
+          {hasCityFilter && globalCity && (
+            <View className="flex-row items-center gap-1">
+              <MapPin size={11} color="#2463eb" />
+              <Text className="text-[11px] text-primary font-medium">{globalCity}</Text>
+            </View>
+          )}
+        </View>
 
         {isLoadingSubs ? (
           <View className="flex-row flex-wrap gap-2">
@@ -312,11 +355,15 @@ const CategoryDetail = () => {
               ];
               const bgColor = bgColors[index % bgColors.length];
 
+              const bizCount = subCountMap?.get(sub.name) ?? null;
+              const isLoadingCount = hasCityFilter && cityPromosLoading;
+              const hasBusinesses = bizCount === null || bizCount > 0;
+
               return (
                 <Pressable
                   key={sub.id ?? sub.name}
                   onPress={() => handleSubcategoryPress(sub)}
-                  style={{ width: '23%' }}
+                  style={{ width: '23%', opacity: hasCityFilter && !isLoadingCount && !hasBusinesses ? 0.5 : 1 }}
                   className={`rounded-xl px-1 py-2 items-center ${bgColor}`}
                 >
                   <View className="w-11 h-11 rounded-lg items-center justify-center mb-1 bg-white/60">
@@ -328,9 +375,17 @@ const CategoryDetail = () => {
                   >
                     {sub.name}
                   </Text>
-                  {sub.child_count > 0 && (
+                  {isLoadingCount ? (
+                    <View className="mt-0.5 h-3 w-8 rounded bg-gray-200" />
+                  ) : bizCount !== null ? (
+                    bizCount > 0 ? (
+                      <Text className="text-[9px] text-emerald-600 font-semibold mt-0.5">{bizCount} here</Text>
+                    ) : (
+                      <Text className="text-[9px] text-gray-400 mt-0.5">None nearby</Text>
+                    )
+                  ) : sub.child_count > 0 ? (
                     <Text className="text-[9px] text-gray-400 mt-0.5">{sub.child_count} sub</Text>
-                  )}
+                  ) : null}
                 </Pressable>
               );
             })}

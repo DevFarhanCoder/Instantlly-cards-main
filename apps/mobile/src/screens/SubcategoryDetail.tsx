@@ -29,6 +29,7 @@ import BookAppointmentModal from "../components/BookAppointmentModal";
 import { useDirectoryFeed, type DirectoryCard } from "../hooks/useDirectoryCards";
 import { Skeleton } from "../components/ui/skeleton";
 import { useUserLocation, getDistanceKm, formatDistance } from "../hooks/useUserLocation";
+import { useAppLocation } from "../contexts/LocationContext";
 import { colors } from "../theme/colors";
 import { useIconColor } from "../theme/colors";
 
@@ -53,6 +54,7 @@ const SubcategoryDetail = () => {
   const [serviceMode, setServiceMode] = useState<ServiceMode>("all");
   const [bookingCard, setBookingCard] = useState<DirectoryCard | null>(null);
   const userLocation = useUserLocation();
+  const { city: globalCity, state: globalState } = useAppLocation();
 
   const {
     data: allCards = [],
@@ -67,6 +69,8 @@ const SubcategoryDetail = () => {
     lat: userLocation?.latitude,
     lng: userLocation?.longitude,
     radius: 10000,
+    city: globalCity ?? undefined,
+    state: globalState ?? undefined,
   });
 
   const filteredCards = useMemo(() => {
