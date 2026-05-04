@@ -121,7 +121,7 @@ const Notifications = () => {
         )}
       </View>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="px-4 pt-3">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 px-4 pt-3">
         <TabsList className="w-full">
           <TabsTrigger value="notifications" className="flex-1">
             Notifications
@@ -131,7 +131,7 @@ const Notifications = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="notifications" className="mt-3">
+        <TabsContent value="notifications" className="flex-1 mt-3">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pb-3">
             <View className="flex-row gap-2">
               {["all", "unread", "reminder", "offer", "booking", "message"].map((f) => (
@@ -216,7 +216,8 @@ const Notifications = () => {
           </ScrollView>
         </TabsContent>
 
-        <TabsContent value="preferences" className="mt-3 gap-3">
+        <TabsContent value="preferences" className="flex-1 mt-3">
+          <ScrollView contentContainerStyle={{ paddingBottom: 32, gap: 12 }}>
           <Text className="text-xs text-muted-foreground">
             Choose which notifications you want to receive.
           </Text>
@@ -237,6 +238,7 @@ const Notifications = () => {
               </View>
             ))}
           </View>
+          </ScrollView>
         </TabsContent>
       </Tabs>
     </View>

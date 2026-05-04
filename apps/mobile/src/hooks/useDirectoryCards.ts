@@ -274,17 +274,22 @@ export function useDirectoryFeed(options?: { pageSize?: number; category?: strin
     }
   );
 
-  // Also fetch approved+live business cards for the same category
+  // Fetch approved+live business cards for the same category — skip when a city/state
+  // filter is active because the /cards endpoint has no city filtering, and we don't
+  // want unfiltered cards polluting city-specific results.
+  const hasCityFilter = Boolean(options?.city || options?.state);
   const cardsQuery = useListCardsQuery(
     { page, limit: pageSize, category: options?.category, search: options?.search },
     {
-      skip: options?.skip,
+      skip: options?.skip || hasCityFilter,
       refetchOnMountOrArgChange: true,
     }
   );
 
-  // If nearby returns no results but normal query has results, use normal query
+  // Only fall back to unfiltered results when no explicit city/state is set, otherwise
+  // "no results for Delhi" is a valid answer — don't silently show all cities.
   const shouldFallbackToNormal = useNearby &&
+    !hasCityFilter &&
     nearbyQuery.data &&
     (nearbyQuery.data.data || []).length === 0 &&
     normalQuery.data &&
@@ -296,18 +301,18 @@ export function useDirectoryFeed(options?: { pageSize?: number; category?: strin
   refetchRef.current = query.refetch;
 
   useEffect(() => {
-    const key = `${options?.category ?? ""}::${options?.search ?? ""}`;
+    const key = `${options?.category ?? ""}::${options?.search ?? ""}::${options?.city ?? ""}::${options?.state ?? ""}`;
     if (lastKeyRef.current !== key) {
       const isInitialMount = lastKeyRef.current === "";
       lastKeyRef.current = key;
       setPage(1);
       setItems([]);
       setHasMore(true);
-      if (!isInitialMount && key && refetchRef.current) {
+      if (!isInitialMount && refetchRef.current) {
         refetchRef.current();
       }
     }
-  }, [options?.category, options?.search]);
+  }, [options?.category, options?.search, options?.city, options?.state]);
 
   useEffect(() => {
     const promoData = query.data?.data || [];

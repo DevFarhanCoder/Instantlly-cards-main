@@ -8,7 +8,8 @@
  * Navigation: Push from EventDetail via "Edit Agenda" button (organizer only).
  * Route params: { id: eventId }
  */
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +19,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StatusBar,
   Text,
   TextInput,
   View,
@@ -416,6 +418,85 @@ function SpeakerFormModal({
 
 // ─── Session form modal ───────────────────────────────────────────────────────
 
+// Parse "HH:MM" → Date (today)
+function hhmToDate(hhmm: string): Date {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date();
+  d.setHours(isNaN(h) ? 9 : h, isNaN(m) ? 0 : m, 0, 0);
+  return d;
+}
+
+// Format Date → "HH:MM"
+function dateToHHMM(d: Date): string {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+// Format "HH:MM" → "9:00 AM"
+function formatHHMM(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  if (isNaN(h)) return hhmm;
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${hour}:${String(m ?? 0).padStart(2, "0")} ${ampm}`;
+}
+
+function TimeRangePicker({
+  startTime, endTime, onStartChange, onEndChange, colors,
+}: {
+  startTime: string; endTime: string;
+  onStartChange: (v: string) => void; onEndChange: (v: string) => void;
+  colors: ReturnType<typeof useColors>;
+}) {
+  const [show, setShow] = useState<"start" | "end" | null>(null);
+
+  const handleChange = (_: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === "android") setShow(null);
+    if (!date) return;
+    const val = dateToHHMM(date);
+    if (show === "start") onStartChange(val);
+    else if (show === "end") onEndChange(val);
+  };
+
+  const pickerDate = show === "start" ? hhmToDate(startTime) : hhmToDate(endTime);
+
+  return (
+    <View>
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={labelStyle(colors)}>Start Time</Text>
+          <Pressable
+            onPress={() => setShow("start")}
+            style={[inputStyle(colors), { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}
+          >
+            <Text style={{ color: colors.foreground, fontSize: 15 }}>{formatHHMM(startTime)}</Text>
+            <Clock size={16} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={labelStyle(colors)}>End Time</Text>
+          <Pressable
+            onPress={() => setShow("end")}
+            style={[inputStyle(colors), { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}
+          >
+            <Text style={{ color: colors.foreground, fontSize: 15 }}>{formatHHMM(endTime)}</Text>
+            <Clock size={16} color={colors.mutedForeground} />
+          </Pressable>
+        </View>
+      </View>
+
+      {show !== null && (
+        <DateTimePicker
+          value={pickerDate}
+          mode="time"
+          is24Hour={false}
+          display={Platform.OS === "ios" ? "spinner" : "default"}
+          onChange={handleChange}
+        />
+      )}
+    </View>
+  );
+}
+
 interface SessionFormState {
   title: string;
   description: string;
@@ -566,30 +647,13 @@ function SessionFormModal({
           </View>
 
           {/* Times */}
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={labelStyle(colors)}>Start Time</Text>
-              <TextInput
-                value={form.start_time}
-                onChangeText={(v) => set("start_time", v)}
-                placeholder="09:00"
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="numbers-and-punctuation"
-                style={inputStyle(colors)}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={labelStyle(colors)}>End Time</Text>
-              <TextInput
-                value={form.end_time}
-                onChangeText={(v) => set("end_time", v)}
-                placeholder="10:00"
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="numbers-and-punctuation"
-                style={inputStyle(colors)}
-              />
-            </View>
-          </View>
+          <TimeRangePicker
+            startTime={form.start_time}
+            endTime={form.end_time}
+            onStartChange={(v) => set("start_time", v)}
+            onEndChange={(v) => set("end_time", v)}
+            colors={colors}
+          />
 
           {/* Type */}
           <View>
@@ -1024,7 +1088,8 @@ export default function EventAgendaEdit() {
         style={{
           backgroundColor: colors.primary,
           paddingHorizontal: 16,
-          paddingVertical: 14,
+          paddingTop: (StatusBar.currentHeight ?? 0) + 14,
+          paddingBottom: 14,
           flexDirection: "row",
           alignItems: "center",
           gap: 12,

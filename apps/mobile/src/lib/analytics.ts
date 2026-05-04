@@ -53,13 +53,13 @@ export async function trackPromotionEvent(
   if (!promotionId) return;
   try {
     const visitorId = await getVisitorId();
-    const payload: Record<string, any> = {
+    const payload = {
+      business_card_id: businessCardId ? Number(businessCardId) : undefined,
       business_promotion_id: Number(promotionId),
       event_type: eventType,
       visitor_id: visitorId,
     };
-    if (businessCardId) payload.business_card_id = businessCardId;
-    await supabase.from("card_analytics").insert(payload);
+    await supabase.from("card_analytics").insert(payload as any);
   } catch {
     // Never block UI on analytics.
   }

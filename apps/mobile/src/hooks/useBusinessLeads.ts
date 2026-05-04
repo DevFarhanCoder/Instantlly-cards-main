@@ -1,4 +1,5 @@
-﻿import {
+﻿import React from "react";
+import {
   useListBusinessLeadsQuery,
   useListPromotionLeadsQuery,
   useCreateLeadMutation,
@@ -61,15 +62,24 @@ export const useBusinessLeads = (
     message: lead.message,
   });
 
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const submitLead = {
+    isPending: isSubmitting,
     mutate: (lead: LeadInput) => {
+      setIsSubmitting(true);
       createLeadTrigger(buildPayload(lead))
         .unwrap()
         .then(() => toast.success("Your inquiry has been sent!"))
-        .catch(() => toast.error("Failed to send inquiry"));
+        .catch(() => toast.error("Failed to send inquiry"))
+        .finally(() => setIsSubmitting(false));
     },
     mutateAsync: async (lead: LeadInput) => {
-      return createLeadTrigger(buildPayload(lead)).unwrap();
+      setIsSubmitting(true);
+      try {
+        return await createLeadTrigger(buildPayload(lead)).unwrap();
+      } finally {
+        setIsSubmitting(false);
+      }
     },
   };
 

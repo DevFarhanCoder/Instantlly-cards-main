@@ -387,6 +387,22 @@ const makeStyles = (colors: typeof defaultColors) =>
     flex: 1,
     paddingBottom: 0,
   },
+  locationBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    backgroundColor: colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  locationBarText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.foreground,
+  },
   adBar: {
     // Full-bleed: no padding so ad images span edge-to-edge
   },
