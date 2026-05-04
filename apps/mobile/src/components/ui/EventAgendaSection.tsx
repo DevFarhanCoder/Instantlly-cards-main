@@ -255,9 +255,9 @@ function SpeakerSheet({ speaker, sessions, visible, onClose }: SpeakerSheetProps
                   >
                     Speaking in
                   </Text>
-                  {speakerSessions.map((s) => (
+                  {speakerSessions.map((s, i) => (
                     <View
-                      key={s.id}
+                      key={`ss-${s.id}-${i}`}
                       style={{
                         flexDirection: "row",
                         alignItems: "center",
@@ -321,9 +321,15 @@ function SessionCard({ session, onSpeakerPress }: SessionCardProps) {
             flex: 1,
             width: 1,
             backgroundColor: colors.border,
-            marginTop: 6,
+            marginTop: 4,
+            marginBottom: 4,
           }}
         />
+        <Text
+          style={{ fontSize: 10, fontWeight: "500", color: colors.mutedForeground }}
+        >
+          {formatTime(session.end_time)}
+        </Text>
       </View>
 
       {/* Session content */}
@@ -381,30 +387,22 @@ function SessionCard({ session, onSpeakerPress }: SessionCardProps) {
           </Text>
         ) : null}
 
-        {/* End time + location */}
-        <View style={{ flexDirection: "row", gap: 12, marginBottom: 6 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Clock size={11} color={colors.mutedForeground} />
+        {/* Location */}
+        {session.location ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 }}>
+            <MapPin size={11} color={colors.mutedForeground} />
             <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
-              ends {formatTime(session.end_time)}
+              {session.location}
             </Text>
           </View>
-          {session.location ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-              <MapPin size={11} color={colors.mutedForeground} />
-              <Text style={{ fontSize: 11, color: colors.mutedForeground }}>
-                {session.location}
-              </Text>
-            </View>
-          ) : null}
-        </View>
+        ) : null}
 
         {/* Speaker avatars */}
         {session.speakers.length > 0 ? (
           <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-            {session.speakers.map((sp) => (
+            {session.speakers.map((sp, i) => (
               <Pressable
-                key={sp.id}
+                key={`sp-${sp.id}-${i}`}
                 onPress={() => onSpeakerPress(sp)}
                 style={{ flexDirection: "row", alignItems: "center", gap: 5 }}
               >
@@ -530,9 +528,9 @@ function AgendaTab({ days, allSessions, onSpeakerPress }: AgendaTabProps) {
             No sessions scheduled for this day.
           </Text>
         ) : (
-          activeDay.sessions.map((session) => (
+          activeDay.sessions.map((session, i) => (
             <SessionCard
-              key={session.id}
+              key={`session-${session.id}-${i}`}
               session={session}
               onSpeakerPress={onSpeakerPress}
             />

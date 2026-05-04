@@ -1,14 +1,17 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
+  Animated,
   Dimensions,
   Image,
   ImageSourcePropType,
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  PanResponder,
   Pressable,
   RefreshControl,
   ScrollView,
+  StatusBar,
   Text,
   View,
 } from "react-native";
@@ -221,6 +224,10 @@ const EventDetail = () => {
     useState<RazorpayCheckoutOptions | null>(null);
   // Pending cart items for WebView flow (paid cart needs payment before registering)
   const [pendingCartItems, setPendingCartItems] = useState<Array<{ tier: AppTicketTier; qty: number }>>([]);
+
+  // Parallax hero scroll animation — must be declared before any early returns
+  const HERO_H = 200;
+  const scrollY = useRef(new Animated.Value(0)).current;
 
   // ─── Action handlers ────────────────────────────────────────────────
 
@@ -554,44 +561,79 @@ const EventDetail = () => {
       ? [{ uri: companyLogo }]
       : [];
 
+  const heroScale = scrollY.interpolate({ inputRange: [-HERO_H, 0], outputRange: [2, 1], extrapolate: "clamp" });
+  const heroTranslate = scrollY.interpolate({ inputRange: [0, HERO_H], outputRange: [0, -HERO_H / 2], extrapolate: "clamp" });
+  const backBg = scrollY.interpolate({ inputRange: [HERO_H - 60, HERO_H], outputRange: ["rgba(0,0,0,0)", colors.card], extrapolate: "clamp" });
+
   return (
     <View className="flex-1 bg-background">
-      <View className="bg-primary px-4 py-4 flex-row items-center gap-2">
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+
+      {/* Floating back button */}
+      <Animated.View
+        style={{
+          position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
+          backgroundColor: backBg,
+          paddingTop: 44, paddingBottom: 10, paddingHorizontal: 16,
+          flexDirection: "row", alignItems: "center",
+        }}
+      >
         <Pressable
           onPress={() => navigation.goBack()}
-          className="flex-row items-center gap-2"
+          style={{
+            flexDirection: "row", alignItems: "center", gap: 6,
+            backgroundColor: "rgba(0,0,0,0.35)", borderRadius: 20,
+            paddingHorizontal: 12, paddingVertical: 6,
+          }}
+          hitSlop={10}
         >
-          <ArrowLeft size={20} color={colors.primaryForeground} />
-          <Text className="font-medium text-primary-foreground">Back</Text>
+          <ArrowLeft size={18} color="#fff" />
+          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>Back</Text>
         </Pressable>
-      </View>
+      </Animated.View>
 
-      <View className="h-48 bg-primary/10 overflow-hidden">
-        {hasHeroMedia ? (
-          <VenueImageSlider images={heroImageSources} />
-        ) : (
-          <View className="flex-1 items-center justify-center px-4">
-            <Image
-              source={require("../../assets/Instantlly_Logo-removebg.png")}
-              style={{ width: 118, height: 118 }}
-              resizeMode="contain"
-            />
-          </View>
-        )}
-      </View>
-
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 24 }}
-        className="px-4 -mt-6"
+      <Animated.ScrollView
+        contentContainerStyle={{ paddingBottom: 32 }}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
+            progressViewOffset={HERO_H}
           />
         }
       >
+        {/* Parallax hero */}
+        <Animated.View style={{ height: HERO_H, overflow: "hidden", transform: [{ translateY: heroTranslate }] }}>
+          <Animated.View style={{ flex: 1, transform: [{ scale: heroScale }] }}>
+            {hasHeroMedia ? (
+              <VenueImageSlider images={heroImageSources} height={HERO_H} />
+            ) : (
+              <View style={{ flex: 1, backgroundColor: "#1d3b6e", alignItems: "center", justifyContent: "center" }}>
+                <Image
+                  source={require("../../assets/Instantlly_Logo-removebg.png")}
+                  style={{ width: 120, height: 120, opacity: 0.7 }}
+                  resizeMode="contain"
+                />
+              </View>
+            )}
+          </Animated.View>
+          {/* Gradient overlay at bottom of hero */}
+          <View
+            style={{
+              position: "absolute", bottom: 0, left: 0, right: 0, height: 80,
+              backgroundColor: "transparent",
+            }}
+            pointerEvents="none"
+          />
+        </Animated.View>
+
+        {/* Content card lifts up over hero */}
+        <View style={{ marginTop: -24, paddingHorizontal: 16 }}>
+
         <Card>
           <CardContent className="p-5 gap-4">
             <View>
@@ -891,7 +933,8 @@ const EventDetail = () => {
             </CardContent>
           </Card>
         )}
-      </ScrollView>
+      </View>{/* end content card wrapper */}
+      </Animated.ScrollView>
 
       {webViewVisible && webViewOptions ? (
         <RazorpayWebView
@@ -941,13 +984,47 @@ interface LegacyBlockProps {
   waitlistBusy: boolean;
 }
 
-function VenueImageSlider({ images }: { images: ImageSourcePropType[] }) {
-  const { width, height } = Dimensions.get("window");
+function VenueImageSlider({ images, height: sliderHeight }: { images: ImageSourcePropType[]; height?: number }) {
+  const { width, height: screenHeight } = Dimensions.get("window");
+  const height = sliderHeight ?? 220;
   const [activeIndex, setActiveIndex] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
   const viewerScrollRef = useRef<ScrollView>(null);
+
+  const viewerTranslateY = useRef(new Animated.Value(0)).current;
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dy) > 10,
+      onPanResponderMove: (_, gs) => {
+        if (gs.dy > 0) viewerTranslateY.setValue(gs.dy);
+      },
+      onPanResponderRelease: (_, gs) => {
+        // Treat tiny movement as a tap → close
+        if (Math.abs(gs.dy) < 8 && Math.abs(gs.dx) < 8) {
+          Animated.timing(viewerTranslateY, { toValue: 600, duration: 180, useNativeDriver: true }).start(() => {
+            setViewerOpen(false);
+          });
+          return;
+        }
+        if (gs.dy > 80 || gs.vy > 0.8) {
+          Animated.timing(viewerTranslateY, { toValue: 600, duration: 200, useNativeDriver: true }).start(() => {
+            setViewerOpen(false);
+          });
+        } else {
+          Animated.spring(viewerTranslateY, { toValue: 0, useNativeDriver: true }).start();
+        }
+      },
+    })
+  ).current;
+
+  const closeViewer = () => {
+    Animated.timing(viewerTranslateY, { toValue: 600, duration: 180, useNativeDriver: true }).start(() => {
+      setViewerOpen(false);
+    });
+  };
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / width);
@@ -960,6 +1037,7 @@ function VenueImageSlider({ images }: { images: ImageSourcePropType[] }) {
   };
 
   const openViewer = (idx: number) => {
+    viewerTranslateY.setValue(0);
     setViewerIndex(idx);
     setViewerOpen(true);
     setTimeout(() => {
@@ -968,18 +1046,18 @@ function VenueImageSlider({ images }: { images: ImageSourcePropType[] }) {
   };
 
   return (
-    <View className="w-full h-48">
+    <View style={{ width: "100%", height }}>
       <ScrollView
         ref={scrollRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onScroll}
-        style={{ width, height: 192 }}
+        style={{ width, height }}
       >
         {images.map((source, i) => (
           <Pressable key={i} onPress={() => openViewer(i)}>
-            <Image source={source} style={{ width, height: 192 }} resizeMode="cover" />
+            <Image source={source} style={{ width, height }} resizeMode="cover" />
           </Pressable>
         ))}
       </ScrollView>
@@ -994,38 +1072,79 @@ function VenueImageSlider({ images }: { images: ImageSourcePropType[] }) {
         </View>
       ) : null}
 
-      <Modal visible={viewerOpen} transparent animationType="fade" onRequestClose={() => setViewerOpen(false)}>
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.95)" }}>
+      <Modal
+        visible={viewerOpen}
+        transparent={false}
+        animationType="fade"
+        presentationStyle="fullScreen"
+        statusBarTranslucent
+        onRequestClose={closeViewer}
+      >
+        <View style={{ flex: 1, backgroundColor: "#000" }}>
+          {/* Image counter */}
+          {images.length > 1 ? (
+            <View style={{ position: "absolute", top: 52, left: 0, right: 0, alignItems: "center", zIndex: 10 }}>
+              <View style={{ backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 }}>
+                <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>{viewerIndex + 1} / {images.length}</Text>
+              </View>
+            </View>
+          ) : null}
+
           <ScrollView
             ref={viewerScrollRef}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onMomentumScrollEnd={onViewerScroll}
-            style={{ flex: 1 }}
+            style={{ width, height: screenHeight }}
+            contentContainerStyle={{ alignItems: "flex-start" }}
           >
             {images.map((source, i) => (
-              <Pressable key={i} onPress={() => setViewerOpen(false)} style={{ width, height, justifyContent: "center", alignItems: "center" }}>
-                <Image source={source} style={{ width, height: height * 0.85 }} resizeMode="contain" />
-              </Pressable>
+              <Animated.View
+                key={i}
+                style={{ width, height: screenHeight, justifyContent: "center", alignItems: "center", transform: [{ translateY: viewerTranslateY }] }}
+                {...panResponder.panHandlers}
+              >
+                <Image source={source} style={{ width, height: screenHeight * 0.75 }} resizeMode="contain" />
+              </Animated.View>
             ))}
           </ScrollView>
+
+          {/* Close button */}
           <Pressable
-            onPress={() => setViewerOpen(false)}
-            style={{ position: "absolute", top: 40, right: 20, width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" }}
+            onPress={closeViewer}
+            style={{
+              position: "absolute", top: 44, right: 16,
+              width: 38, height: 38, borderRadius: 19,
+              backgroundColor: "rgba(255,255,255,0.15)",
+              borderWidth: 1, borderColor: "rgba(255,255,255,0.3)",
+              justifyContent: "center", alignItems: "center",
+            }}
+            hitSlop={10}
           >
-            <Text style={{ color: "white", fontSize: 22, fontWeight: "600" }}>{"\u00D7"}</Text>
+            <Text style={{ color: "#fff", fontSize: 20, lineHeight: 22, fontWeight: "700" }}>×</Text>
           </Pressable>
+
+          {/* Dot indicators */}
           {images.length > 1 ? (
-            <View style={{ position: "absolute", bottom: 40, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 6 }}>
+            <View style={{ position: "absolute", bottom: 48, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 6 }}>
               {images.map((_, i) => (
                 <View
                   key={i}
-                  style={{ height: 8, borderRadius: 4, width: i === viewerIndex ? 20 : 8, backgroundColor: i === viewerIndex ? "#fff" : "rgba(255,255,255,0.4)" }}
+                  style={{
+                    height: 6, borderRadius: 3,
+                    width: i === viewerIndex ? 24 : 6,
+                    backgroundColor: i === viewerIndex ? "#fff" : "rgba(255,255,255,0.35)",
+                  }}
                 />
               ))}
             </View>
           ) : null}
+
+          {/* Swipe hint */}
+          <Text style={{ position: "absolute", bottom: 20, left: 0, right: 0, textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: 12 }}>
+            Tap or swipe down to close
+          </Text>
         </View>
       </Modal>
     </View>

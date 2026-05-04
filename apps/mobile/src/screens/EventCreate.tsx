@@ -185,6 +185,7 @@ const EventCreate = () => {
 
   // Recurrence state
   const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
+  const [addAgenda, setAddAgenda] = useState(false);
   const [recurrenceFreq, setRecurrenceFreq] = useState<"weekly" | "monthly">("weekly");
   const [recurrenceDays, setRecurrenceDays] = useState<string[]>([]);
   const [recurrenceEndsAt, setRecurrenceEndsAt] = useState("");
@@ -382,36 +383,38 @@ const EventCreate = () => {
       console.log("[EventCreate] step A — payload:", JSON.stringify(payload));
       const created = await createEvent.mutateAsync(payload);
 
-      // Step B — post each tier.
-      if (pricingMode === "tiered" && tiers.length > 0) {
-        for (let i = 0; i < tiers.length; i++) {
-          const t = tiers[i];
-          const tierBody: CreateTicketTierInput = {
-            name: t.name.trim(),
-            description: t.description?.trim() || undefined,
-            price: Number(t.price) || 0,
-            currency: "INR",
-            quantity_total:
-              t.quantity_total == null
-                ? null
-                : Number(t.quantity_total),
-            sort_order: i,
-            min_per_order: t.min_per_order ?? 1,
-            max_per_order: t.max_per_order ?? 10,
-            sale_starts_at: t.sale_starts_at ?? null,
-            sale_ends_at: t.sale_ends_at ?? null,
-            is_active: true,
-          };
-          console.log("[EventCreate] step B — tier", i, JSON.stringify(tierBody));
-          await createTier({
-            eventId: created.id,
-            tier: tierBody,
-          }).unwrap();
-        }
-      }
+      // Step B — post tiers (parallel).
+      const tierPromise =
+        pricingMode === "tiered" && tiers.length > 0
+          ? Promise.all(
+              tiers.map((t, i) => {
+                const tierBody: CreateTicketTierInput = {
+                  name: t.name.trim(),
+                  description: t.description?.trim() || undefined,
+                  price: Number(t.price) || 0,
+                  currency: "INR",
+                  quantity_total: t.quantity_total == null ? null : Number(t.quantity_total),
+                  sort_order: i,
+                  min_per_order: t.min_per_order ?? 1,
+                  max_per_order: t.max_per_order ?? 10,
+                  sale_starts_at: t.sale_starts_at ?? null,
+                  sale_ends_at: t.sale_ends_at ?? null,
+                  is_active: true,
+                };
+                return createTier({ eventId: created.id, tier: tierBody }).unwrap();
+              })
+            )
+          : Promise.resolve();
 
       toast.success("Event created successfully!");
-      navigation.navigate("MyEvents");
+      if (addAgenda) {
+        // Navigate immediately; tiers finish in background.
+        navigation.navigate("EventAgendaEdit" as never, { id: created.id } as never);
+        await tierPromise;
+      } else {
+        await tierPromise;
+        navigation.navigate("MyEvents");
+      }
     } catch (err: any) {
       console.error("[EventCreate] error:", JSON.stringify(err));
       const msg =
@@ -505,6 +508,10 @@ const EventCreate = () => {
                 updateBasic("organizer_name", name);
               }
             }}
+            onClearPromotion={() => {
+              selectPromotion(0);
+              updateBasic("business_promotion_id", 0);
+            }}
             onCreatePromotion={() => navigation.navigate("BusinessPromotionForm" as never)}
             formattedDate={formattedDate}
             formattedEndDate={formattedEndDate}
@@ -528,6 +535,8 @@ const EventCreate = () => {
             }
             recurrenceEndsAt={recurrenceEndsAt}
             onPickRecurrenceEnd={() => setShowRecurrenceEndPicker(true)}
+            addAgenda={addAgenda}
+            onToggleAddAgenda={setAddAgenda}
           />
         ) : step === 2 ? (
           <Step2Tickets
@@ -834,6 +843,7 @@ interface Step1Props {
   hasPromotion: boolean;
   promotions: any[];
   onSelectPromotion: (id: number, name?: string) => void;
+  onClearPromotion: () => void;
   onCreatePromotion: () => void;
   formattedDate: string;
   formattedEndDate: string;
@@ -854,6 +864,8 @@ interface Step1Props {
   onToggleRecurrenceDay: (day: string) => void;
   recurrenceEndsAt: string;
   onPickRecurrenceEnd: () => void;
+  addAgenda: boolean;
+  onToggleAddAgenda: (v: boolean) => void;
 }
 
 function Step1Basics({
@@ -864,6 +876,7 @@ function Step1Basics({
   hasPromotion,
   promotions,
   onSelectPromotion,
+  onClearPromotion,
   onCreatePromotion,
   formattedDate,
   formattedEndDate,
@@ -883,7 +896,10 @@ function Step1Basics({
   onToggleRecurrenceDay,
   recurrenceEndsAt,
   onPickRecurrenceEnd,
+  addAgenda,
+  onToggleAddAgenda,
 }: Step1Props) {
+  const [changingPromo, setChangingPromo] = useState(false);
   const err = (val: boolean, msg: string) =>
     showErrors && !val ? (
       <Text className="text-xs text-destructive mt-0.5">{msg}</Text>
@@ -892,45 +908,79 @@ function Step1Basics({
     <>
       <View
         className={`rounded-xl border p-3 gap-2 ${
-          hasPromotion ? "border-border bg-card" : "border-destructive/40 bg-destructive/5"
+          hasPromotion && !changingPromo ? "border-border bg-card" : "border-destructive/40 bg-destructive/5"
         }`}
       >
-        <Text className="text-xs text-muted-foreground">
-          Event will be linked to selected promotion
-          {selectedPromotionName ? `: ${selectedPromotionName}` : ""}.
-        </Text>
-        {!hasPromotion ? (
+        {hasPromotion && !changingPromo ? (
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1">
+              <Text className="text-xs text-muted-foreground">Linked promotion</Text>
+              <Text className="text-sm font-semibold text-foreground mt-0.5">{selectedPromotionName}</Text>
+            </View>
+            <Pressable
+              onPress={() => setChangingPromo(true)}
+              className="ml-3 px-3 py-1.5 rounded-lg border border-border bg-muted"
+            >
+              <Text className="text-xs font-semibold text-foreground">Change</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Text className="text-xs text-muted-foreground">
+            {changingPromo ? "Select a different promotion:" : "Event will be linked to selected promotion."}
+          </Text>
+        )}
+        {(!hasPromotion || changingPromo) ? (
           promotions.length > 0 ? (
             <View className="gap-2">
-              <Text className="text-xs font-semibold text-destructive">
-                Choose a promoted business to host this event:
-              </Text>
-              <Select
-                value={
-                  basic.business_promotion_id
-                    ? String(basic.business_promotion_id)
-                    : ""
-                }
-                onValueChange={(v) => {
-                  const id = parseInt(v, 10);
-                  const promo = promotions.find((p: any) => p.id === id);
-                  onSelectPromotion(id, promo?.business_name);
-                }}
-              >
-                <SelectTrigger
-                  className="rounded-xl bg-card"
-                  testID="promo-select-trigger"
-                >
-                  <SelectValue placeholder="Select a promoted business" />
-                </SelectTrigger>
-                <SelectContent>
-                  {promotions.map((p: any) => (
-                    <SelectItem key={p.id} value={String(p.id)}>
-                      {p.business_name || `Promotion #${p.id}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {!changingPromo && (
+                <Text className="text-xs font-semibold text-destructive">
+                  Choose a promoted business to host this event:
+                </Text>
+              )}
+              <View className="gap-1.5">
+                {promotions.map((p: any) => {
+                  const selected = basic.business_promotion_id === p.id;
+                  return (
+                    <Pressable
+                      key={p.id}
+                      onPress={() => {
+                        onSelectPromotion(p.id, p.business_name);
+                        setChangingPromo(false);
+                      }}
+                      className={`flex-row items-center gap-3 rounded-xl border px-3 py-2.5 ${
+                        selected ? "border-primary bg-primary/5" : "border-border bg-card"
+                      }`}
+                    >
+                      {p.company_logo ? (
+                        <Image
+                          source={{ uri: p.company_logo }}
+                          className="w-8 h-8 rounded-lg"
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View className="w-8 h-8 rounded-lg bg-muted items-center justify-center">
+                          <Text className="text-xs font-bold text-muted-foreground">
+                            {(p.business_name?.[0] ?? "B").toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                      <Text className={`flex-1 text-sm font-medium ${selected ? "text-primary" : "text-foreground"}`}>
+                        {p.business_name || `Promotion #${p.id}`}
+                      </Text>
+                      {selected && (
+                        <View className="w-4 h-4 rounded-full bg-primary items-center justify-center">
+                          <Text className="text-[9px] text-white font-bold">✓</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {changingPromo && (
+                <Pressable onPress={() => setChangingPromo(false)} className="self-start">
+                  <Text className="text-xs text-muted-foreground">Cancel</Text>
+                </Pressable>
+              )}
             </View>
           ) : (
             <View className="gap-2">
@@ -1167,6 +1217,20 @@ function Step1Basics({
             </View>
           </>
         )}
+      </View>
+
+      {/* Add Agenda */}
+      <View className="rounded-xl border border-border bg-card p-3 flex-row items-center justify-between">
+        <View className="flex-1 gap-0.5">
+          <Text className="text-sm font-semibold text-foreground">Add Agenda</Text>
+          <Text className="text-xs text-muted-foreground">Set up sessions &amp; speakers after creating</Text>
+        </View>
+        <Switch
+          value={addAgenda}
+          onValueChange={onToggleAddAgenda}
+          trackColor={{ false: "#e2e8f0", true: "#2463eb" }}
+          thumbColor="#fff"
+        />
       </View>
 
       <View className="gap-2">
