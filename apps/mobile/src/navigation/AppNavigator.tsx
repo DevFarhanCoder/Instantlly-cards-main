@@ -81,6 +81,7 @@ import MyFavourites from "../screens/MyFavourites";
 import TrackBooking from "../screens/TrackBooking";
 import BookingDetail from "../screens/BookingDetail";
 import EventEdit from "../screens/EventEdit";
+import EventAgendaEdit from "../screens/EventAgendaEdit";
 import EventRegistrations from "../screens/EventRegistrations";
 import PassDetail from "../screens/PassDetail";
 import QRView from "../screens/QRView";
@@ -173,7 +174,8 @@ const PerReferralInfoScreen = withLayout(PerReferralInfo);
 const MyFavouritesScreen   = withLayout(MyFavourites);
 const TrackBookingScreen   = withLayout(TrackBooking);
 const BookingDetailScreen  = withLayout(BookingDetail);
-const EventEditScreen      = withLayout(EventEdit);
+const EventEditScreen          = withLayout(EventEdit);
+const EventAgendaEditScreen    = (props: any) => <EventAgendaEdit {...props} />;
 const EventRegistrationsScreen = withLayout(EventRegistrations);
 const PassDetailScreen = withLayout(PassDetail);
 const QRViewScreen = withLayout(QRView);
@@ -727,6 +729,7 @@ const AppNavigator = () => {
         <Stack.Screen name="TrackBooking" component={TrackBookingScreen} />
         <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
         <Stack.Screen name="EventEdit" component={EventEditScreen} />
+        <Stack.Screen name="EventAgendaEdit" component={EventAgendaEditScreen} />
         <Stack.Screen name="EventRegistrations" component={EventRegistrationsScreen} />
         <Stack.Screen name="PassDetail" component={PassDetailScreen} />
         <Stack.Screen name="QRView" component={QRViewScreen} />

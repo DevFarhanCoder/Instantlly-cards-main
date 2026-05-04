@@ -58,6 +58,7 @@ import {
 } from "../store/api/eventsApi";
 import type { AppEvent, AppTicketTier } from "../store/api/eventsApi";
 import { promptAddToCalendar } from "../utils/calendar";
+import { EventAgendaSection } from "../components/ui/EventAgendaSection";
 
 /**
  * EventDetail — Phase 2 frontend.
@@ -754,6 +755,9 @@ const EventDetail = () => {
             ) : null}
           </CardContent>
         </Card>
+
+        {/* Multi-day agenda — only shown when the event has sessions/speakers */}
+        <EventAgendaSection eventId={eventIdNum} />
 
         {/* Payment retry banner — surfaced after a failed/cancelled checkout
              so users can retry without scrolling around the card. */}

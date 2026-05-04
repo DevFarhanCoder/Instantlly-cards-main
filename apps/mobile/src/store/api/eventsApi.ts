@@ -219,6 +219,81 @@ export interface CreateTicketTierInput {
   max_per_order?: number;
 }
 
+// ─── Multi-day agenda types ───────────────────────────────────────────────────
+
+export interface AgendaSpeaker {
+  id: number;
+  event_id: number;
+  name: string;
+  title: string | null;
+  company: string | null;
+  bio: string | null;
+  photo_url: string | null;
+  linkedin_url: string | null;
+  twitter_url: string | null;
+  website_url: string | null;
+  sort_order: number;
+  role?: string; // present on session-level speaker (from join table)
+}
+
+export interface AgendaSession {
+  id: number;
+  event_id: number;
+  day_id: number;
+  title: string;
+  description: string | null;
+  start_time: string; // ISO timestamp
+  end_time: string;   // ISO timestamp
+  session_type: string; // keynote|panel|workshop|break|networking|session
+  location: string | null;
+  sort_order: number;
+  speakers: AgendaSpeaker[];
+}
+
+export interface AgendaDay {
+  id: number;
+  event_id: number;
+  day_number: number;
+  date: string; // ISO timestamp
+  title: string | null;
+  sessions: AgendaSession[];
+}
+
+export interface EventAgenda {
+  event_id: number;
+  days: AgendaDay[];
+  speakers: AgendaSpeaker[]; // all event speakers (flat list for Speakers tab)
+}
+
+export interface CreateEventDayInput {
+  day_number: number;
+  date: string; // ISO date or datetime
+  title?: string;
+}
+
+export interface CreateEventSessionInput {
+  day_id: number;
+  title: string;
+  description?: string;
+  start_time: string;
+  end_time: string;
+  session_type?: string;
+  location?: string;
+  sort_order?: number;
+}
+
+export interface CreateEventSpeakerInput {
+  name: string;
+  title?: string;
+  company?: string;
+  bio?: string;
+  photo_url?: string;
+  linkedin_url?: string;
+  twitter_url?: string;
+  website_url?: string;
+  sort_order?: number;
+}
+
 export const eventsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     listEvents: builder.query<
@@ -658,6 +733,70 @@ export const eventsApi = baseApi.injectEndpoints({
       },
       invalidatesTags: ['Event'],
     }),
+
+    // ─── Multi-day agenda ────────────────────────────────────────────────────
+
+    /** Public — returns full agenda: days → sessions → speakers. */
+    getEventAgenda: builder.query<EventAgenda, number>({
+      query: (eventId) => `/events/${eventId}/agenda`,
+      providesTags: (_r, _e, eventId) => [{ type: 'EventAgenda' as const, id: eventId }],
+    }),
+
+    // Days
+    createEventDay: builder.mutation<AgendaDay, { eventId: number; day: CreateEventDayInput }>({
+      query: ({ eventId, day }) => ({ url: `/events/${eventId}/days`, method: 'POST', body: day }),
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventAgenda' as const, id: arg.eventId }],
+    }),
+    updateEventDay: builder.mutation<AgendaDay, { eventId: number; dayId: number; day: Partial<CreateEventDayInput> }>({
+      query: ({ eventId, dayId, day }) => ({ url: `/events/${eventId}/days/${dayId}`, method: 'PATCH', body: day }),
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventAgenda' as const, id: arg.eventId }],
+    }),
+    deleteEventDay: builder.mutation<{ ok: true }, { eventId: number; dayId: number }>({
+      query: ({ eventId, dayId }) => ({ url: `/events/${eventId}/days/${dayId}`, method: 'DELETE' }),
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventAgenda' as const, id: arg.eventId }],
+    }),
+
+    // Sessions
+    createEventSession: builder.mutation<AgendaSession, { eventId: number; session: CreateEventSessionInput }>({
+      query: ({ eventId, session }) => ({ url: `/events/${eventId}/sessions`, method: 'POST', body: session }),
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventAgenda' as const, id: arg.eventId }],
+    }),
+    updateEventSession: builder.mutation<AgendaSession, { eventId: number; sessionId: number; session: Partial<CreateEventSessionInput> }>({
+      query: ({ eventId, sessionId, session }) => ({ url: `/events/${eventId}/sessions/${sessionId}`, method: 'PATCH', body: session }),
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventAgenda' as const, id: arg.eventId }],
+    }),
+    deleteEventSession: builder.mutation<{ ok: true }, { eventId: number; sessionId: number }>({
+      query: ({ eventId, sessionId }) => ({ url: `/events/${eventId}/sessions/${sessionId}`, method: 'DELETE' }),
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventAgenda' as const, id: arg.eventId }],
+    }),
+    reorderEventSessions: builder.mutation<{ ok: true }, { eventId: number; dayId: number; orderedIds: number[] }>({
+      query: ({ eventId, dayId, orderedIds }) => ({ url: `/events/${eventId}/sessions/reorder`, method: 'POST', body: { day_id: dayId, ordered_ids: orderedIds } }),
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventAgenda' as const, id: arg.eventId }],
+    }),
+
+    // Speakers
+    createEventSpeaker: builder.mutation<AgendaSpeaker, { eventId: number; speaker: CreateEventSpeakerInput }>({
+      query: ({ eventId, speaker }) => ({ url: `/events/${eventId}/speakers`, method: 'POST', body: speaker }),
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventAgenda' as const, id: arg.eventId }],
+    }),
+    updateEventSpeaker: builder.mutation<AgendaSpeaker, { eventId: number; speakerId: number; speaker: Partial<CreateEventSpeakerInput> }>({
+      query: ({ eventId, speakerId, speaker }) => ({ url: `/events/${eventId}/speakers/${speakerId}`, method: 'PATCH', body: speaker }),
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventAgenda' as const, id: arg.eventId }],
+    }),
+    deleteEventSpeaker: builder.mutation<{ ok: true }, { eventId: number; speakerId: number }>({
+      query: ({ eventId, speakerId }) => ({ url: `/events/${eventId}/speakers/${speakerId}`, method: 'DELETE' }),
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventAgenda' as const, id: arg.eventId }],
+    }),
+
+    // Session ↔ speaker assignment
+    assignSessionSpeaker: builder.mutation<{ ok: true }, { eventId: number; sessionId: number; speakerId: number; role?: string }>({
+      query: ({ eventId, sessionId, speakerId, role }) => ({ url: `/events/${eventId}/sessions/${sessionId}/speakers`, method: 'POST', body: { speaker_id: speakerId, role } }),
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventAgenda' as const, id: arg.eventId }],
+    }),
+    unassignSessionSpeaker: builder.mutation<{ ok: true }, { eventId: number; sessionId: number; speakerId: number }>({
+      query: ({ eventId, sessionId, speakerId }) => ({ url: `/events/${eventId}/sessions/${sessionId}/speakers/${speakerId}`, method: 'DELETE' }),
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventAgenda' as const, id: arg.eventId }],
+    }),
   }),
 });
 
@@ -684,4 +823,18 @@ export const {
   usePartialCancelTicketsMutation,
   useCreateCartPaymentIntentMutation,
   useRegisterCartMutation,
+  // Agenda
+  useGetEventAgendaQuery,
+  useCreateEventDayMutation,
+  useUpdateEventDayMutation,
+  useDeleteEventDayMutation,
+  useCreateEventSessionMutation,
+  useUpdateEventSessionMutation,
+  useDeleteEventSessionMutation,
+  useReorderEventSessionsMutation,
+  useCreateEventSpeakerMutation,
+  useUpdateEventSpeakerMutation,
+  useDeleteEventSpeakerMutation,
+  useAssignSessionSpeakerMutation,
+  useUnassignSessionSpeakerMutation,
 } = eventsApi;
