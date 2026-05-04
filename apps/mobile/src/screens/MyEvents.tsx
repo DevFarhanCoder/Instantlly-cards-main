@@ -6,6 +6,7 @@ import {
   BarChart3,
   Ban,
   CalendarDays,
+  CalendarRange,
   Copy,
   Edit3,
   Plus,
@@ -160,6 +161,9 @@ const MyEvents = () => {
               onEdit={() =>
                 navigation.navigate("EventEdit", { id: event.id })
               }
+              onAgendaEdit={() =>
+                navigation.navigate("EventAgendaEdit", { id: event.id })
+              }
               onDuplicate={() =>
                 navigation.navigate("EventCreate", { cloneFrom: event })
               }
@@ -235,6 +239,7 @@ interface EventRowProps {
   onRegistrations: () => void;
   onAnalytics: () => void;
   onEdit: () => void;
+  onAgendaEdit: () => void;
   onDuplicate: () => void;
   onCancel: () => void;
 }
@@ -246,6 +251,7 @@ function EventRow({
   onRegistrations,
   onAnalytics,
   onEdit,
+  onAgendaEdit,
   onDuplicate,
   onCancel,
 }: EventRowProps) {
@@ -347,6 +353,17 @@ function EventRow({
             <View className="flex-row items-center gap-1">
               <Edit3 size={12} color={mutedIcon} />
               <Text className="text-xs font-medium text-foreground">Edit</Text>
+            </View>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1 min-w-[44%]"
+            onPress={onAgendaEdit}
+          >
+            <View className="flex-row items-center gap-1">
+              <CalendarRange size={12} color={mutedIcon} />
+              <Text className="text-xs font-medium text-foreground">Agenda</Text>
             </View>
           </Button>
           <Button

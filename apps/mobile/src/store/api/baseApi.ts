@@ -143,6 +143,7 @@ export const baseApi = createApi({
     'SharedCard',
     'Booking',
     'Event',
+    'EventAgenda',
     'Chat',
     'ChatMessages',
     'GroupMessages',
