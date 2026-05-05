@@ -131,11 +131,11 @@ const EventRegistrations = () => {
           ) : null}
         </View>
         <Pressable
-          onPress={() => navigation.navigate("UnifiedScanner")}
+          onPress={() => navigation.navigate("EventScanner" as never, { eventId: numericId } as never)}
           accessibilityLabel="Open scanner"
           className="px-3 py-1.5 rounded-lg bg-primary/10"
         >
-          <Text className="text-xs font-semibold text-primary">Scan QR</Text>
+          <Text className="text-xs font-semibold text-primary">Scan Check-in</Text>
         </Pressable>
       </View>
 

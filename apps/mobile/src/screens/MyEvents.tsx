@@ -29,6 +29,7 @@ import {
   type AppEvent,
 } from "../store/api/eventsApi";
 import { useCancelEvent } from "../hooks/useEvents";
+import { useUserRole } from "../hooks/useUserRole";
 import { toast } from "../lib/toast";
 import { useColors, useIconColor, useMutedIconColor } from "../theme/colors";
 
@@ -43,13 +44,14 @@ const MyEvents = () => {
   const iconColor = useIconColor();
   const mutedIcon = useMutedIconColor();
   const colors = useColors();
+  const { isBusiness } = useUserRole();
 
   const {
     data: events,
     isLoading,
     isError,
     refetch,
-  } = useListMyEventsQuery();
+  } = useListMyEventsQuery(undefined, { pollingInterval: 30_000 });
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -101,16 +103,18 @@ const MyEvents = () => {
             Manage your created events
           </Text>
         </View>
-        <Pressable
-          onPress={() => navigation.navigate("EventCreate")}
-          accessibilityLabel="Create new event"
-          className="flex-row items-center gap-1 px-3 py-1.5 rounded-lg bg-primary-foreground/10"
-        >
-          <Plus size={14} color={colors.primaryForeground} />
-          <Text className="text-xs font-semibold text-primary-foreground">
-            New
-          </Text>
-        </Pressable>
+        {isBusiness && (
+          <Pressable
+            onPress={() => navigation.navigate("EventCreate")}
+            accessibilityLabel="Create new event"
+            className="flex-row items-center gap-1 px-3 py-1.5 rounded-lg bg-primary-foreground/10"
+          >
+            <Plus size={14} color={colors.primaryForeground} />
+            <Text className="text-xs font-semibold text-primary-foreground">
+              New
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <ScrollView
@@ -153,7 +157,7 @@ const MyEvents = () => {
                 navigation.navigate("EventDetail", { id: String(event.id) })
               }
               onScan={() =>
-                navigation.navigate("EventScanner" as never)
+                navigation.navigate("EventScanner" as never, { eventId: event.id } as never)
               }
               onRegistrations={() =>
                 navigation.navigate("EventRegistrations", { id: event.id })
@@ -440,6 +444,19 @@ function EventRow({
               <QrCode size={12} color="#ffffff" />
               <Text className="text-xs font-semibold text-primary-foreground">
                 View
+              </Text>
+            </View>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1 min-w-[44%]"
+            onPress={onScan}
+          >
+            <View className="flex-row items-center gap-1">
+              <QrCode size={12} color={mutedIcon} />
+              <Text className="text-xs font-medium text-foreground">
+                Scan Check-in
               </Text>
             </View>
           </Button>

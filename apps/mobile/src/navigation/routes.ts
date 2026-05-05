@@ -17,7 +17,7 @@ export type RootStackParamList = {
   AdDashboard: undefined;
   Events: undefined;
   EventDetail: { id: string } | undefined;
-  EventScanner: undefined;
+  EventScanner: { eventId?: number; id?: number } | undefined;
   CardScanner: undefined;
   UnifiedScanner: undefined;
   EventCreate: undefined;
