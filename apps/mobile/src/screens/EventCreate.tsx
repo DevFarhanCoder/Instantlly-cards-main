@@ -34,6 +34,7 @@ import { usePromotionContext } from "../contexts/PromotionContext";
 import { useCreateEvent } from "../hooks/useEvents";
 import {
   useCreateTicketTierMutation,
+  useAddEventStaffMutation,
   type CreateTicketTierInput,
 } from "../store/api/eventsApi";
 import { toast } from "../lib/toast";
@@ -139,6 +140,11 @@ const EventCreate = () => {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [submitting, setSubmitting] = useState(false);
+
+  // ── Team members ────────────────────────────────────────────────────────
+  const [addTeam, setAddTeam] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<{ phone: string; role: 'co_organizer' | 'scanner' }[]>([]);
+  const [addStaff] = useAddEventStaffMutation();
 
   const [basic, setBasic] = useState({
     title: cloneFrom?.title ?? "",
@@ -406,13 +412,28 @@ const EventCreate = () => {
             )
           : Promise.resolve();
 
+      // Step C — add team members (parallel, best-effort).
+      const staffPromise =
+        addTeam && teamMembers.length > 0
+          ? Promise.allSettled(
+              teamMembers
+                .filter((m) => m.phone.trim().length >= 10)
+                .map((m) =>
+                  addStaff({ eventId: created.id, phone: m.phone.trim(), role: m.role }).unwrap()
+                )
+            ).then((results) => {
+              const failed = results.filter((r) => r.status === 'rejected').length;
+              if (failed > 0) toast.error(`${failed} team member(s) could not be added`);
+            })
+          : Promise.resolve();
+
       toast.success("Event created successfully!");
       if (addAgenda) {
-        // Navigate immediately; tiers finish in background.
+        // Navigate immediately; tiers + staff finish in background.
         navigation.navigate("EventAgendaEdit" as never, { id: created.id } as never);
-        await tierPromise;
+        await Promise.all([tierPromise, staffPromise]);
       } else {
-        await tierPromise;
+        await Promise.all([tierPromise, staffPromise]);
         navigation.navigate("MyEvents");
       }
     } catch (err: any) {
@@ -442,6 +463,9 @@ const EventCreate = () => {
     recurrenceFreq,
     recurrenceDays,
     recurrenceEndsAt,
+    addTeam,
+    teamMembers,
+    addStaff,
   ]);
 
   const goNext = () => {
@@ -553,15 +577,29 @@ const EventCreate = () => {
             primary={colors.primary}
           />
         ) : (
-          <Step3Review
-            basic={basic}
-            formattedDate={formattedDate}
-            formattedEndDate={formattedEndDate}
-            formattedTime={formattedTime}
-            mode={pricingMode}
-            tiers={tiers}
-            primary={colors.primary}
-          />
+          <>
+            <Step3Review
+              basic={basic}
+              formattedDate={formattedDate}
+              formattedEndDate={formattedEndDate}
+              formattedTime={formattedTime}
+              mode={pricingMode}
+              tiers={tiers}
+              primary={colors.primary}
+            />
+            <TeamMembersSection
+              enabled={addTeam}
+              onToggle={setAddTeam}
+              members={teamMembers}
+              onChange={setTeamMembers}
+            />
+            <View className="rounded-xl bg-primary/5 border border-primary/30 p-3">
+              <Text className="text-xs text-foreground">
+                Once you tap <Text className="font-semibold">Create Event</Text>,
+                attendees can immediately discover and register.
+              </Text>
+            </View>
+          </>
         )}
       </ScrollView>
 
@@ -1647,13 +1685,6 @@ function Step3Review({
           ))
         )}
       </View>
-
-      <View className="rounded-xl bg-primary/5 border border-primary/30 p-3">
-        <Text className="text-xs text-foreground">
-          Once you tap <Text className="font-semibold">Create Event</Text>,
-          attendees can immediately discover and register.
-        </Text>
-      </View>
     </>
   );
 }
@@ -1663,6 +1694,104 @@ function Row({ label, value }: { label: string; value: string }) {
     <View className="flex-row gap-2">
       <Text className="text-xs text-muted-foreground w-20">{label}</Text>
       <Text className="text-xs text-foreground flex-1">{value}</Text>
+    </View>
+  );
+}
+
+// ─── TeamMembersSection ───────────────────────────────────────────────────────
+
+interface TeamMember { phone: string; role: 'co_organizer' | 'scanner' }
+
+function TeamMembersSection({
+  enabled,
+  onToggle,
+  members,
+  onChange,
+}: {
+  enabled: boolean;
+  onToggle: (v: boolean) => void;
+  members: TeamMember[];
+  onChange: (m: TeamMember[]) => void;
+}) {
+  const addRow = () => onChange([...members, { phone: '', role: 'scanner' }]);
+  const removeRow = (i: number) => onChange(members.filter((_, idx) => idx !== i));
+  const updateRow = (i: number, patch: Partial<TeamMember>) =>
+    onChange(members.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+
+  return (
+    <View className="rounded-2xl bg-card border border-border p-4 gap-3">
+      {/* Toggle header */}
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center gap-2">
+          <Users size={16} color="#2563eb" />
+          <Text className="text-sm font-semibold text-foreground">Add Team Members</Text>
+        </View>
+        <Switch
+          value={enabled}
+          onValueChange={onToggle}
+          trackColor={{ false: "#d1d5db", true: "#93c5fd" }}
+          thumbColor={enabled ? "#2563eb" : "#9ca3af"}
+        />
+      </View>
+
+      {enabled && (
+        <View className="gap-3">
+          <Text className="text-xs text-muted-foreground">
+            Team members will get a push notification after the event is created.
+          </Text>
+
+          {members.map((m, i) => (
+            <View key={i} className="gap-2">
+              {/* Phone + remove */}
+              <View className="flex-row gap-2 items-center">
+                <Input
+                  placeholder="Phone number"
+                  value={m.phone}
+                  onChangeText={(v) => updateRow(i, { phone: v })}
+                  keyboardType="phone-pad"
+                  className="flex-1"
+                />
+                <Pressable onPress={() => removeRow(i)} hitSlop={8}>
+                  <Trash2 size={16} color="#ef4444" />
+                </Pressable>
+              </View>
+              {/* Role chips */}
+              <View className="flex-row gap-2">
+                {(['scanner', 'co_organizer'] as const).map((role) => {
+                  const active = m.role === role;
+                  const label = role === 'scanner' ? 'Scanner' : 'Co-organizer';
+                  return (
+                    <Pressable
+                      key={role}
+                      onPress={() => updateRow(i, { role })}
+                      className={`flex-1 py-2 rounded-lg border items-center ${
+                        active
+                          ? 'bg-primary border-primary'
+                          : 'bg-background border-border'
+                      }`}
+                    >
+                      <Text
+                        className={`text-xs font-semibold ${
+                          active ? 'text-primary-foreground' : 'text-muted-foreground'
+                        }`}
+                      >
+                        {label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+
+          <Button variant="outline" onPress={addRow} className="rounded-xl">
+            <View className="flex-row items-center gap-2">
+              <Plus size={14} color="#2563eb" />
+              <Text className="text-sm text-primary">Add Member</Text>
+            </View>
+          </Button>
+        </View>
+      )}
     </View>
   );
 }

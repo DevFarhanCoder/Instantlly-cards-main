@@ -29,6 +29,7 @@ import {
   type AppEvent,
 } from "../store/api/eventsApi";
 import { useCancelEvent } from "../hooks/useEvents";
+import { useUserRole } from "../hooks/useUserRole";
 import { toast } from "../lib/toast";
 import { useColors, useIconColor, useMutedIconColor } from "../theme/colors";
 
@@ -43,6 +44,7 @@ const MyEvents = () => {
   const iconColor = useIconColor();
   const mutedIcon = useMutedIconColor();
   const colors = useColors();
+  const { isBusiness } = useUserRole();
 
   const {
     data: events,
@@ -101,16 +103,18 @@ const MyEvents = () => {
             Manage your created events
           </Text>
         </View>
-        <Pressable
-          onPress={() => navigation.navigate("EventCreate")}
-          accessibilityLabel="Create new event"
-          className="flex-row items-center gap-1 px-3 py-1.5 rounded-lg bg-primary-foreground/10"
-        >
-          <Plus size={14} color={colors.primaryForeground} />
-          <Text className="text-xs font-semibold text-primary-foreground">
-            New
-          </Text>
-        </Pressable>
+        {isBusiness && (
+          <Pressable
+            onPress={() => navigation.navigate("EventCreate")}
+            accessibilityLabel="Create new event"
+            className="flex-row items-center gap-1 px-3 py-1.5 rounded-lg bg-primary-foreground/10"
+          >
+            <Plus size={14} color={colors.primaryForeground} />
+            <Text className="text-xs font-semibold text-primary-foreground">
+              New
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <ScrollView
