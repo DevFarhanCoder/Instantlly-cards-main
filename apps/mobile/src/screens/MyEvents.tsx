@@ -49,7 +49,7 @@ const MyEvents = () => {
     isLoading,
     isError,
     refetch,
-  } = useListMyEventsQuery();
+  } = useListMyEventsQuery(undefined, { pollingInterval: 30_000 });
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -153,7 +153,7 @@ const MyEvents = () => {
                 navigation.navigate("EventDetail", { id: String(event.id) })
               }
               onScan={() =>
-                navigation.navigate("EventScanner" as never)
+                navigation.navigate("EventScanner" as never, { eventId: event.id } as never)
               }
               onRegistrations={() =>
                 navigation.navigate("EventRegistrations", { id: event.id })
@@ -440,6 +440,19 @@ function EventRow({
               <QrCode size={12} color="#ffffff" />
               <Text className="text-xs font-semibold text-primary-foreground">
                 View
+              </Text>
+            </View>
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1 min-w-[44%]"
+            onPress={onScan}
+          >
+            <View className="flex-row items-center gap-1">
+              <QrCode size={12} color={mutedIcon} />
+              <Text className="text-xs font-medium text-foreground">
+                Scan Check-in
               </Text>
             </View>
           </Button>
