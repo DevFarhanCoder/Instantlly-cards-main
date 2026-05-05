@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -40,12 +42,13 @@ export default function EventStaffManage() {
 
   async function handleAdd() {
     const trimmed = phone.trim();
+    const full = trimmed.startsWith("+") ? trimmed : `+91${trimmed}`;
     if (!trimmed) {
       Alert.alert("Error", "Enter a phone number");
       return;
     }
     try {
-      await addStaff({ eventId, phone: trimmed, role }).unwrap();
+      await addStaff({ eventId, phone: full, role }).unwrap();
       setPhone("");
       setShowForm(false);
     } catch (e: any) {
@@ -72,7 +75,11 @@ export default function EventStaffManage() {
   }
 
   return (
-    <View className="flex-1 bg-background">
+    <KeyboardAvoidingView
+      className="flex-1 bg-background"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={0}
+    >
       {/* Header */}
       <View
         className="flex-row items-center gap-3 px-4 pb-3 border-b border-border bg-card"
@@ -93,63 +100,71 @@ export default function EventStaffManage() {
         </Pressable>
       </View>
 
-      <ScrollView className="flex-1 p-4" keyboardShouldPersistTaps="handled">
-        {/* Add form */}
-        {showForm && (
-          <View className="rounded-xl border border-border bg-card p-4 gap-3 mb-4">
-            <Text className="text-sm font-semibold text-foreground">Add Staff Member</Text>
+      {/* Add form — outside ScrollView so keyboard doesn't push list */}
+      {showForm && (
+        <View className="border-b border-border bg-card px-4 py-4 gap-3">
+          <Text className="text-sm font-semibold text-foreground">Add Staff Member</Text>
 
+          {/* Phone with +91 prefix */}
+          <View className="flex-row items-center h-11 rounded-lg border border-input bg-background overflow-hidden">
+            <View className="px-3 h-full justify-center border-r border-input bg-muted">
+              <Text className="text-sm font-medium text-foreground">+91</Text>
+            </View>
             <TextInput
-              className="h-10 rounded-lg border border-input bg-background px-3 text-sm text-foreground"
+              className="flex-1 px-3 text-sm text-foreground"
               placeholder="Phone number"
               placeholderTextColor={colors.mutedForeground}
-              keyboardType="phone-pad"
+              keyboardType="number-pad"
               value={phone}
               onChangeText={setPhone}
+              maxLength={10}
             />
+          </View>
 
-            {/* Role selector */}
-            <View className="flex-row gap-2">
-              {(["co_organizer", "scanner"] as const).map((r) => (
-                <Pressable
-                  key={r}
-                  onPress={() => setRole(r)}
-                  className={`flex-1 py-2 rounded-xl border items-center ${
-                    role === r ? "border-primary bg-primary/10" : "border-border bg-background"
+          {/* Role selector */}
+          <View className="flex-row gap-2">
+            {(["co_organizer", "scanner"] as const).map((r) => (
+              <Pressable
+                key={r}
+                onPress={() => setRole(r)}
+                className={`flex-1 py-2 rounded-xl border items-center ${
+                  role === r ? "border-primary bg-primary/10" : "border-border bg-background"
+                }`}
+              >
+                <Text
+                  className={`text-xs font-semibold ${
+                    role === r ? "text-primary" : "text-muted-foreground"
                   }`}
                 >
-                  <Text
-                    className={`text-xs font-semibold ${
-                      role === r ? "text-primary" : "text-muted-foreground"
-                    }`}
-                  >
-                    {ROLE_LABELS[r]}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <View className="text-xs text-muted-foreground">
-              <Text className="text-xs text-muted-foreground">
-                {role === "co_organizer"
-                  ? "Can edit agenda, sessions & speakers. Cannot delete the event."
-                  : "Can only scan tickets at the door (coming soon)."}
-              </Text>
-            </View>
-
-            <Pressable
-              onPress={handleAdd}
-              disabled={adding}
-              className="bg-primary rounded-xl py-2.5 items-center"
-            >
-              {adding ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text className="text-sm font-semibold text-white">Add Member</Text>
-              )}
-            </Pressable>
+                  {ROLE_LABELS[r]}
+                </Text>
+              </Pressable>
+            ))}
           </View>
-        )}
+
+          <View>
+            <Text className="text-xs text-muted-foreground">
+              {role === "co_organizer"
+                ? "Can edit agenda, sessions & speakers. Cannot delete the event."
+                : "Can only scan tickets at the door."}
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={handleAdd}
+            disabled={adding}
+            className="bg-primary rounded-xl py-2.5 items-center"
+          >
+            {adding ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text className="text-sm font-semibold text-white">Add Member</Text>
+            )}
+          </Pressable>
+        </View>
+      )}
+
+      <ScrollView className="flex-1 p-4" keyboardShouldPersistTaps="handled">
 
         {/* Staff list */}
         {isLoading ? (
@@ -203,6 +218,6 @@ export default function EventStaffManage() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
