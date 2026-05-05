@@ -46,6 +46,7 @@ export type RootStackParamList = {
   BookingDetail: { id: string | number } | undefined;
   EventEdit: { id: string | number } | undefined;
   EventAgendaEdit: { id: string | number };
+  EventStaffManage: { id: string | number };
   EventRegistrations: { id: string | number } | undefined;
   EventAnalytics: { id: string | number } | undefined;
   MyEvents: undefined;

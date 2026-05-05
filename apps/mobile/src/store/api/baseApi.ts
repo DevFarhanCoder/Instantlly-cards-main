@@ -144,6 +144,7 @@ export const baseApi = createApi({
     'Booking',
     'Event',
     'EventAgenda',
+    'EventStaff',
     'Chat',
     'ChatMessages',
     'GroupMessages',

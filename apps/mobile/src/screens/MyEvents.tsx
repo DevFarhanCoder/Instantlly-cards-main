@@ -152,6 +152,9 @@ const MyEvents = () => {
               onView={() =>
                 navigation.navigate("EventDetail", { id: String(event.id) })
               }
+              onScan={() =>
+                navigation.navigate("EventScanner" as never)
+              }
               onRegistrations={() =>
                 navigation.navigate("EventRegistrations", { id: event.id })
               }
@@ -163,6 +166,9 @@ const MyEvents = () => {
               }
               onAgendaEdit={() =>
                 navigation.navigate("EventAgendaEdit", { id: event.id })
+              }
+              onTeam={() =>
+                navigation.navigate("EventStaffManage" as never, { id: event.id } as never)
               }
               onDuplicate={() =>
                 navigation.navigate("EventCreate", { cloneFrom: event })
@@ -236,10 +242,12 @@ interface EventRowProps {
   iconColor: string;
   mutedIcon: string;
   onView: () => void;
+  onScan: () => void;
   onRegistrations: () => void;
   onAnalytics: () => void;
   onEdit: () => void;
   onAgendaEdit: () => void;
+  onTeam: () => void;
   onDuplicate: () => void;
   onCancel: () => void;
 }
@@ -248,14 +256,17 @@ function EventRow({
   event,
   mutedIcon,
   onView,
+  onScan,
   onRegistrations,
   onAnalytics,
   onEdit,
   onAgendaEdit,
+  onTeam,
   onDuplicate,
   onCancel,
 }: EventRowProps) {
   const cancelled = (event as any).status === "cancelled" || (event as any).cancelled_at;
+  const isOwner = (event as any).viewer_role === "owner" || !(event as any).viewer_role;
   const regCount = event._count?.registrations ?? event.attendee_count ?? 0;
 
   return (
@@ -273,6 +284,16 @@ function EventRow({
               {(event as any).recurrence_rule && (
                 <Badge className="bg-blue-500/10 text-blue-500 border-none text-[10px]">
                   🔄 Recurring
+                </Badge>
+              )}
+              {!isOwner && (event as any).viewer_role === "co_organizer" && (
+                <Badge className="bg-purple-500/10 text-purple-600 border-none text-[10px]">
+                  Co-organizer
+                </Badge>
+              )}
+              {!isOwner && (event as any).viewer_role === "scanner" && (
+                <Badge className="bg-green-500/10 text-green-600 border-none text-[10px]">
+                  Scanner
                 </Badge>
               )}
               {cancelled ? (
@@ -318,6 +339,23 @@ function EventRow({
         </Pressable>
 
         <View className="flex-row gap-2 flex-wrap">
+          {(event as any).viewer_role === "scanner" ? (
+            // Scanners only get the check-in scan button
+            <Button
+              size="sm"
+              variant="default"
+              className="flex-1"
+              onPress={onScan}
+            >
+              <View className="flex-row items-center gap-1">
+                <QrCode size={12} color="#ffffff" />
+                <Text className="text-xs font-semibold text-primary-foreground">
+                  Scan Check-in
+                </Text>
+              </View>
+            </Button>
+          ) : (
+            <>
           <Button
             size="sm"
             variant="outline"
@@ -366,6 +404,20 @@ function EventRow({
               <Text className="text-xs font-medium text-foreground">Agenda</Text>
             </View>
           </Button>
+          {isOwner && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1 min-w-[44%]"
+              onPress={onTeam}
+            >
+              <View className="flex-row items-center gap-1">
+                <Users size={12} color={mutedIcon} />
+                <Text className="text-xs font-medium text-foreground">Team</Text>
+              </View>
+            </Button>
+          )}
+          {isOwner && (
           <Button
             size="sm"
             variant="outline"
@@ -377,6 +429,7 @@ function EventRow({
               <Text className="text-xs font-medium text-foreground">Duplicate</Text>
             </View>
           </Button>
+          )}
           <Button
             size="sm"
             variant="default"
@@ -390,7 +443,7 @@ function EventRow({
               </Text>
             </View>
           </Button>
-          {!cancelled ? (
+          {!cancelled && isOwner ? (
             <Button
               size="sm"
               variant="outline"
@@ -406,6 +459,8 @@ function EventRow({
               </View>
             </Button>
           ) : null}
+            </>
+          )}
         </View>
       </CardContent>
     </Card>
