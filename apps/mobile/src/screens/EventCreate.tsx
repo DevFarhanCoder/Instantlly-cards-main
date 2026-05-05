@@ -504,6 +504,10 @@ const EventCreate = () => {
             onSelectPromotion={(id, name) => {
               selectPromotion(id);
               updateBasic("business_promotion_id", id);
+              const promo = promotions.find((p: any) => p.id === id);
+              if (promo?.company_logo) {
+                updateBasic("company_logo", promo.company_logo);
+              }
               if (name && !basic.organizer_name) {
                 updateBasic("organizer_name", name);
               }
@@ -1253,31 +1257,38 @@ function Step1Basics({
         />
       </View>
 
-      {/* Company Logo */}
+      {/* Company Logo — fixed display */}
       <View className="gap-2">
         <View className="flex-row items-center gap-1">
           <ImageIcon size={14} color={mutedIcon} />
           <Label>Company Logo</Label>
         </View>
         {basic.company_logo ? (
-          <View className="relative w-24 h-24">
+          <Pressable
+            onPress={onPickLogo}
+            className="rounded-xl overflow-hidden border border-border"
+            style={{ height: 100 }}
+          >
             <Image
               source={{ uri: basic.company_logo }}
-              className="w-24 h-24 rounded-xl"
-              resizeMode="cover"
+              style={{ width: "100%", height: 100 }}
+              resizeMode="contain"
             />
-            <Pressable
-              onPress={() => update("company_logo", "")}
-              className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive items-center justify-center"
-              hitSlop={8}
+            <View
+              style={{
+                position: "absolute", bottom: 6, right: 8,
+                backgroundColor: "rgba(0,0,0,0.55)",
+                borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
+              }}
             >
-              <Text className="text-[10px] text-white font-bold">✕</Text>
-            </Pressable>
-          </View>
+              <Text style={{ color: "#fff", fontSize: 10, fontWeight: "600" }}>Change</Text>
+            </View>
+          </Pressable>
         ) : (
           <Pressable
             onPress={onPickLogo}
-            className="h-24 w-24 rounded-xl border-2 border-dashed border-input items-center justify-center gap-1"
+            className="rounded-xl border-2 border-dashed border-input items-center justify-center gap-1"
+            style={{ height: 100 }}
           >
             <ImageIcon size={20} color={mutedIcon} />
             <Text className="text-[10px] text-muted-foreground">Upload Logo</Text>

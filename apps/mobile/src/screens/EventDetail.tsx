@@ -225,6 +225,9 @@ const EventDetail = () => {
   // Pending cart items for WebView flow (paid cart needs payment before registering)
   const [pendingCartItems, setPendingCartItems] = useState<Array<{ tier: AppTicketTier; qty: number }>>([]);
 
+  // Venue photos viewer state
+  const [photosModalOpen, setPhotosModalOpen] = useState(false);
+
   // Parallax hero scroll animation — must be declared before any early returns
   const HERO_H = 200;
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -554,12 +557,8 @@ const EventDetail = () => {
     typeof (event as any).company_logo === "string" && (event as any).company_logo.trim()
       ? (event as any).company_logo
       : null;
-  const hasHeroMedia = venueImages.length > 0 || !!companyLogo;
-  const heroImageSources: ImageSourcePropType[] = venueImages.length > 0
-    ? venueImages.map((uri) => ({ uri }))
-    : companyLogo
-      ? [{ uri: companyLogo }]
-      : [];
+  const hasVenuePhotos = venueImages.length > 0;
+  const venueImageSources: ImageSourcePropType[] = venueImages.map((uri) => ({ uri }));
 
   const heroScale = scrollY.interpolate({ inputRange: [-HERO_H, 0], outputRange: [2, 1], extrapolate: "clamp" });
   const heroTranslate = scrollY.interpolate({ inputRange: [0, HERO_H], outputRange: [0, -HERO_H / 2], extrapolate: "clamp" });
@@ -574,7 +573,7 @@ const EventDetail = () => {
         style={{
           position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
           backgroundColor: backBg,
-          paddingTop: 44, paddingBottom: 10, paddingHorizontal: 16,
+          paddingTop: 10, paddingBottom: 10, paddingHorizontal: 16,
           flexDirection: "row", alignItems: "center",
         }}
       >
@@ -606,11 +605,17 @@ const EventDetail = () => {
           />
         }
       >
-        {/* Parallax hero */}
+        {/* Parallax hero — shows company logo */}
         <Animated.View style={{ height: HERO_H, overflow: "hidden", transform: [{ translateY: heroTranslate }] }}>
           <Animated.View style={{ flex: 1, transform: [{ scale: heroScale }] }}>
-            {hasHeroMedia ? (
-              <VenueImageSlider images={heroImageSources} height={HERO_H} />
+            {companyLogo ? (
+              <View style={{ flex: 1, backgroundColor: "#f8f9fa", alignItems: "center", justifyContent: "center" }}>
+                <Image
+                  source={{ uri: companyLogo }}
+                  style={{ width: "100%", height: HERO_H }}
+                  resizeMode="contain"
+                />
+              </View>
             ) : (
               <View style={{ flex: 1, backgroundColor: "#1d3b6e", alignItems: "center", justifyContent: "center" }}>
                 <Image
@@ -629,6 +634,23 @@ const EventDetail = () => {
             }}
             pointerEvents="none"
           />
+          {/* View Photos button — bottom-right of hero */}
+          {hasVenuePhotos ? (
+            <Pressable
+              onPress={() => setPhotosModalOpen(true)}
+              style={{
+                position: "absolute", bottom: 36, right: 12,
+                flexDirection: "row", alignItems: "center", gap: 5,
+                backgroundColor: "rgba(0,0,0,0.55)",
+                borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
+              }}
+              hitSlop={8}
+            >
+              <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>
+                View Photos ({venueImages.length})
+              </Text>
+            </Pressable>
+          ) : null}
         </Animated.View>
 
         {/* Content card lifts up over hero */}
@@ -969,6 +991,13 @@ const EventDetail = () => {
           }}
         />
       ) : null}
+
+      {/* Venue Photos Modal */}
+      <VenuePhotosModal
+        visible={photosModalOpen}
+        images={venueImageSources}
+        onClose={() => setPhotosModalOpen(false)}
+      />
     </View>
   );
 };
@@ -982,6 +1011,108 @@ interface LegacyBlockProps {
   busy: boolean;
   cancelled: boolean;
   waitlistBusy: boolean;
+}
+
+// ─── Venue Photos Modal ───────────────────────────────────────────────
+
+function VenuePhotosModal({
+  visible,
+  images,
+  onClose,
+}: {
+  visible: boolean;
+  images: ImageSourcePropType[];
+  onClose: () => void;
+}) {
+  const { width, height: screenH } = Dimensions.get("window");
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={false}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <View style={{ flex: 1, backgroundColor: "#000" }}>
+        {/* Counter */}
+        {images.length > 1 ? (
+          <View style={{ position: "absolute", top: 52, left: 0, right: 0, alignItems: "center", zIndex: 20, pointerEvents: "none" }}>
+            <View style={{ backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 }}>
+              <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>
+                {activeIndex + 1} / {images.length}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Swipeable images */}
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(e) => {
+            const idx = Math.round(e.nativeEvent.contentOffset.x / width);
+            setActiveIndex(idx);
+          }}
+          style={{ width, height: screenH }}
+          contentContainerStyle={{ alignItems: "flex-start" }}
+        >
+          {images.map((source, i) => (
+            <View
+              key={i}
+              style={{ width, height: screenH, justifyContent: "center", alignItems: "center" }}
+            >
+              <Image
+                source={source}
+                style={{ width, height: screenH * 0.75 }}
+                resizeMode="contain"
+              />
+            </View>
+          ))}
+        </ScrollView>
+
+        {/* Close button */}
+        <Pressable
+          onPress={onClose}
+          style={{
+            position: "absolute", top: 44, right: 16,
+            width: 44, height: 44, borderRadius: 22,
+            backgroundColor: "rgba(255,255,255,0.2)",
+            borderWidth: 1, borderColor: "rgba(255,255,255,0.4)",
+            justifyContent: "center", alignItems: "center",
+            zIndex: 20,
+          }}
+          hitSlop={16}
+        >
+          <Text style={{ color: "#fff", fontSize: 22, lineHeight: 24, fontWeight: "700" }}>×</Text>
+        </Pressable>
+
+        {/* Dot indicators */}
+        {images.length > 1 ? (
+          <View style={{ position: "absolute", bottom: 48, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 6 }}>
+            {images.map((_, i) => (
+              <View
+                key={i}
+                style={{
+                  height: 6, borderRadius: 3,
+                  width: i === activeIndex ? 24 : 6,
+                  backgroundColor: i === activeIndex ? "#fff" : "rgba(255,255,255,0.35)",
+                }}
+              />
+            ))}
+          </View>
+        ) : null}
+
+        {/* Swipe hint */}
+        <Text style={{ position: "absolute", bottom: 20, left: 0, right: 0, textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: 12 }}>
+          Swipe to browse · tap × to close
+        </Text>
+      </View>
+    </Modal>
+  );
 }
 
 function VenueImageSlider({ images, height: sliderHeight }: { images: ImageSourcePropType[]; height?: number }) {
