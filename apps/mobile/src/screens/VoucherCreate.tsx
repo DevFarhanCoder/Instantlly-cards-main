@@ -11,7 +11,6 @@ import { Textarea } from "../components/ui/textarea";
 import { useAuth } from "../hooks/useAuth";
 import { usePromotionContext } from "../contexts/PromotionContext";
 import { useCreateVoucher } from "../hooks/useVouchers";
-import { UpgradePrompt } from "../components/business/UpgradePrompt";
 import { toast } from "../lib/toast";
 import { useIconColor } from "../theme/colors";
 
@@ -139,9 +138,7 @@ const VoucherCreate = () => {
     navigation.navigate("Vouchers");
   };
 
-  const promoTier = (selectedPromotion as any)?.tier ?? "free";
-  const paymentStatus = (selectedPromotion as any)?.payment_status ?? "not_required";
-  const isTierLocked = !!selectedPromotion && (promoTier === "free" || paymentStatus !== "completed");
+  // Vouchers are available on every active promotion (free or paid).
 
   return (
     <View className="flex-1 bg-background">
@@ -152,16 +149,6 @@ const VoucherCreate = () => {
         <Text className="text-lg font-bold text-foreground">Create Voucher</Text>
       </View>
 
-      {isTierLocked ? (
-        <UpgradePrompt
-          feature="voucher"
-          message="Voucher campaigns are available on Growth, Boost and Scale plans. Upgrade your business promotion to start offering vouchers to customers."
-          promotionId={selectedPromotion!.id}
-          businessName={selectedPromotion!.business_name}
-          ctaLabel="Upgrade to Create Vouchers"
-        />
-      ) : (
-      <>
       <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-5 gap-4">
         <View className="gap-2 rounded-xl border border-border bg-card p-3">
           <Label>Selected Promotion</Label>
@@ -305,8 +292,6 @@ const VoucherCreate = () => {
           {createVoucher.isPending ? "Creating..." : "Create Voucher"}
         </Button>
       </View>
-      </>
-      )}
     </View>
   );
 };
