@@ -57,6 +57,7 @@ const adminNav = [
 const customerMoreItems: { route: string; label: string; emoji: string; params?: any }[] = [
   { route: "NearbyBusinesses", label: "Nearby", emoji: "📍" },
   { route: "ChooseListingType", label: "Promote Business", emoji: "🚀" },
+  { route: "MyEvents", label: "My Events", emoji: "🎟️" },
   { route: "Profile", label: "Profile", emoji: "👤" },
   { route: "Messaging", label: "Inbox", emoji: "💬" },
   { route: "MyPasses", label: "My Passes", emoji: "🎟️" },

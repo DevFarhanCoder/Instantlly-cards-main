@@ -8,6 +8,16 @@ export interface EventBusiness {
   phone?: string;
 }
 
+export interface EventStaffMember {
+  id: number;
+  user_id: number;
+  name: string;
+  phone: string;
+  role: 'co_organizer' | 'scanner';
+  invited_by: number;
+  created_at: string;
+}
+
 export interface FriendAttendee {
   user_id: number;
   name: string;
@@ -797,6 +807,29 @@ export const eventsApi = baseApi.injectEndpoints({
       query: ({ eventId, sessionId, speakerId }) => ({ url: `/events/${eventId}/sessions/${sessionId}/speakers/${speakerId}`, method: 'DELETE' }),
       invalidatesTags: (_r, _e, arg) => [{ type: 'EventAgenda' as const, id: arg.eventId }],
     }),
+
+    // ─── Event Staff (co-organizers & scanners) ──────────────────────────────
+    listEventStaff: builder.query<EventStaffMember[], number>({
+      query: (eventId) => `/events/${eventId}/staff`,
+      transformResponse: (r: { data: EventStaffMember[] }) => r.data,
+      providesTags: (_r, _e, eventId) => [{ type: 'EventStaff' as const, id: eventId }],
+    }),
+    addEventStaff: builder.mutation<EventStaffMember, { eventId: number; phone: string; role: 'co_organizer' | 'scanner' }>({
+      query: ({ eventId, phone, role }) => ({
+        url: `/events/${eventId}/staff`,
+        method: 'POST',
+        body: { phone, role },
+      }),
+      transformResponse: (r: { data: EventStaffMember }) => r.data,
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventStaff' as const, id: arg.eventId }],
+    }),
+    removeEventStaff: builder.mutation<{ success: boolean }, { eventId: number; staffId: number }>({
+      query: ({ eventId, staffId }) => ({
+        url: `/events/${eventId}/staff/${staffId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_r, _e, arg) => [{ type: 'EventStaff' as const, id: arg.eventId }],
+    }),
   }),
 });
 
@@ -837,4 +870,8 @@ export const {
   useDeleteEventSpeakerMutation,
   useAssignSessionSpeakerMutation,
   useUnassignSessionSpeakerMutation,
+  // Staff
+  useListEventStaffQuery,
+  useAddEventStaffMutation,
+  useRemoveEventStaffMutation,
 } = eventsApi;
