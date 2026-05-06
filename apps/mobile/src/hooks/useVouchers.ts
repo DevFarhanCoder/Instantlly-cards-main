@@ -1,4 +1,6 @@
+import { useDispatch } from "react-redux";
 import { toast } from "../lib/toast";
+import { baseApi } from "../store/api/baseApi";
 import {
   useListVouchersQuery,
   useGetVoucherQuery,
@@ -208,6 +210,7 @@ export function useCreateVoucher() {
 
 export function useTransferVoucher() {
   const [trigger, state] = useTransferVoucherMutation();
+  const dispatch = useDispatch();
   return {
     mutate: async (
       {
@@ -217,7 +220,7 @@ export function useTransferVoucher() {
         voucherId: string;
         recipientPhone: string;
       },
-      options?: { onSuccess?: () => void; onError?: (e: any) => void }
+      options?: { onSuccess?: () => void; onError?: (e: any) => void; onStaleClaim?: () => void }
     ) => {
       try {
         const data = await trigger({
@@ -228,7 +231,22 @@ export function useTransferVoucher() {
         options?.onSuccess?.();
         return data;
       } catch (e: any) {
-        toast.error(e?.data?.error || e?.message || "Failed to transfer voucher");
+        const status = e?.status;
+        const serverMsg: string = e?.data?.error || e?.message || "";
+        const isStaleClaim =
+          status === 409 &&
+          /ownership changed|already.*owns|already has this voucher/i.test(serverMsg);
+
+        if (isStaleClaim) {
+          // Refresh the vouchers list so the UI reflects current ownership.
+          dispatch(baseApi.util.invalidateTags(["Voucher"]));
+          toast.error(
+            "This voucher is no longer available to transfer. We refreshed your list — please try again."
+          );
+          options?.onStaleClaim?.();
+        } else {
+          toast.error(serverMsg || "Failed to transfer voucher");
+        }
         options?.onError?.(e);
         throw e;
       }
@@ -245,20 +263,54 @@ export interface VoucherTransfer {
   sender_phone: string;
   recipient_phone: string;
   transferred_at: string;
+  voucher?: {
+    id: string;
+    title: string;
+    business_name?: string;
+    image?: string | null;
+    discount_label?: string;
+  };
+  sender_name?: string;
+  recipient_name?: string;
 }
 
 export function useVoucherTransfers() {
   const result = useGetVoucherTransfersQuery();
   return {
     ...result,
-    data: (result.data || []).map((t: any) => ({
-      id: String(t.id),
-      voucher_id: String(t.voucher_id),
-      sender_id: String(t.sender_id),
-      recipient_id: String(t.recipient_id),
-      sender_phone: t.sender_phone,
-      recipient_phone: t.recipient_phone,
-      transferred_at: t.transferred_at,
-    })) as VoucherTransfer[],
+    data: (result.data || []).map((t: any) => {
+      const v = t.voucher;
+      let discount_label: string | undefined;
+      if (v) {
+        const dv = Number(v.discount_value ?? 0);
+        discount_label =
+          v.discount_type === "percent" ? `${dv}% OFF` : `₹${dv} OFF`;
+      }
+      const image =
+        v?.voucher_image ||
+        (Array.isArray(v?.voucher_images) && v.voucher_images.length ? v.voucher_images[0] : null) ||
+        v?.company_logo ||
+        null;
+      return {
+        id: String(t.id),
+        voucher_id: String(t.voucher_id),
+        sender_id: String(t.sender_id),
+        recipient_id: String(t.recipient_id),
+        sender_phone: t.sender_phone,
+        recipient_phone: t.recipient_phone,
+        transferred_at: t.transferred_at,
+        voucher: v
+          ? {
+              id: String(v.id),
+              title: v.title,
+              business_name: v.business_name,
+              image,
+              discount_label,
+            }
+          : undefined,
+        sender_name: t.sender?.name,
+        recipient_name: t.recipient?.name,
+      } as VoucherTransfer;
+    }),
   };
 }

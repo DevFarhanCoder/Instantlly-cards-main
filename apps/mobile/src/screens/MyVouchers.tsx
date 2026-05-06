@@ -2,7 +2,6 @@ import { useCallback, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ArrowLeft, CheckCircle2, Clock, Gift, QrCode, Send, Ticket } from "lucide-react-native";
-import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Skeleton } from "../components/ui/skeleton";
@@ -27,11 +26,11 @@ const safeFormat = (dateStr: any, fmt: string, fallback = "N/A") => {
   return isValid(d) ? format(d, fmt) : fallback;
 };
 
-const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
-  active: { label: "Active", color: "bg-green-500/10 text-green-600", icon: Ticket },
-  redeemed: { label: "Redeemed", color: "bg-primary/10 text-primary", icon: CheckCircle2 },
-  expired: { label: "Expired", color: "bg-muted text-muted-foreground", icon: Clock },
-  transferred: { label: "Transferred", color: "bg-orange-500/10 text-orange-600", icon: Send },
+const statusConfig: Record<string, { label: string; bg: string; text: string; iconColor: string; icon: any }> = {
+  active: { label: "Active", bg: "bg-green-500/10", text: "text-green-600", iconColor: "#28af60", icon: Ticket },
+  redeemed: { label: "Redeemed", bg: "bg-primary/10", text: "text-primary", iconColor: "#2463eb", icon: CheckCircle2 },
+  expired: { label: "Expired", bg: "bg-muted", text: "text-muted-foreground", iconColor: "#6a7181", icon: Clock },
+  transferred: { label: "Transferred", bg: "bg-orange-500/10", text: "text-orange-600", iconColor: "#f97316", icon: Send },
 };
 
 const emojiMap: Record<string, string> = {
@@ -164,9 +163,17 @@ const MyVouchers = () => {
               <View className="gap-3">
                 {transfers.map((t) => {
                   const isSent = String(t.sender_id) === String(user?.id ?? "");
+                  const counterPhone = isSent ? t.recipient_phone : t.sender_phone;
+                  const rawName = isSent ? t.recipient_name : t.sender_name;
+                  const counterName =
+                    (rawName && rawName.trim()) || counterPhone || "Unknown user";
+                  const voucherTitle = t.voucher?.title || `Voucher #${t.voucher_id}`;
+                  const business = t.voucher?.business_name;
+                  const discount = t.voucher?.discount_label;
                   return (
                     <View
                       key={t.id}
+                      testID={`transfer-row-${t.id}`}
                       className="rounded-xl border border-border bg-card p-4"
                     >
                       <View className="flex-row items-center gap-3">
@@ -182,28 +189,66 @@ const MyVouchers = () => {
                           />
                         </View>
                         <View className="flex-1">
-                          <Text className="text-sm font-semibold text-foreground">
-                            {isSent ? "Sent" : "Received"}
+                          <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                            {voucherTitle}
                           </Text>
-                          <Text className="text-xs text-muted-foreground">
-                            {isSent
-                              ? `To: ${t.recipient_phone || "Unknown"}`
-                              : `From: ${t.sender_phone || "Unknown"}`}
-                          </Text>
+                          {business ? (
+                            <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>
+                              {business}
+                            </Text>
+                          ) : null}
                         </View>
-                        <View className="items-end">
-                          <Badge
-                            className={`border-none text-[10px] ${
-                              isSent ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+                        <View
+                          className={`rounded-full px-2 py-0.5 ${
+                            isSent ? "bg-destructive/10" : "bg-primary/10"
+                          }`}
+                        >
+                          <Text
+                            className={`text-[10px] font-semibold ${
+                              isSent ? "text-destructive" : "text-primary"
                             }`}
                           >
                             {isSent ? "Sent" : "Received"}
-                          </Badge>
-                          <Text className="mt-1 text-[10px] text-muted-foreground">
-                            {safeFormat(t.transferred_at, "MMM d, yyyy")}
                           </Text>
                         </View>
                       </View>
+
+                      <View className="mt-3 gap-1 rounded-lg bg-muted px-3 py-2">
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-[11px] text-muted-foreground">
+                            {isSent ? "Sent to" : "Received from"}
+                          </Text>
+                          <Text className="text-[11px] font-semibold text-foreground" numberOfLines={1}>
+                            {counterName}
+                          </Text>
+                        </View>
+                        {counterPhone ? (
+                          <View className="flex-row items-center justify-between">
+                            <Text className="text-[11px] text-muted-foreground">Mobile</Text>
+                            <Text className="text-[11px] font-mono text-foreground">
+                              {counterPhone}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {discount ? (
+                          <View className="flex-row items-center justify-between">
+                            <Text className="text-[11px] text-muted-foreground">Value</Text>
+                            <Text className="text-[11px] font-semibold text-primary">
+                              {discount}
+                            </Text>
+                          </View>
+                        ) : null}
+                        <View className="flex-row items-center justify-between">
+                          <Text className="text-[11px] text-muted-foreground">Voucher Ref</Text>
+                          <Text className="text-[11px] font-mono text-foreground">
+                            VCH-{t.voucher_id}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text className="mt-2 text-[10px] text-muted-foreground">
+                        {safeFormat(t.transferred_at, "MMM d, yyyy • h:mm a")}
+                      </Text>
                     </View>
                   );
                 })}
@@ -235,15 +280,11 @@ const MyVouchers = () => {
                 const config = statusConfig[v.status] || statusConfig.active;
                 const StatusIcon = config.icon;
                 const voucher = v.voucher;
-                const iconColor =
-                  v.status === "active"
-                    ? "#28af60"
-                    : v.status === "redeemed"
-                    ? "#2463eb"
-                    : "#6a7181";
+                const actionIconColor = config.iconColor;
                 return (
                   <View
                     key={v.id}
+                    testID={`voucher-card-${v.id}`}
                     className="overflow-hidden rounded-xl border border-border bg-card"
                   >
                     <View className="p-4">
@@ -255,60 +296,69 @@ const MyVouchers = () => {
                         </View>
                         <View className="flex-1">
                           <View className="flex-row items-start justify-between gap-2">
-                            <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                            <Text className="flex-1 text-sm font-semibold text-foreground" numberOfLines={1}>
                               {voucher?.title || "Voucher"}
                             </Text>
-                            <Badge className={`border-none text-[10px] ${config.color}`}>
-                              <StatusIcon size={12} color={iconColor} /> {config.label}
-                            </Badge>
+                            <View
+                              testID={`voucher-status-${v.id}`}
+                              className={`flex-row items-center gap-1 rounded-full px-2 py-0.5 ${config.bg}`}
+                            >
+                              <StatusIcon size={12} color={config.iconColor} />
+                              <Text className={`text-[10px] font-semibold ${config.text}`}>
+                                {config.label}
+                              </Text>
+                            </View>
                           </View>
-                          <Text className="mt-0.5 text-xs text-muted-foreground">
-                            {voucher?.subtitle}
-                          </Text>
+                          {voucher?.subtitle ? (
+                            <Text className="mt-0.5 text-xs text-muted-foreground" numberOfLines={2}>
+                              {voucher.subtitle}
+                            </Text>
+                          ) : null}
                         </View>
                       </View>
 
                       {v.status === "active" && (
-                        <View className="mt-3 rounded-lg bg-muted px-3 py-2">
-                          <View className="flex-row items-center justify-between">
-                            <View>
-                              <Text className="text-[10px] text-muted-foreground">Voucher Reference</Text>
-                              <Text className="text-sm font-mono font-bold text-foreground">
-                                CLM-{v.id}
-                              </Text>
-                            </View>
-                            <View className="flex-row gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="rounded-lg"
-                                onPress={() => setQrVoucher(v)}
-                              >
-                                <QrCode size={14} color={iconColor} /> QR
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="rounded-lg"
-                                onPress={async () => {
-                                  await Clipboard.setStringAsync(`CLM-${v.id}`);
-                                  toast.success("Reference copied!");
-                                }}
-                              >
-                                Copy
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="rounded-lg"
-                                onPress={() => {
-                                  setTransferVoucherTarget(v);
-                                  setTransferPhone("");
-                                }}
-                              >
-                                <Send size={14} color={iconColor} /> Transfer
-                              </Button>
-                            </View>
+                        <View className="mt-3 rounded-lg bg-muted px-3 py-2.5">
+                          <Text className="text-[10px] text-muted-foreground">Voucher Reference</Text>
+                          <Text className="mt-0.5 text-sm font-mono font-bold text-foreground">
+                            CLM-{v.id}
+                          </Text>
+                          <View className="mt-2.5 flex-row gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 rounded-lg px-2"
+                              textClassName="text-xs"
+                              onPress={() => setQrVoucher(v)}
+                            >
+                              <QrCode size={14} color={actionIconColor} />
+                              <Text className="text-xs font-medium text-foreground">QR</Text>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 rounded-lg px-2"
+                              textClassName="text-xs"
+                              onPress={async () => {
+                                await Clipboard.setStringAsync(`CLM-${v.id}`);
+                                toast.success("Reference copied!");
+                              }}
+                            >
+                              Copy
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 rounded-lg px-2"
+                              textClassName="text-xs"
+                              onPress={() => {
+                                setTransferVoucherTarget(v);
+                                setTransferPhone("");
+                              }}
+                            >
+                              <Send size={14} color={actionIconColor} />
+                              <Text className="text-xs font-medium text-foreground">Transfer</Text>
+                            </Button>
                           </View>
                         </View>
                       )}
@@ -405,7 +455,10 @@ const MyVouchers = () => {
                 onPress={() => {
                   transferVoucher(
                     { voucherId: transferVoucherTarget.voucher_id, recipientPhone: transferPhone.trim() },
-                    { onSuccess: () => setTransferVoucherTarget(null) }
+                    {
+                      onSuccess: () => setTransferVoucherTarget(null),
+                      onStaleClaim: () => setTransferVoucherTarget(null),
+                    }
                   );
                 }}
               >

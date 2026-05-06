@@ -470,11 +470,23 @@ const BusinessDashboard = () => {
                           {v.status}
                         </Text>
                         {v.status === "active" ? (
-                          <Button size="sm" variant="ghost" className="h-6 text-[10px] text-destructive" onPress={() => updateVoucherStatus.mutate({ id: v.id, status: "inactive" })}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-lg px-3 py-1.5 border-destructive/40"
+                            textClassName="text-[11px] font-semibold text-destructive"
+                            onPress={() => updateVoucherStatus.mutate({ id: v.id, status: "inactive" })}
+                          >
                             Deactivate
                           </Button>
                         ) : (
-                          <Button size="sm" variant="ghost" className="h-6 text-[10px] text-primary" onPress={() => updateVoucherStatus.mutate({ id: v.id, status: "active" })}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-lg px-3 py-1.5 border-primary/40"
+                            textClassName="text-[11px] font-semibold text-primary"
+                            onPress={() => updateVoucherStatus.mutate({ id: v.id, status: "active" })}
+                          >
                             Activate
                           </Button>
                         )}
