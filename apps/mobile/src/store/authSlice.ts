@@ -7,6 +7,7 @@ export interface AuthUser {
   name?: string | null;
   profile_picture?: string | null;
   roles: string[];
+  service_type?: string | null;
 }
 
 interface AuthState {
@@ -50,6 +51,11 @@ const authSlice = createSlice({
     setActiveRole(state, action: PayloadAction<string | null>) {
       state.activeRole = action.payload;
     },
+    updateUser(state, action: PayloadAction<Partial<AuthUser>>) {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
+    },
     clearCredentials(state) {
       state.user = null;
       state.accessToken = null;
@@ -59,7 +65,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { setCredentials, updateTokens, setActiveRole, clearCredentials } = authSlice.actions;
+export const { setCredentials, updateTokens, setActiveRole, updateUser, clearCredentials } = authSlice.actions;
 export default authSlice.reducer;
 
 const EMPTY_ROLES: string[] = [];
