@@ -227,8 +227,9 @@ const EventCreate = () => {
     if (status !== "granted") { toast.error("Gallery permission required"); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [1, 1],
+      // allowsEditing disabled — Android system cropper has invisible button text
+      // on dark-themed devices. The image is displayed square/round in the UI instead.
+      allowsEditing: false,
       quality: 0.8,
     });
     if (result.canceled || !result.assets?.[0]) return;

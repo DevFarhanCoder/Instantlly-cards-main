@@ -359,8 +359,7 @@ function RegistrationCard({
             </View>
           </View>
           <Badge className="bg-primary/10 text-primary border-none text-[10px]">
-            {reg.ticket_count || 1} ticket
-            {(reg.ticket_count || 1) > 1 ? "s" : ""}
+            {`${reg.ticket_count || 1} ticket${(reg.ticket_count || 1) > 1 ? "s" : ""}`}
           </Badge>
         </View>
 
