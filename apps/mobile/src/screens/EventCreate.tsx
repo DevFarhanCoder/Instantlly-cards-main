@@ -197,24 +197,6 @@ const EventCreate = () => {
   const [recurrenceEndsAt, setRecurrenceEndsAt] = useState("");
   const [showRecurrenceEndPicker, setShowRecurrenceEndPicker] = useState(false);
 
-  // ── Auth / role guard ─────────────────────────────────────────────────────
-  if (!isBusiness) {
-    return (
-      <View className="flex-1 bg-background items-center justify-center px-6">
-        <Text className="text-4xl mb-3">🔒</Text>
-        <Text className="text-lg font-bold text-foreground text-center">
-          Business Account Required
-        </Text>
-        <Text className="text-sm text-muted-foreground text-center mt-2">
-          You need a business account to create events.
-        </Text>
-        <Button className="mt-4 rounded-xl" onPress={() => navigation.goBack()}>
-          Go Back
-        </Button>
-      </View>
-    );
-  }
-
   // ── Helpers ───────────────────────────────────────────────────────────────
   const updateBasic = useCallback(
     (field: keyof typeof basic, value: any) =>
@@ -490,6 +472,24 @@ const EventCreate = () => {
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
+  // Auth / role guard — placed AFTER all hooks to comply with Rules of Hooks
+  if (!isBusiness) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center px-6">
+        <Text className="text-4xl mb-3">🔒</Text>
+        <Text className="text-lg font-bold text-foreground text-center">
+          Business Account Required
+        </Text>
+        <Text className="text-sm text-muted-foreground text-center mt-2">
+          You need a business account to create events.
+        </Text>
+        <Button className="mt-4 rounded-xl" onPress={() => navigation.goBack()}>
+          Go Back
+        </Button>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}

@@ -122,7 +122,7 @@ const Notifications = () => {
       </View>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 px-4 pt-3">
-        <TabsList className="w-full">
+        <TabsList className="w-full" style={{ height: 40 }}>
           <TabsTrigger value="notifications" className="flex-1">
             Notifications
           </TabsTrigger>
@@ -131,13 +131,14 @@ const Notifications = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="notifications" className="flex-1 mt-3">
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pb-3">
-            <View className="flex-row gap-2">
+        <TabsContent value="notifications" className="flex-1 mt-2">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ height: 40, flexGrow: 0 }} contentContainerStyle={{ alignItems: 'center' }}>
+            <View className="flex-row gap-2 items-center">
               {["all", "unread", "reminder", "offer", "booking", "message"].map((f) => (
                 <Pressable
                   key={f}
                   onPress={() => setFilter(f)}
+                  style={{ alignSelf: 'flex-start' }}
                   className={`rounded-full px-3 py-1.5 ${
                     filter === f ? "bg-primary" : "border border-border"
                   }`}
@@ -147,7 +148,7 @@ const Notifications = () => {
                       filter === f ? "text-primary-foreground" : "text-muted-foreground"
                     }`}
                   >
-                    {f === "all" ? "All" : f}
+                    {f === "all" ? "All" : f === "unread" ? "Unread" : f === "reminder" ? "Reminder" : f === "offer" ? "Offer" : f === "booking" ? "Booking" : "Message"}
                   </Text>
                 </Pressable>
               ))}
@@ -204,7 +205,7 @@ const Notifications = () => {
             </View>
           )}
 
-          {notifications.length > 0 && (
+          {filtered.length > 0 && (
             <Button
               variant="ghost"
               className="w-full mt-4 text-xs text-destructive"
