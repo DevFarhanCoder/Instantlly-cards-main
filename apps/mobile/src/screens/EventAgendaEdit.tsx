@@ -233,7 +233,7 @@ function SpeakerFormModal({
             borderBottomColor: colors.border,
           }}
         >
-          <Pressable onPress={onClose}>
+          <Pressable onPress={onClose} hitSlop={12} style={{ minWidth: 60, paddingVertical: 6 }}>
             <Text style={{ color: colors.primary, fontSize: 15 }}>Cancel</Text>
           </Pressable>
           <Text
@@ -245,7 +245,7 @@ function SpeakerFormModal({
           >
             {initial?.name ? "Edit Speaker" : "Add Speaker"}
           </Text>
-          <Pressable onPress={handleSave} disabled={saving}>
+          <Pressable onPress={handleSave} disabled={saving} hitSlop={12} style={{ minWidth: 60, paddingVertical: 6, alignItems: "flex-end" }}>
             <Text
               style={{
                 color: saving ? colors.mutedForeground : colors.primary,
@@ -591,7 +591,7 @@ function SessionFormModal({
             borderBottomColor: colors.border,
           }}
         >
-          <Pressable onPress={onClose}>
+          <Pressable onPress={onClose} hitSlop={12} style={{ minWidth: 60, paddingVertical: 6 }}>
             <Text style={{ color: colors.primary, fontSize: 15 }}>Cancel</Text>
           </Pressable>
           <Text
@@ -603,7 +603,7 @@ function SessionFormModal({
           >
             Add Session
           </Text>
-          <Pressable onPress={handleSave} disabled={saving}>
+          <Pressable onPress={handleSave} disabled={saving} hitSlop={12} style={{ minWidth: 60, paddingVertical: 6, alignItems: "flex-end" }}>
             <Text
               style={{
                 color: saving ? colors.mutedForeground : colors.primary,
