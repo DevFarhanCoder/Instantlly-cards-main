@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -20,7 +21,7 @@ import {
   QrCode,
 } from "lucide-react-native";
 import QRCode from "react-native-qrcode-svg";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useAuth } from "../hooks/useAuth";
@@ -29,7 +30,7 @@ import { supabase } from "../integrations/supabase/client";
 import { useListBusinessBookingsQuery, useListPromotionBookingsQuery, useUpdateBookingStatusMutation } from "../store/api/bookingsApi";
 import { useGetCardReviewsQuery, useGetPromotionReviewsQuery } from "../store/api/reviewsApi";
 import { useListBusinessLeadsQuery, useListPromotionLeadsQuery } from "../store/api/leadsApi";
-import { useListMyEventsQuery } from "../store/api/eventsApi";
+import { useListMyEventsQuery, useDeleteEventMutation } from "../store/api/eventsApi";
 import { useGetMyCreatedVouchersQuery, useUpdateVoucherStatusMutation } from "../store/api/vouchersApi";
 import BookingCalendar from "../components/business/BookingCalendar";
 import BusinessHoursEditor from "../components/business/BusinessHoursEditor";
@@ -52,7 +53,6 @@ const BusinessDashboard = () => {
   const { selectedPromotionId, selectedPromotion, promotions } = usePromotionContext();
   const hasAnyPromotion = (promotions?.length ?? 0) > 0;
   const businessName = selectedPromotion?.business_name || "Business";
-  const queryClient = useQueryClient();
 
   const selectedCardIdNum = selectedPromotion?.business_card_id ? Number(selectedPromotion.business_card_id) : null;
   const selectedCardId = selectedCardIdNum ? String(selectedCardIdNum) : null;
@@ -81,6 +81,7 @@ const BusinessDashboard = () => {
   const incomingBookings: any[] = bookingsData?.data ?? [];
 
   const { data: myEvents = [], refetch: refetchEvents } = useListMyEventsQuery(undefined, { skip: !user });
+  const [deleteEventMutation] = useDeleteEventMutation();
   const scopedEvents = (myEvents as any[]).filter((e: any) =>
     selectedPromotionId ? Number(e.business_promotion_id) === Number(selectedPromotionId) : false
   );
@@ -188,16 +189,30 @@ const BusinessDashboard = () => {
     },
   };
 
-  const deleteEvent = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("events").delete().eq("id", id);
-      if (error) throw error;
+  const deleteEvent = {
+    mutate: (id: number) => {
+      Alert.alert(
+        "Delete Event",
+        "Are you sure you want to delete this event? This cannot be undone.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await deleteEventMutation(id).unwrap();
+                refetchEvents();
+                toast.success("Event deleted!");
+              } catch (err: any) {
+                toast.error(err?.data?.error ?? "Failed to delete event");
+              }
+            },
+          },
+        ]
+      );
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["business-events"] });
-      toast.success("Event deleted!");
-    },
-  });
+  };
 
   const showHeaderActions = !!selectedPromotionId;
   const header = (

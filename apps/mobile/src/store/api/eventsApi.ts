@@ -830,6 +830,9 @@ export const eventsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_r, _e, arg) => [{ type: 'EventStaff' as const, id: arg.eventId }],
     }),
+    deleteEvent: builder.mutation<{ ok: boolean }, number>({
+      query: (id) => ({ url: `/events/${id}`, method: 'DELETE' }),
+    }),
   }),
 });
 
@@ -838,6 +841,7 @@ export const {
   useGetEventQuery,
   useGetFriendAttendeesQuery,
   useListMyEventsQuery,
+  useDeleteEventMutation,
   useCreateEventMutation,
   useUpdateEventMutation,
   useCreateEventPaymentIntentMutation,
