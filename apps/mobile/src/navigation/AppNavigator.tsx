@@ -92,6 +92,7 @@ import VoucherCreate from "../screens/VoucherCreate";
 import AdminAdDetail from "../screens/AdminAdDetail";
 import GroupChat from "../screens/GroupChat";
 import GroupJoin from "../screens/GroupJoin";
+import ServiceSelection from "../screens/ServiceSelection";
 import AppLayout from "../components/layout/AppLayout";
 import type { RootStackParamList } from "./routes";
 
@@ -193,6 +194,7 @@ const SendCreditsWrapped = withLayout(SendCreditsScreen);
 const AdminAdDetailScreen  = (props: any) => <AdminAdDetail {...props} />;
 const GroupChatScreen      = (props: any) => <AppLayout headerOnly><GroupChat {...props} /></AppLayout>;
 const NotFoundScreen       = plainPlaceholder("Not Found");
+const ServiceSelectionScreen = (props: any) => <ServiceSelection {...props} />;
 
 // ─── Deep link config ────────────────────────────────────────────────────────
 const linking = {
@@ -749,6 +751,7 @@ const AppNavigator = () => {
         <Stack.Screen name="ForgotPasswordPhone" component={ForgotPasswordPhone} />
         <Stack.Screen name="ForgotPasswordOTP" component={ForgotPasswordOTP} />
         <Stack.Screen name="ForgotPasswordReset" component={ForgotPasswordReset} />
+        <Stack.Screen name="ServiceSelection" component={ServiceSelectionScreen} options={{ gestureEnabled: false }} />
         <Stack.Screen name="GroupJoin" component={GroupJoin} />
         <Stack.Screen name="NotFound" component={NotFoundScreen} />
       </Stack.Navigator>

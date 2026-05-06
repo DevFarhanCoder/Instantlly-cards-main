@@ -39,6 +39,9 @@ export const authApi = baseApi.injectEndpoints({
       query: () => '/auth/me',
       providesTags: ['Auth'],
     }),
+    updateServiceType: builder.mutation<{ message: string; service_type: string }, { serviceType: 'home-based' | 'business-visiting' }>({
+      query: (body) => ({ url: '/auth/update-service-type', method: 'POST', body }),
+    }),
   }),
 });
 
@@ -48,4 +51,5 @@ export const {
   useLogoutMutation,
   useGetMeQuery,
   useLazyGetMeQuery,
+  useUpdateServiceTypeMutation,
 } = authApi;

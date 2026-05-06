@@ -197,9 +197,11 @@ const Auth = ({ navigation }: Props) => {
         } else {
           console.log('[Auth Screen] signUp success → navigating');
           toast.success("Account created! Welcome to Instantlly.");
-          // Navigate to redirect screen if specified, otherwise Home
+          // Navigate to redirect screen if specified, otherwise Home (or ServiceSelection for new business accounts)
           if (redirectScreen) {
             navigation.navigate(redirectScreen, redirectParams);
+          } else if (roleTab === 'business') {
+            navigation.navigate('ServiceSelection');
           } else {
             navigation.navigate("Home");
           }
@@ -219,6 +221,8 @@ const Auth = ({ navigation }: Props) => {
             SecureStore.setItemAsync('activeRole', roleTab);
             if (redirectScreen) {
               navigation.navigate(redirectScreen, redirectParams);
+            } else if (roleTab === 'business' && !freshUser.service_type) {
+              navigation.navigate('ServiceSelection');
             } else {
               navigation.navigate(roleTab === 'business' ? "MyCards" : "Home");
             }
