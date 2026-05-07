@@ -32,7 +32,7 @@ const VoucherCreate = () => {
         .eq("status", "active")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data || []) as { id: string; business_name: string; tier: string; status: string }[];
+      return ((data || []) as unknown) as { id: string; business_name: string; tier: string; status: string }[];
     },
     enabled: !!user,
   });
@@ -47,9 +47,15 @@ const VoucherCreate = () => {
     discounted_price: "",
     discount_label: "",
     terms: "",
+    code: "",
     max_claims: "",
     expires_at: "",
     is_popular: false,
+    company_name: "",
+    phone_number: "",
+    address: "",
+    allows_installment: false,
+    upfront_amount: "",
     business_promotion_id: defaultPromotionId,
   });
 
@@ -73,11 +79,17 @@ const VoucherCreate = () => {
       discounted_price: parseFloat(form.discounted_price),
       discount_label: form.discount_label || null,
       terms: form.terms || null,
+      code: form.code || null,
       max_claims: form.max_claims ? parseInt(form.max_claims) : null,
       expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null,
       is_popular: form.is_popular,
+      company_name: form.company_name || null,
+      phone_number: form.phone_number || null,
+      address: form.address || null,
+      allows_installment: form.allows_installment,
+      upfront_amount: form.allows_installment && form.upfront_amount ? parseFloat(form.upfront_amount) : null,
       business_promotion_id: form.business_promotion_id,
-    });
+    } as any);
     navigate("/vouchers");
   };
 
@@ -152,6 +164,11 @@ const VoucherCreate = () => {
         </div>
 
         <div className="space-y-2">
+          <Label>Promo Code (Optional — unlocks discounted price)</Label>
+          <Input placeholder="e.g. SUMMER30" value={form.code} onChange={(e) => update("code", e.target.value.toUpperCase())} />
+        </div>
+
+        <div className="space-y-2">
           <Label>Terms & Conditions</Label>
           <Textarea placeholder="e.g. Valid Mon-Fri only. Cannot be combined with other offers." value={form.terms} onChange={(e) => update("terms", e.target.value)} rows={3} />
         </div>
@@ -166,6 +183,37 @@ const VoucherCreate = () => {
             <Input type="date" value={form.expires_at} onChange={(e) => update("expires_at", e.target.value)} />
           </div>
         </div>
+
+        <div className="space-y-2">
+          <Label>Company / Merchant Name</Label>
+          <Input placeholder="e.g. Luxe Spa & Wellness" value={form.company_name} onChange={(e) => update("company_name", e.target.value)} />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Phone Number</Label>
+          <Input type="tel" placeholder="e.g. 9876543210" value={form.phone_number} onChange={(e) => update("phone_number", e.target.value)} />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Address (Where to Redeem)</Label>
+          <Input placeholder="e.g. Shop 5, MG Road, Bengaluru" value={form.address} onChange={(e) => update("address", e.target.value)} />
+        </div>
+
+        <div className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">Allow Installment Payment</p>
+            <p className="text-xs text-muted-foreground">Buyer pays upfront now, rest within 30 days</p>
+          </div>
+          <Switch checked={form.allows_installment} onCheckedChange={(v) => update("allows_installment", v)} />
+        </div>
+
+        {form.allows_installment && (
+          <div className="space-y-2">
+            <Label>Upfront Amount (₹) *</Label>
+            <Input type="number" placeholder="e.g. 10000" value={form.upfront_amount} onChange={(e) => update("upfront_amount", e.target.value)} />
+            <p className="text-xs text-muted-foreground">Buyer pays this now. Remaining balance due within 30 days.</p>
+          </div>
+        )}
 
         <div className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
           <div>
