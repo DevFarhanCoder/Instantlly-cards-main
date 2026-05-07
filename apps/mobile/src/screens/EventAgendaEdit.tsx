@@ -25,6 +25,7 @@ import {
   View,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
 import {
@@ -157,6 +158,7 @@ function SpeakerFormModal({
   onClose,
 }: SpeakerFormModalProps) {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const [form, setForm] = useState<SpeakerFormState>(initial ?? EMPTY_SPEAKER);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -228,7 +230,8 @@ function SpeakerFormModal({
             alignItems: "center",
             justifyContent: "space-between",
             paddingHorizontal: 16,
-            paddingVertical: 14,
+            paddingTop: insets.top + 14,
+            paddingBottom: 14,
             borderBottomWidth: 1,
             borderBottomColor: colors.border,
           }}
@@ -533,6 +536,7 @@ function SessionFormModal({
   onClose,
 }: SessionFormModalProps) {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const [form, setForm] = useState<SessionFormState>(EMPTY_SESSION);
   const [saving, setSaving] = useState(false);
 
@@ -586,7 +590,8 @@ function SessionFormModal({
             alignItems: "center",
             justifyContent: "space-between",
             paddingHorizontal: 16,
-            paddingVertical: 14,
+            paddingTop: insets.top + 14,
+            paddingBottom: 14,
             borderBottomWidth: 1,
             borderBottomColor: colors.border,
           }}
