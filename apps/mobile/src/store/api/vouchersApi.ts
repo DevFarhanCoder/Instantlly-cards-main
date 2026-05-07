@@ -41,15 +41,29 @@ export const vouchersApi = baseApi.injectEndpoints({
       query: ({ id, status }) => ({ url: `/vouchers/${id}/status`, method: 'PATCH', body: { status } }),
       invalidatesTags: ['Voucher'],
     }),
+    updateVoucher: builder.mutation<any, { id: number; [key: string]: any }>({
+      query: ({ id, ...body }) => ({ url: `/vouchers/${id}`, method: 'PATCH', body }),
+      invalidatesTags: ['Voucher'],
+    }),
+    deleteVoucher: builder.mutation<{ success: boolean; soft_deleted?: boolean; deleted?: boolean; message?: string }, number>({
+      query: (id) => ({ url: `/vouchers/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Voucher'],
+    }),
     createVoucherPaymentIntent: builder.mutation<
-      { key: string; order_id: string; amount: number; currency: string; voucher_id: number; voucher_title: string },
-      number
+      {
+        key: string; order_id: string; amount: number; currency: string;
+        voucher_id: number; voucher_title: string;
+        promo_applied: boolean; applicable_price: number;
+        allows_installment: boolean; upfront_amount: number | null;
+        remaining_after_upfront: number;
+      },
+        { id: number; promo_code?: string; payment_mode?: "full" | "upfront" }
     >({
-      query: (id) => ({ url: `/vouchers/${id}/payment-intent`, method: 'POST' }),
+        query: ({ id, promo_code, payment_mode }) => ({ url: `/vouchers/${id}/payment-intent`, method: 'POST', body: { promo_code, payment_mode } }),
     }),
     verifyVoucherPayment: builder.mutation<
       any,
-      { voucherId: number; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
+      { voucherId: number; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string; promo_applied?: boolean; allows_installment?: boolean }
     >({
       query: ({ voucherId, ...body }) => ({
         url: `/vouchers/${voucherId}/verify-payment`,
@@ -57,6 +71,35 @@ export const vouchersApi = baseApi.injectEndpoints({
         body,
       }),
       invalidatesTags: ['Voucher'],
+    }),
+    createInstallmentPaymentIntent: builder.mutation<
+      { key: string; order_id: string; amount: number; currency: string; claim_id: number; voucher_title: string },
+      { claimId: number; amount: number }
+    >({
+      query: ({ claimId, amount }) => ({ url: `/vouchers/claims/${claimId}/installment/pay`, method: 'POST', body: { amount } }),
+    }),
+    verifyInstallmentPayment: builder.mutation<
+      { success: boolean; remaining_balance: number; paid_amount: number; installment_status: string },
+      { claimId: number; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string; amount: number }
+    >({
+      query: ({ claimId, ...body }) => ({ url: `/vouchers/claims/${claimId}/installment/verify`, method: 'POST', body }),
+      invalidatesTags: ['Voucher'],
+    }),
+    getInstallmentStatus: builder.query<any, number>({
+      query: (claimId) => `/vouchers/claims/${claimId}/installment`,
+      providesTags: (_r, _e, id) => [{ type: 'Voucher', id }],
+    }),
+    getMyInstallments: builder.query<any[], void>({
+      query: () => '/vouchers/my-installments',
+      providesTags: ['Voucher'],
+    }),
+    getVoucherInstallmentLedger: builder.query<any[], number>({
+      query: (voucherId) => `/vouchers/${voucherId}/installment-ledger`,
+      providesTags: (_r, _e, id) => [{ type: 'Voucher', id }],
+    }),
+    getVoucherClaims: builder.query<any[], number>({
+      query: (voucherId) => `/vouchers/${voucherId}/claims`,
+      providesTags: (_r, _e, id) => [{ type: 'Voucher', id }],
     }),
   }),
 });
@@ -71,6 +114,14 @@ export const {
   useGetVoucherTransfersQuery,
   useCreateVoucherMutation,
   useUpdateVoucherStatusMutation,
+  useUpdateVoucherMutation,
+  useDeleteVoucherMutation,
   useCreateVoucherPaymentIntentMutation,
   useVerifyVoucherPaymentMutation,
+  useCreateInstallmentPaymentIntentMutation,
+  useVerifyInstallmentPaymentMutation,
+  useGetInstallmentStatusQuery,
+  useGetMyInstallmentsQuery,
+  useGetVoucherInstallmentLedgerQuery,
+  useGetVoucherClaimsQuery,
 } = vouchersApi;

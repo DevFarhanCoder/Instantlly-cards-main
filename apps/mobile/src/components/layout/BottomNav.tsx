@@ -127,6 +127,7 @@ const businessMoreSections: MoreSection[] = [
       { route: "MyEvents", label: "My Events", emoji: "🎟️" },
       { route: "Events", label: "Events", emoji: "📅" },
       { route: "Vouchers", label: "Vouchers", emoji: "🎫" },
+      { route: "MyCreatedVouchers", label: "My Created Vouchers", emoji: "🎁" },
       { route: "AdDashboard", label: "Ad Reports", emoji: "📣" },
     ],
   },

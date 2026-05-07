@@ -19,14 +19,24 @@ export interface Voucher {
   business_id: string | null;
   title: string;
   subtitle: string | null;
+  code: string | null;
   category: string;
   original_price: number;
   discounted_price: number;
   discount_label: string | null;
   is_popular: boolean;
+  allows_installment: boolean;
+  upfront_amount: number | null;
   expires_at: string | null;
   max_claims: number | null;
   terms: string | null;
+  company_name: string | null;
+  phone_number: string | null;
+  address: string | null;
+  voucher_image: string | null;
+  voucher_banner: string | null;
+  what_we_do: string | null;
+  website: string | null;
   status: string;
   claimed_count: number;
   promotion?: {
@@ -65,23 +75,40 @@ const mapVoucher = (v: any): Voucher => {
         ? Math.max(0, original - (original * dValue) / 100)
         : Math.max(0, original - dValue)
       : 0;
-  const label = v.discount_label
-    ?? (dType === "percent" ? `${dValue}% OFF` : `₹${dValue} OFF`);
+  // Compact label for the badge pill (kept short so it fits in cards).
+  // The "with code" context is communicated separately in the UI via the
+  // `code` field — the badge stays tight: "50% OFF" / "₹500 OFF".
+  const pct = original > 0 && discounted >= 0 && discounted < original
+    ? Math.round(((original - discounted) / original) * 100)
+    : 0;
+  const label = pct > 0
+    ? `${pct}% OFF`
+    : (dType === "percent" ? `${dValue}% OFF` : `₹${dValue} OFF`);
   return {
     id: String(v.id),
     user_id: String(v.owner_user_id ?? v.user_id ?? ""),
     business_promotion_id: v.business_promotion_id ? String(v.business_promotion_id) : null,
     business_id: v.business_id ? String(v.business_id) : null,
     title: v.title,
-    subtitle: v.description ?? null,
+    subtitle: v.subtitle ?? v.description ?? null,
+    code: v.code ?? null,
     category: v.category ?? "",
     original_price: original,
     discounted_price: discounted,
     discount_label: label,
     is_popular: Boolean(v.is_popular),
+    allows_installment: Boolean(v.allows_installment),
+    upfront_amount: v.upfront_amount !== undefined && v.upfront_amount !== null ? Number(v.upfront_amount) : null,
     expires_at: v.expires_at ?? null,
     max_claims: v.max_claims ?? null,
-    terms: v.description ?? null,
+    terms: v.terms ?? v.description ?? null,
+    company_name: v.company_name ?? null,
+    phone_number: v.phone_number ?? null,
+    address: v.address ?? null,
+    voucher_image: v.voucher_image ?? null,
+    voucher_banner: v.voucher_banner ?? null,
+    what_we_do: v.what_we_do ?? null,
+    website: v.website ?? null,
     status: v.status ?? "active",
     claimed_count: Number(v.claimed_count ?? 0),
     promotion: v.business_promotion
@@ -188,13 +215,26 @@ export function useCreateVoucher() {
         const payload = {
           business_promotion_id: Number(businessPromotionId),
           title: (voucher as any).title,
+          subtitle: (voucher as any).subtitle || undefined,
           code: (voucher as any).code || undefined,
-          description: (voucher as any).subtitle || (voucher as any).terms || undefined,
+          description: (voucher as any).description || undefined,
           discount_type: discountType,
           discount_value: discountValue,
           original_price: Number(original) > 0 ? Number(original) : undefined,
+          min_claim: (voucher as any).min_claim,
           max_claims: (voucher as any).max_claims,
           expires_at: (voucher as any).expires_at,
+          terms: (voucher as any).terms || undefined,
+          company_name: (voucher as any).company_name || undefined,
+          phone_number: (voucher as any).phone_number || undefined,
+          address: (voucher as any).address || undefined,
+          voucher_image: (voucher as any).voucher_image || undefined,
+          voucher_banner: (voucher as any).voucher_banner || undefined,
+          what_we_do: (voucher as any).what_we_do || undefined,
+          website: (voucher as any).website || undefined,
+          allows_installment: Boolean((voucher as any).allows_installment),
+          upfront_amount: (voucher as any).allows_installment ? Number((voucher as any).upfront_amount) : undefined,
+          is_popular: Boolean((voucher as any).is_popular),
         } as any;
         const data = await trigger(payload).unwrap();
         toast.success("Voucher created!");

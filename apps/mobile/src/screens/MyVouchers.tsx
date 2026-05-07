@@ -1,7 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { ArrowLeft, CheckCircle2, Clock, Gift, QrCode, Send, Ticket } from "lucide-react-native";
+import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, Clock, Gift, QrCode, Send, Ticket } from "lucide-react-native";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Skeleton } from "../components/ui/skeleton";
@@ -13,7 +13,9 @@ import {
   useVoucherTransfers,
   type ClaimedVoucher,
 } from "../hooks/useVouchers";
+import { useGetMyInstallmentsQuery } from "../store/api/vouchersApi";
 import { toast } from "../lib/toast";
+import { formatINR } from "../lib/utils";
 import QRCode from "react-native-qrcode-svg";
 import { format, isValid } from "date-fns";
 import * as Clipboard from "expo-clipboard";
@@ -54,16 +56,32 @@ const MyVouchers = () => {
   const { data: claimedVouchers = [], isLoading, refetch: refetchVouchers } = useMyVouchers();
   const { mutate: transferVoucher, isPending: isTransferring } = useTransferVoucher();
   const { data: transfers = [], refetch: refetchTransfers } = useVoucherTransfers();
+  const { data: myInstallments = [], refetch: refetchInstallments } = useGetMyInstallmentsQuery(undefined, { skip: !user });
+
+  // Build a lookup map: claimId -> installment data
+  const installmentMap = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const inst of myInstallments) {
+      map.set(String(inst.claim_id), inst);
+    }
+    return map;
+  }, [myInstallments]);
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    try { await Promise.all([refetchVouchers(), refetchTransfers()]); } finally { setRefreshing(false); }
-  }, [refetchVouchers, refetchTransfers]);
+    try { await Promise.all([refetchVouchers(), refetchTransfers(), refetchInstallments()]); } finally { setRefreshing(false); }
+  }, [refetchVouchers, refetchTransfers, refetchInstallments]);
   const [activeTab, setActiveTab] = useState("All");
   const [qrVoucher, setQrVoucher] = useState<ClaimedVoucher | null>(null);
   const [transferVoucherTarget, setTransferVoucherTarget] = useState<ClaimedVoucher | null>(null);
   const [transferPhone, setTransferPhone] = useState("");
+  const [expandedInstallments, setExpandedInstallments] = useState<Set<string>>(new Set());
+  const toggleInstallment = (id: string) => setExpandedInstallments((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   const filtered =
     activeTab === "All"
@@ -111,7 +129,7 @@ const MyVouchers = () => {
               <View>
                 <Text className="text-xs text-muted-foreground">Total Savings</Text>
                 <Text className="text-2xl font-bold text-foreground">
-                  ₹{totalSaved.toLocaleString()}
+                  ₹{formatINR(totalSaved)}
                 </Text>
               </View>
               <View className="flex-row gap-3">
@@ -375,10 +393,70 @@ const MyVouchers = () => {
                       </View>
                     </View>
 
+                    {/* Installment payment history */}
+                    {(() => {
+                      const inst = installmentMap.get(String(v.id));
+                      if (!inst) return null;
+                      const isExpanded = expandedInstallments.has(String(v.id));
+                      const statusColor = inst.installment_status === "completed"
+                        ? { bg: "bg-green-500/10", text: "text-green-600" }
+                        : inst.installment_status === "expired"
+                        ? { bg: "bg-muted", text: "text-muted-foreground" }
+                        : { bg: "bg-amber-500/10", text: "text-amber-600" };
+                      return (
+                        <View className="border-t border-border">
+                          <Pressable
+                            className="flex-row items-center justify-between px-4 py-2.5"
+                            onPress={() => toggleInstallment(String(v.id))}
+                          >
+                            <View className="flex-row items-center gap-2">
+                              <View className={`rounded-full px-2 py-0.5 ${statusColor.bg}`}>
+                                <Text className={`text-[10px] font-semibold ${statusColor.text}`}>
+                                  Installment {inst.installment_status === "completed" ? "Paid" : inst.installment_status === "expired" ? "Expired" : "Active"}
+                                </Text>
+                              </View>
+                              <Text className="text-[11px] text-muted-foreground">
+                                ₹{formatINR(inst.paid_amount)} paid
+                                {inst.remaining_balance > 0 ? ` · ₹${formatINR(inst.remaining_balance)} due` : ""}
+                              </Text>
+                            </View>
+                            {isExpanded ? <ChevronUp size={14} color="#6a7181" /> : <ChevronDown size={14} color="#6a7181" />}
+                          </Pressable>
+                          {isExpanded && (
+                            <View className="px-4 pb-3 gap-2">
+                              {inst.installment_deadline && (
+                                <View className="flex-row justify-between">
+                                  <Text className="text-[11px] text-muted-foreground">Due date</Text>
+                                  <Text className="text-[11px] font-medium text-foreground">
+                                    {safeFormat(inst.installment_deadline, "MMM d, yyyy")}
+                                  </Text>
+                                </View>
+                              )}
+                              {inst.recent_payments && inst.recent_payments.length > 0 ? (
+                                <View className="rounded-lg bg-muted px-3 py-2 gap-1.5">
+                                  <Text className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Payment History</Text>
+                                  {inst.recent_payments.map((p: any, idx: number) => (
+                                    <View key={idx} className="flex-row items-center justify-between">
+                                      <Text className="text-[11px] text-foreground">₹{formatINR(p.amount)}</Text>
+                                      <Text className="text-[10px] text-muted-foreground">
+                                        {safeFormat(p.paid_at, "MMM d, yyyy")}
+                                      </Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              ) : (
+                                <Text className="text-[11px] text-muted-foreground">No payments recorded yet</Text>
+                              )}
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })()}
+
                     {v.status === "active" && voucher && (
                       <View className="border-t border-dashed border-border bg-primary/5 px-4 py-2.5">
                         <Text className="text-center text-xs font-medium text-primary">
-                          You saved ₹{(voucher.original_price - voucher.discounted_price).toLocaleString()}!
+                          You saved ₹{formatINR(voucher.original_price - voucher.discounted_price)}!
                         </Text>
                       </View>
                     )}

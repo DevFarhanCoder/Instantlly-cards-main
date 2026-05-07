@@ -29,6 +29,7 @@ import {
   ShieldCheck,
   Store,
   Sun,
+  Ticket,
   User,
 } from "lucide-react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -379,6 +380,12 @@ const Profile = () => {
             label: "Business Dashboard",
             desc: "Manage bookings, events, vouchers",
             route: "BusinessDashboard",
+          },
+          {
+            icon: Ticket,
+            label: "My Created Vouchers",
+            desc: "Edit, view claims & installment ledger",
+            route: "MyCreatedVouchers",
           },
           {
             icon: CalendarDays,
