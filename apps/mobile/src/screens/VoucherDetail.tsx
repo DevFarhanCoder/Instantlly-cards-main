@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, Clock, Globe, MapPin, Phone, Share2, ShieldCheck, Tag, X } from "lucide-react-native";
@@ -76,8 +76,23 @@ const VoucherDetail = () => {
   // Installment payment state
   const [showInstallmentPay, setShowInstallmentPay] = useState(false);
   const [installmentAmount, setInstallmentAmount] = useState("");
-  const [installmentInfo, setInstallmentInfo] = useState<any>(null);
+  const [installmentInfo, setInstallmentInfo] = useState<any>(
+    (route?.params?.installmentInfo as any) || null,
+  );
   const [showBannerPreview, setShowBannerPreview] = useState(false);
+
+  // Hydrate claimId / installmentInfo from route params when arriving from MyVouchers
+  useEffect(() => {
+    const paramClaimId = route?.params?.claimId;
+    const paramInfo = route?.params?.installmentInfo;
+    if (paramClaimId && claimId == null) setClaimId(Number(paramClaimId));
+    if (paramInfo && !installmentInfo) {
+      setInstallmentInfo(paramInfo);
+      const remaining = Number(paramInfo?.remaining_balance ?? 0);
+      if (remaining > 0) setInstallmentAmount(String(remaining));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route?.params?.claimId, route?.params?.installmentInfo]);
 
   const isProcessing = claimVoucher.isPending || intentState.isLoading || verifyState.isLoading ||
     installIntentState.isLoading || verifyInstallState.isLoading;

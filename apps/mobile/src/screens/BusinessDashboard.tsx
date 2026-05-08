@@ -120,6 +120,7 @@ const BusinessDashboard = () => {
   const scopedVouchers = scopedVouchersRaw as any[];
 
   const [ledgerVoucherId, setLedgerVoucherId] = useState<number | null>(null);
+  const [historyClaim, setHistoryClaim] = useState<any | null>(null);
   const { data: ledgerData = [], isFetching: ledgerFetching } = useGetVoucherInstallmentLedgerQuery(
     ledgerVoucherId ?? 0,
     { skip: !ledgerVoucherId }
@@ -633,65 +634,168 @@ const BusinessDashboard = () => {
               <Text className="text-sm text-muted-foreground">No installment claims yet</Text>
             </View>
           ) : (
-            <ScrollView className="max-h-96" showsVerticalScrollIndicator={false}>
-              <View className="gap-3 py-2">
-                {ledgerData.map((claim: any) => {
-                  const statusColor = claim.installment_status === "completed"
-                    ? "text-green-600" : claim.installment_status === "expired"
-                    ? "text-muted-foreground" : "text-amber-600";
-                  return (
-                    <View key={claim.claim_id} className="rounded-xl border border-border bg-muted/30 p-3 gap-2">
-                      <View className="flex-row items-center justify-between">
-                        <View>
-                          <Text className="text-sm font-semibold text-foreground">
-                            {claim.user_name || "Customer"}
-                          </Text>
-                          <Text className="text-[11px] text-muted-foreground">{claim.user_phone}</Text>
+            <>
+              {/* Summary header */}
+              <View className="flex-row gap-2 px-1">
+                <View className="flex-1 rounded-xl bg-green-500/10 p-3">
+                  <Text className="text-[10px] font-semibold text-green-700 uppercase">Total Collected</Text>
+                  <Text className="text-base font-bold text-green-700">
+                    ₹{formatINR(ledgerData.reduce((s: number, c: any) => s + Number(c.paid_amount ?? 0), 0))}
+                  </Text>
+                </View>
+                <View className="flex-1 rounded-xl bg-amber-500/10 p-3">
+                  <Text className="text-[10px] font-semibold text-amber-700 uppercase">Outstanding</Text>
+                  <Text className="text-base font-bold text-amber-700">
+                    ₹{formatINR(ledgerData.reduce((s: number, c: any) => s + Number(c.remaining_balance ?? 0), 0))}
+                  </Text>
+                </View>
+              </View>
+              <ScrollView className="max-h-96 mt-2" showsVerticalScrollIndicator={false}>
+                <View className="gap-2.5 py-1">
+                  {ledgerData.map((claim: any) => {
+                    const statusColor = claim.installment_status === "completed"
+                      ? "bg-green-500/10 text-green-700" : claim.installment_status === "expired"
+                      ? "bg-muted text-muted-foreground" : "bg-amber-500/10 text-amber-700";
+                    const last = claim.last_payment;
+                    return (
+                      <View key={claim.claim_id} className="rounded-xl border border-border bg-card p-3 gap-2">
+                        {/* Header row */}
+                        <View className="flex-row items-start justify-between">
+                          <View className="flex-1 pr-2">
+                            <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                              {claim.user_name || "Customer"}
+                            </Text>
+                            <Text className="text-[11px] text-muted-foreground">{claim.user_phone}</Text>
+                          </View>
+                          <View className={`rounded-full px-2 py-0.5 ${statusColor.split(" ")[0]}`}>
+                            <Text className={`text-[10px] font-semibold capitalize ${statusColor.split(" ")[1]}`}>
+                              {claim.installment_status}
+                            </Text>
+                          </View>
                         </View>
-                        <Text className={`text-[10px] font-semibold capitalize ${statusColor}`}>
-                          {claim.installment_status}
-                        </Text>
-                      </View>
-                      <View className="flex-row gap-4">
-                        <View>
-                          <Text className="text-[10px] text-muted-foreground">Paid</Text>
-                          <Text className="text-sm font-bold text-green-600">₹{formatINR(claim.paid_amount)}</Text>
-                        </View>
-                        <View>
-                          <Text className="text-[10px] text-muted-foreground">Remaining</Text>
-                          <Text className="text-sm font-bold text-foreground">₹{formatINR(claim.remaining_balance)}</Text>
-                        </View>
-                        {claim.installment_deadline && (
+
+                        {/* Amounts row */}
+                        <View className="flex-row items-center justify-between">
                           <View>
-                            <Text className="text-[10px] text-muted-foreground">Due</Text>
-                            <Text className="text-[11px] font-medium text-foreground">
-                              {isValid(new Date(claim.installment_deadline))
-                                ? format(new Date(claim.installment_deadline), "MMM d")
-                                : "N/A"}
+                            <Text className="text-[10px] text-muted-foreground uppercase tracking-wide">Paid</Text>
+                            <Text className="text-sm font-bold text-green-600">₹{formatINR(claim.paid_amount)}</Text>
+                          </View>
+                          <View>
+                            <Text className="text-[10px] text-muted-foreground uppercase tracking-wide">Remaining</Text>
+                            <Text className="text-sm font-bold text-foreground">₹{formatINR(claim.remaining_balance)}</Text>
+                          </View>
+                          {claim.installment_deadline && (
+                            <View>
+                              <Text className="text-[10px] text-muted-foreground uppercase tracking-wide">Due</Text>
+                              <Text className="text-[11px] font-medium text-foreground">
+                                {isValid(new Date(claim.installment_deadline))
+                                  ? format(new Date(claim.installment_deadline), "MMM d")
+                                  : "N/A"}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+
+                        {/* Last payment */}
+                        {last && (
+                          <View className="flex-row items-center justify-between rounded-lg bg-muted/40 px-2.5 py-1.5">
+                            <View className="flex-row items-center gap-1.5">
+                              <View className="h-1.5 w-1.5 rounded-full bg-primary" />
+                              <Text className="text-[11px] text-muted-foreground">
+                                Last payment{last.type === "upfront" ? " (upfront)" : ""}
+                              </Text>
+                            </View>
+                            <Text className="text-[11px] font-semibold text-foreground">
+                              ₹{formatINR(last.amount)} · {isValid(new Date(last.paid_at)) ? format(new Date(last.paid_at), "MMM d, yyyy") : "N/A"}
                             </Text>
                           </View>
                         )}
+
+                        {/* View History */}
+                        <Pressable
+                          onPress={() => setHistoryClaim(claim)}
+                          className="flex-row items-center justify-center rounded-lg border border-primary/30 bg-primary/5 py-1.5"
+                        >
+                          <Text className="text-[11px] font-semibold text-primary">View Full History</Text>
+                        </Pressable>
                       </View>
-                      {claim.payments && claim.payments.length > 0 && (
-                        <View className="rounded-lg bg-muted px-3 py-2 gap-1">
-                          <Text className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Payments</Text>
-                          {claim.payments.map((p: any, i: number) => (
-                            <View key={i} className="flex-row items-center justify-between">
-                              <Text className="text-[11px] text-foreground">₹{formatINR(p.amount)}</Text>
-                              <Text className="text-[10px] text-muted-foreground">
-                                {isValid(new Date(p.paid_at)) ? format(new Date(p.paid_at), "MMM d, yyyy") : "N/A"}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            </ScrollView>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            </>
           )}
           <Button className="w-full rounded-xl mt-2" onPress={() => setLedgerVoucherId(null)}>
+            Close
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment History Detail Modal */}
+      <Dialog open={!!historyClaim} onOpenChange={(open) => !open && setHistoryClaim(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Payment History</DialogTitle>
+          </DialogHeader>
+          {historyClaim && (
+            <View className="gap-3">
+              {/* Customer */}
+              <View className="rounded-xl border border-border bg-muted/30 p-3">
+                <Text className="text-sm font-semibold text-foreground">{historyClaim.user_name || "Customer"}</Text>
+                <Text className="text-[11px] text-muted-foreground">{historyClaim.user_phone}</Text>
+                <View className="flex-row gap-4 mt-2">
+                  <View>
+                    <Text className="text-[10px] text-muted-foreground uppercase">Total Paid</Text>
+                    <Text className="text-sm font-bold text-green-600">₹{formatINR(historyClaim.paid_amount)}</Text>
+                  </View>
+                  <View>
+                    <Text className="text-[10px] text-muted-foreground uppercase">Remaining</Text>
+                    <Text className="text-sm font-bold text-foreground">₹{formatINR(historyClaim.remaining_balance)}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Timeline */}
+              <ScrollView className="max-h-72" showsVerticalScrollIndicator={false}>
+                <View className="gap-2">
+                  <Text className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Timeline</Text>
+                  {/* Upfront row */}
+                  {Number(historyClaim.upfront_amount) > 0 && (
+                    <View className="flex-row items-center justify-between rounded-lg border border-border bg-blue-500/5 px-3 py-2">
+                      <View>
+                        <Text className="text-[11px] font-semibold text-blue-700">Upfront Payment</Text>
+                        <Text className="text-[10px] text-muted-foreground">
+                          {isValid(new Date(historyClaim.claimed_at))
+                            ? format(new Date(historyClaim.claimed_at), "MMM d, yyyy · p")
+                            : "Claimed"}
+                        </Text>
+                      </View>
+                      <Text className="text-sm font-bold text-blue-700">₹{formatINR(historyClaim.upfront_amount)}</Text>
+                    </View>
+                  )}
+                  {/* Installment payments */}
+                  {historyClaim.payments && historyClaim.payments.length > 0 ? (
+                    historyClaim.payments.map((p: any, i: number) => (
+                      <View key={i} className="flex-row items-center justify-between rounded-lg border border-border bg-card px-3 py-2">
+                        <View>
+                          <Text className="text-[11px] font-semibold text-foreground">Installment #{historyClaim.payments.length - i}</Text>
+                          <Text className="text-[10px] text-muted-foreground">
+                            {isValid(new Date(p.paid_at)) ? format(new Date(p.paid_at), "MMM d, yyyy · p") : "N/A"}
+                          </Text>
+                        </View>
+                        <Text className="text-sm font-bold text-green-600">₹{formatINR(p.amount)}</Text>
+                      </View>
+                    ))
+                  ) : (
+                    Number(historyClaim.upfront_amount) === 0 && (
+                      <Text className="text-[11px] text-muted-foreground py-4 text-center">No payments yet</Text>
+                    )
+                  )}
+                </View>
+              </ScrollView>
+            </View>
+          )}
+          <Button className="w-full rounded-xl mt-2" onPress={() => setHistoryClaim(null)}>
             Close
           </Button>
         </DialogContent>
