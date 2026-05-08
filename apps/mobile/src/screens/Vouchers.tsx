@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Image, Modal, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Image, Modal, Pressable, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ChevronRight, Clock, Filter, Search, Ticket, Users, X } from "lucide-react-native";
 import { Badge } from "../components/ui/badge";
@@ -65,6 +65,8 @@ const Vouchers = () => {
 
   const featuredVouchers = filteredVouchers.filter((v) => v.is_popular);
 
+  const [selectedVoucher, setSelectedVoucher] = useState<(typeof filteredVouchers)[0] | null>(null);
+
   return (
     <View className="flex-1 bg-background">
       <View className="bg-primary px-4 py-4">
@@ -107,44 +109,6 @@ const Vouchers = () => {
               <Filter size={16} color="#6a7181" />
             </Pressable>
           </View>
-
-          <Card className="overflow-hidden bg-primary">
-            <CardContent className="p-6">
-              <View className="items-center mb-4">
-                <Badge className="bg-primary-foreground/20 text-primary-foreground border-none mb-2">
-                  Most Trusted Platform
-                </Badge>
-                <Text className="text-2xl font-bold text-primary-foreground mb-1">
-                  India's #1 Voucher Marketplace
-                </Text>
-                <Text className="text-sm text-primary-foreground/80 mb-4">
-                  Trusted by 1M+ Happy Customers
-                </Text>
-              </View>
-              <View className="flex-row justify-between mb-4">
-                {[
-                  ["1M+", "Happy Customers"],
-                  ["5000+", "Partners"],
-                  ["50+", "Cities"],
-                ].map(([val, lbl]) => (
-                  <View key={lbl} className="items-center flex-1">
-                    <Text className="text-xl font-bold text-primary-foreground">
-                      {val}
-                    </Text>
-                    <Text className="text-[11px] text-primary-foreground/80">
-                      {lbl}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-              <Pressable className="w-full items-center justify-center rounded-xl bg-primary-foreground py-3">
-                <Text style={{ color: colors.primary, fontWeight: "600" }}>
-                  Start Shopping →
-                </Text>
-              </Pressable>
-            </CardContent>
-          </Card>
-
 
           <View>
             <View className="flex-row items-center justify-between mb-3">

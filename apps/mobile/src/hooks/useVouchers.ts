@@ -39,6 +39,9 @@ export interface Voucher {
   website: string | null;
   status: string;
   claimed_count: number;
+  image_url: string | null;
+  banner_url: string | null;
+  min_claim: number | null;
   promotion?: {
     id: string;
     business_name: string;
@@ -111,6 +114,9 @@ const mapVoucher = (v: any): Voucher => {
     website: v.website ?? null,
     status: v.status ?? "active",
     claimed_count: Number(v.claimed_count ?? 0),
+    image_url: v.image_url ?? v.voucher_image ?? null,
+    banner_url: v.banner_url ?? (Array.isArray(v.voucher_images) && v.voucher_images.length > 0 ? v.voucher_images[0] : null),
+    min_claim: v.min_claim ?? null,
     promotion: v.business_promotion
       ? {
           id: String(v.business_promotion.id),

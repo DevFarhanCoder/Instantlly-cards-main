@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { addYears } from "date-fns";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, CalendarDays, Globe, Image as ImageIcon, Upload } from "lucide-react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
@@ -62,9 +63,8 @@ const VoucherCreate = () => {
     discount_label: "",
     terms: "",
     code: "",
-    min_claim: "",
+    min_claim: "1",
     max_claims: "",
-    expires_at: "",
     is_popular: false,
     company_name: "",
     phone_number: "",
@@ -75,6 +75,7 @@ const VoucherCreate = () => {
     website: "",
     voucher_image: "",
     voucher_banner: "",
+    expires_at: "",
   });
 
   const update = (field: string, value: any) => setForm((p) => ({ ...p, [field]: value }));
@@ -198,19 +199,8 @@ const VoucherCreate = () => {
       nextErrors.discounted_price = "Discounted price cannot exceed original price";
     }
 
-    if (form.expires_at) {
-      const dt = new Date(form.expires_at);
-      if (isNaN(dt.getTime())) {
-        nextErrors.expires_at = "Expiry must be a valid date (YYYY-MM-DD)";
-      } else if (dt <= new Date()) {
-        nextErrors.expires_at = "Expiry must be in the future";
-      }
-    }
-
-    if (form.max_claims) {
-      const maxClaims = Number(form.max_claims);
-      if (Number.isNaN(maxClaims) || maxClaims <= 0) nextErrors.max_claims = "Max claims must be greater than 0";
-    }
+    const minClaim = Number(form.min_claim);
+    if (Number.isNaN(minClaim) || minClaim < 1) nextErrors.min_claim = "Min claim must be at least 1";
 
     if (form.min_claim) {
       const minClaim = Number(form.min_claim);
@@ -244,19 +234,6 @@ const VoucherCreate = () => {
     );
   }, [resolvedPromotionId, form.title, form.original_price, form.discounted_price]);
 
-  // Debug: log why submit is disabled in edit mode
-  useEffect(() => {
-    if (isEditMode) {
-      console.log("[VoucherCreate edit] canSubmit=", canSubmit, {
-        resolvedPromotionId,
-        title: form.title,
-        original_price: form.original_price,
-        discounted_price: form.discounted_price,
-        editingVoucher: !!editingVoucher,
-      });
-    }
-  }, [isEditMode, canSubmit, resolvedPromotionId, form.title, form.original_price, form.discounted_price, editingVoucher]);
-
   const handleSubmit = async () => {
     if (!user) {
       toast.error("Please sign in");
@@ -288,6 +265,8 @@ const VoucherCreate = () => {
       discountValue = Math.max(0, original - discounted);
     }
 
+    const expiresAt = form.expires_at ? new Date(form.expires_at) : addYears(new Date(), 1);
+
     const payload: any = {
       business_promotion_id: resolvedPromotionId,
       title: form.title,
@@ -300,9 +279,9 @@ const VoucherCreate = () => {
       discount_label: form.discount_label || null,
       terms: form.terms || null,
       code: form.code || null,
-      min_claim: form.min_claim ? parseInt(form.min_claim, 10) : null,
+      min_claim: form.min_claim ? parseInt(form.min_claim, 10) : 1,
       max_claims: form.max_claims ? parseInt(form.max_claims, 10) : null,
-      expires_at: form.expires_at && !isNaN(new Date(form.expires_at).getTime()) ? new Date(form.expires_at).toISOString() : null,
+      expires_at: expiresAt.toISOString(),
       is_popular: form.is_popular,
       company_name: form.company_name || null,
       phone_number: form.phone_number || null,
@@ -472,6 +451,7 @@ const VoucherCreate = () => {
           </View>
         </View>
 
+
         <View className="gap-2">
           <Label>Voucher Logo (Optional)</Label>
           <Text className="text-xs text-muted-foreground">Shows as logo icon on the voucher card</Text>
@@ -589,7 +569,6 @@ const VoucherCreate = () => {
               value={form.max_claims}
               onChangeText={(v) => update("max_claims", v)}
             />
-            {errors.max_claims ? <Text className="text-xs text-destructive">{errors.max_claims}</Text> : null}
           </View>
         </View>
 

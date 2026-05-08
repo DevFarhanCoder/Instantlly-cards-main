@@ -30,7 +30,7 @@ src/__tests__/businessDetail.test.tsx(345,9): error TS2322: Type 'undefined' is 
 src/__tests__/businessDetail.test.tsx(352,34): error TS2345: Argument of type 'string' is not assignable to parameter of type 'ComponentType<unknown>'.
 src/__tests__/businessDetail.test.tsx(357,9): error TS2322: Type 'null' is not assignable to type '{ id: string; business_card_id: string; user_id: string; full_name: string; phone: string; email: string; location: string; company_name: string; job_title: string; logo_url: null; description: string; ... 27 more ...; created_at: string; }'.
 src/__tests__/businessDetail.test.tsx(361,9): error TS2322: Type 'string' is not assignable to type 'null'.
-src/__tests__/businessDetail.test.tsx(374,11): error TS2322: Type 'null' is not assignable to type 'string'.
+src/__tests__/l.test.tsx(374,11): error TS2322: Type 'null' is not assignable to type 'string'.
 src/__tests__/businessDetail.test.tsx(374,24): error TS2322: Type 'null' is not assignable to type 'string'.
 src/__tests__/businessDetail.test.tsx(374,40): error TS2322: Type 'null' is not assignable to type 'string'.
 src/__tests__/businessDetail.test.tsx(374,60): error TS2322: Type 'null' is not assignable to type 'string'.

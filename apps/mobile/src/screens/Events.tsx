@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   BackHandler,
@@ -278,26 +278,6 @@ const Events = () => {
         }}
       >
         <Pressable
-          onPress={() => setActiveTab("all")}
-          style={{
-            flex: 1,
-            borderRadius: 8,
-            paddingVertical: 8,
-            alignItems: "center",
-            backgroundColor: activeTab === "all" ? "#ffffff" : "transparent",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 14,
-              fontWeight: "500",
-              color: activeTab === "all" ? "#0f172a" : "#6a7181",
-            }}
-          >
-            All Events
-          </Text>
-        </Pressable>
-        <Pressable
           onPress={() => setActiveTab("nearby")}
           style={{
             flex: 1,
@@ -319,6 +299,26 @@ const Events = () => {
             }}
           >
             Near Me
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setActiveTab("all")}
+          style={{
+            flex: 1,
+            borderRadius: 8,
+            paddingVertical: 8,
+            alignItems: "center",
+            backgroundColor: activeTab === "all" ? "#ffffff" : "transparent",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: "500",
+              color: activeTab === "all" ? "#0f172a" : "#6a7181",
+            }}
+          >
+            All Events
           </Text>
         </Pressable>
       </View>
