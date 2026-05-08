@@ -46,6 +46,7 @@ import { useUserLocation, getDistanceKm, formatDistance } from "../hooks/useUser
 import { useTrendingBusinesses } from "../hooks/useTrendingBusinesses";
 import { useDealOfTheDay } from "../hooks/useDealOfTheDay";
 import { useVouchers } from "../hooks/useVouchers";
+import { formatINR } from "../lib/utils";
 import { useCredits } from "../contexts/CreditsContext";
 import { supabase, SUPABASE_CONFIG_OK } from "../integrations/supabase/client";
 import { colors } from "../theme/colors";
@@ -480,7 +481,7 @@ const DealOfTheDaySection = ({ navigate }: { navigate: any }) => {
           <Text className="text-sm font-bold text-foreground">Deal of the Day</Text>
           <View style={{ flex: 1, alignItems: "flex-end" }}>
             <View className="rounded-full bg-destructive/10 px-2 py-0.5">
-              <Text className="text-xs font-bold text-destructive">{discountPct}% OFF</Text>
+              <Text className="text-[11px] font-bold text-destructive" numberOfLines={1}>{discountPct}% OFF with code</Text>
             </View>
           </View>
         </View>
@@ -489,8 +490,8 @@ const DealOfTheDaySection = ({ navigate }: { navigate: any }) => {
           <Text className="text-xs text-muted-foreground mt-1">{deal.subtitle}</Text>
         )}
         <View className="flex-row items-center gap-3 mt-2">
-          <Text className="text-lg font-bold text-primary">₹{deal.discounted_price}</Text>
-          <Text className="text-sm text-muted-foreground line-through">₹{deal.original_price}</Text>
+          <Text className="text-lg font-bold text-primary">₹{formatINR(deal.original_price)}</Text>
+          <Text className="text-[10px] text-muted-foreground">Apply promo to unlock ₹{formatINR(deal.discounted_price)}</Text>
         </View>
         <Button size="sm" className="mt-3 rounded-xl">
           <Gift size={14} color="#fff" /> Grab This Deal
@@ -684,11 +685,17 @@ const PromotedVouchers = ({ navigate }: { navigate: any }) => {
               className="w-48 rounded-xl border border-border bg-card p-3"
             >
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-2xl">🎁</Text>
+                <View className="h-10 w-10 items-center justify-center rounded-lg bg-muted overflow-hidden">
+                  <Image
+                    source={v.voucher_image ? { uri: v.voucher_image } : require("../../assets/Instantlly_Logo-removebg.png")}
+                    style={{ width: "100%", height: "100%" }}
+                    resizeMode="contain"
+                  />
+                </View>
                 {v.discount_label && (
-                  <View className="rounded-full bg-destructive/10 px-2 py-0.5">
-                    <Text className="text-[10px] font-bold text-destructive">
-                      {v.discount_label}
+                  <View className="shrink rounded-full bg-destructive/10 px-2 py-0.5">
+                    <Text className="text-[9px] font-bold text-destructive" numberOfLines={1}>
+                      {v.discount_label} with code
                     </Text>
                   </View>
                 )}
@@ -697,8 +704,7 @@ const PromotedVouchers = ({ navigate }: { navigate: any }) => {
                 {v.title}
               </Text>
               <View className="flex-row items-center gap-2 mt-2">
-                <Text className="text-sm font-bold text-primary">₹{v.discounted_price}</Text>
-                <Text className="text-[10px] text-muted-foreground line-through">₹{v.original_price}</Text>
+                <Text className="text-sm font-bold text-primary">₹{formatINR(v.original_price)}</Text>
               </View>
             </Pressable>
           ))}

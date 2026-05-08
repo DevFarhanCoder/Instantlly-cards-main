@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { format, isValid } from "date-fns";
 import {
   BarChart3,
   Calendar,
@@ -23,6 +24,7 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useAuth } from "../hooks/useAuth";
 import { usePromotionContext } from "../contexts/PromotionContext";
@@ -31,7 +33,7 @@ import { useListBusinessBookingsQuery, useListPromotionBookingsQuery, useUpdateB
 import { useGetCardReviewsQuery, useGetPromotionReviewsQuery } from "../store/api/reviewsApi";
 import { useListBusinessLeadsQuery, useListPromotionLeadsQuery } from "../store/api/leadsApi";
 import { useListMyEventsQuery, useDeleteEventMutation } from "../store/api/eventsApi";
-import { useGetMyCreatedVouchersQuery, useUpdateVoucherStatusMutation } from "../store/api/vouchersApi";
+import { useGetMyCreatedVouchersQuery, useUpdateVoucherStatusMutation, useGetVoucherInstallmentLedgerQuery } from "../store/api/vouchersApi";
 import BookingCalendar from "../components/business/BookingCalendar";
 import BusinessHoursEditor from "../components/business/BusinessHoursEditor";
 import LeadsManager from "../components/business/LeadsManager";
@@ -44,6 +46,7 @@ import StaffManager from "../components/business/StaffManager";
 import { AppHeader } from "../components/ui/AppHeader";
 import { NoPromotionCTA } from "../components/business/NoPromotionCTA";
 import { toast } from "../lib/toast";
+import { formatINR } from "../lib/utils";
 import { useIconColor } from "../theme/colors";
 
 const BusinessDashboard = () => {
@@ -115,6 +118,12 @@ const BusinessDashboard = () => {
     { skip: !user }
   );
   const scopedVouchers = scopedVouchersRaw as any[];
+
+  const [ledgerVoucherId, setLedgerVoucherId] = useState<number | null>(null);
+  const { data: ledgerData = [], isFetching: ledgerFetching } = useGetVoucherInstallmentLedgerQuery(
+    ledgerVoucherId ?? 0,
+    { skip: !ledgerVoucherId }
+  );
 
   const { data: reviewsCard = [] } = useGetCardReviewsQuery(selectedCardIdNum ?? 0, { skip: !selectedCardIdNum });
   const { data: reviewsPromo = [] } = useGetPromotionReviewsQuery(promotionIdNum ?? 0, { skip: !promotionIdNum || !!selectedCardIdNum });
@@ -475,7 +484,7 @@ const BusinessDashboard = () => {
                       <View>
                         <Text className="text-sm font-bold text-foreground">{v.title}</Text>
                         <Text className="text-xs text-muted-foreground">
-                          ₹{v.discounted_price} <Text className="line-through">₹{v.original_price}</Text>
+                          ₹{v.original_price}{v.discounted_price && v.discounted_price < v.original_price ? ` · ₹${v.discounted_price} with promo` : ""}
                         </Text>
                       </View>
                       <View className="items-end gap-2">
@@ -511,6 +520,15 @@ const BusinessDashboard = () => {
                       🎫 {v.claimed_count || 0} claimed
                       {v.max_claims ? ` / ${v.max_claims} max` : ""}
                     </Text>
+                    {v.allows_installment && (
+                      <Pressable
+                        className="flex-row items-center gap-1 mt-1"
+                        onPress={() => setLedgerVoucherId(v.id)}
+                      >
+                        <Text className="text-xs text-primary font-medium">View Installment Ledger</Text>
+                        <ChevronRight size={12} color="#2463eb" />
+                      </Pressable>
+                    )}
                   </View>
                 );
               })
@@ -599,6 +617,85 @@ const BusinessDashboard = () => {
           </TabsContent>
         </Tabs>
       </ScrollView>
+
+      {/* Installment Ledger Modal */}
+      <Dialog open={!!ledgerVoucherId} onOpenChange={(open) => !open && setLedgerVoucherId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Installment Ledger</DialogTitle>
+          </DialogHeader>
+          {ledgerFetching ? (
+            <View className="py-8 items-center">
+              <Text className="text-sm text-muted-foreground">Loading…</Text>
+            </View>
+          ) : ledgerData.length === 0 ? (
+            <View className="py-8 items-center">
+              <Text className="text-sm text-muted-foreground">No installment claims yet</Text>
+            </View>
+          ) : (
+            <ScrollView className="max-h-96" showsVerticalScrollIndicator={false}>
+              <View className="gap-3 py-2">
+                {ledgerData.map((claim: any) => {
+                  const statusColor = claim.installment_status === "completed"
+                    ? "text-green-600" : claim.installment_status === "expired"
+                    ? "text-muted-foreground" : "text-amber-600";
+                  return (
+                    <View key={claim.claim_id} className="rounded-xl border border-border bg-muted/30 p-3 gap-2">
+                      <View className="flex-row items-center justify-between">
+                        <View>
+                          <Text className="text-sm font-semibold text-foreground">
+                            {claim.user_name || "Customer"}
+                          </Text>
+                          <Text className="text-[11px] text-muted-foreground">{claim.user_phone}</Text>
+                        </View>
+                        <Text className={`text-[10px] font-semibold capitalize ${statusColor}`}>
+                          {claim.installment_status}
+                        </Text>
+                      </View>
+                      <View className="flex-row gap-4">
+                        <View>
+                          <Text className="text-[10px] text-muted-foreground">Paid</Text>
+                          <Text className="text-sm font-bold text-green-600">₹{formatINR(claim.paid_amount)}</Text>
+                        </View>
+                        <View>
+                          <Text className="text-[10px] text-muted-foreground">Remaining</Text>
+                          <Text className="text-sm font-bold text-foreground">₹{formatINR(claim.remaining_balance)}</Text>
+                        </View>
+                        {claim.installment_deadline && (
+                          <View>
+                            <Text className="text-[10px] text-muted-foreground">Due</Text>
+                            <Text className="text-[11px] font-medium text-foreground">
+                              {isValid(new Date(claim.installment_deadline))
+                                ? format(new Date(claim.installment_deadline), "MMM d")
+                                : "N/A"}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      {claim.payments && claim.payments.length > 0 && (
+                        <View className="rounded-lg bg-muted px-3 py-2 gap-1">
+                          <Text className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Payments</Text>
+                          {claim.payments.map((p: any, i: number) => (
+                            <View key={i} className="flex-row items-center justify-between">
+                              <Text className="text-[11px] text-foreground">₹{formatINR(p.amount)}</Text>
+                              <Text className="text-[10px] text-muted-foreground">
+                                {isValid(new Date(p.paid_at)) ? format(new Date(p.paid_at), "MMM d, yyyy") : "N/A"}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          )}
+          <Button className="w-full rounded-xl mt-2" onPress={() => setLedgerVoucherId(null)}>
+            Close
+          </Button>
+        </DialogContent>
+      </Dialog>
     </View>
   );
 };
