@@ -10,7 +10,7 @@ export type RootStackParamList = {
   SubcategoryDetail: { subcategory: string; categoryName: string; categoryIcon: string } | undefined;
   Messaging: { initialTab?: string } | undefined;
   Vouchers: undefined;
-  VoucherDetail: { id: string } | undefined;
+  VoucherDetail: { id: string; claimId?: number; installmentInfo?: any } | undefined;
   MyVouchers: undefined;
   MyCreatedVouchers: undefined;
   Ads: undefined;

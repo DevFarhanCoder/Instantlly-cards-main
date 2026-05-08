@@ -13,7 +13,13 @@ import {
   useVoucherTransfers,
   type ClaimedVoucher,
 } from "../hooks/useVouchers";
-import { useGetMyInstallmentsQuery } from "../store/api/vouchersApi";
+import {
+  useGetMyInstallmentsQuery,
+  useCreateInstallmentPaymentIntentMutation,
+  useVerifyInstallmentPaymentMutation,
+} from "../store/api/vouchersApi";
+import { isNativeRazorpayAvailable, openRazorpayCheckout, type RazorpayCheckoutOptions } from "../lib/payments/razorpayCheckout";
+import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
 import { toast } from "../lib/toast";
 import { formatINR } from "../lib/utils";
 import QRCode from "react-native-qrcode-svg";
@@ -57,6 +63,98 @@ const MyVouchers = () => {
   const { mutate: transferVoucher, isPending: isTransferring } = useTransferVoucher();
   const { data: transfers = [], refetch: refetchTransfers } = useVoucherTransfers();
   const { data: myInstallments = [], refetch: refetchInstallments } = useGetMyInstallmentsQuery(undefined, { skip: !user });
+  const [createInstallmentIntent, { isLoading: creatingIntent }] = useCreateInstallmentPaymentIntentMutation();
+  const [verifyInstallment, { isLoading: verifyingIntent }] = useVerifyInstallmentPaymentMutation();
+  const [payingClaimId, setPayingClaimId] = useState<number | null>(null);
+  const [payAmounts, setPayAmounts] = useState<Record<number, string>>({});
+  const [webViewVisible, setWebViewVisible] = useState(false);
+  const [webViewOptions, setWebViewOptions] = useState<RazorpayCheckoutOptions | null>(null);
+  const [webViewContext, setWebViewContext] = useState<{ claimId: number; amount: number } | null>(null);
+  const isPayingInstallment = creatingIntent || verifyingIntent;
+
+  const verifyInstallmentResult = useCallback(
+    async (claimId: number, payAmount: number, payment: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+      try {
+        const result = await verifyInstallment({
+          claimId,
+          razorpay_order_id: payment.razorpay_order_id,
+          razorpay_payment_id: payment.razorpay_payment_id,
+          razorpay_signature: payment.razorpay_signature,
+          amount: payAmount,
+        }).unwrap();
+        toast.success(
+          result.installment_status === "completed"
+            ? "Balance fully paid! \ud83c\udf89"
+            : `\u20b9${formatINR(payAmount)} paid. Remaining: \u20b9${formatINR(Number(result.remaining_balance))}`,
+        );
+        setPayAmounts((prev) => ({ ...prev, [claimId]: "" }));
+        await refetchInstallments();
+      } catch (e: any) {
+        toast.error(e?.data?.error || e?.message || "Verification failed");
+      }
+    },
+    [verifyInstallment, refetchInstallments],
+  );
+
+  const handlePayInstallment = useCallback(
+    async (claimId: number, requestedAmount: number, remainingBalance: number, voucherTitle: string) => {
+      if (!user) return;
+      if (!requestedAmount || requestedAmount <= 0) { toast.error("Enter a valid amount"); return; }
+      if (requestedAmount > remainingBalance) {
+        toast.error(`Amount exceeds remaining balance \u20b9${formatINR(remainingBalance)}`);
+        return;
+      }
+      const RAZORPAY_MAX = 500000;
+      if (requestedAmount > RAZORPAY_MAX) {
+        toast.error(`Razorpay limit is ₹5,00,000 per transaction. Please split your payment.`);
+        return;
+      }
+      const payAmount = requestedAmount;
+      setPayingClaimId(claimId);
+      try {
+        const intent = await createInstallmentIntent({ claimId, amount: payAmount }).unwrap();
+        const checkoutOptions: RazorpayCheckoutOptions = {
+          key: intent.key,
+          amount: intent.amount,
+          currency: intent.currency,
+          order_id: intent.order_id,
+          name: voucherTitle || "Voucher",
+          description: `Installment payment \u2014 ${intent.voucher_title || voucherTitle}`,
+          prefill: { name: user?.name || undefined, contact: user?.phone || undefined },
+          theme: { color: "#2463eb" },
+        };
+        const openWebViewFallback = () => {
+          setWebViewContext({ claimId, amount: payAmount });
+          setWebViewOptions(checkoutOptions);
+          setWebViewVisible(true);
+        };
+        if (isNativeRazorpayAvailable()) {
+          try {
+            const payment = await openRazorpayCheckout(checkoutOptions);
+            await verifyInstallmentResult(claimId, payAmount, payment);
+            return;
+          } catch (nativeErr: any) {
+            const msg = nativeErr?.message || nativeErr?.description || "";
+            if (/null|undefined|not a function|NATIVE_UNAVAILABLE/i.test(msg)) {
+              openWebViewFallback();
+              return;
+            }
+            if (nativeErr?.code === 0 || /cancelled|canceled/i.test(msg)) {
+              toast.error("Payment cancelled");
+              return;
+            }
+            throw nativeErr;
+          }
+        }
+        openWebViewFallback();
+      } catch (e: any) {
+        toast.error(e?.data?.error || e?.message || "Installment payment failed");
+      } finally {
+        setPayingClaimId(null);
+      }
+    },
+    [user, createInstallmentIntent, verifyInstallmentResult],
+  );
 
   // Build a lookup map: claimId -> installment data
   const installmentMap = useMemo(() => {
@@ -447,6 +545,66 @@ const MyVouchers = () => {
                               ) : (
                                 <Text className="text-[11px] text-muted-foreground">No payments recorded yet</Text>
                               )}
+                              {inst.remaining_balance > 0 && inst.installment_status !== "expired" && voucher?.id && (
+                                <View className="mt-1 gap-1.5">
+                                  <Text className="text-[11px] font-medium text-muted-foreground">
+                                    Pay any amount (max ₹{formatINR(Math.min(Number(inst.remaining_balance), 500000))} per transaction)
+                                  </Text>
+                                  <View className="flex-row items-center gap-2">
+                                    <Input
+                                      className="flex-1"
+                                      keyboardType="numeric"
+                                      placeholder={`₹${formatINR(Math.min(Number(inst.remaining_balance), 500000))}`}
+                                      value={payAmounts[Number(v.id)] ?? ""}
+                                      onChangeText={(text) =>
+                                        setPayAmounts((prev) => ({ ...prev, [Number(v.id)]: text.replace(/[^0-9.]/g, "") }))
+                                      }
+                                      editable={!(isPayingInstallment && payingClaimId === Number(v.id))}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      className="rounded-lg bg-orange-500"
+                                      disabled={isPayingInstallment && payingClaimId === Number(v.id)}
+                                      onPress={() => {
+                                        const raw = payAmounts[Number(v.id)];
+                                        const remaining = Number(inst.remaining_balance);
+                                        const fallback = Math.min(remaining, 500000);
+                                        const amt = raw && raw.trim() !== "" ? parseFloat(raw) : fallback;
+                                        handlePayInstallment(
+                                          Number(v.id),
+                                          amt,
+                                          remaining,
+                                          voucher.title || "Voucher",
+                                        );
+                                      }}
+                                    >
+                                      <Text style={{ color: "#fff", fontWeight: "600" }}>
+                                        {isPayingInstallment && payingClaimId === Number(v.id) ? "Processing..." : "Pay"}
+                                      </Text>
+                                    </Button>
+                                  </View>
+                                  {Number(inst.remaining_balance) <= 500000 && (
+                                    <Pressable
+                                      onPress={() =>
+                                        setPayAmounts((prev) => ({ ...prev, [Number(v.id)]: String(inst.remaining_balance) }))
+                                      }
+                                    >
+                                      <Text className="text-[11px] font-medium text-orange-600">
+                                        Pay full ₹{formatINR(inst.remaining_balance)}
+                                      </Text>
+                                    </Pressable>
+                                  )}
+                                  {Number(inst.remaining_balance) > 500000 && (
+                                    <Pressable
+                                      onPress={() => setPayAmounts((prev) => ({ ...prev, [Number(v.id)]: "500000" }))}
+                                    >
+                                      <Text className="text-[11px] font-medium text-orange-600">
+                                        Pay max ₹5,00,000 (split required)
+                                      </Text>
+                                    </Pressable>
+                                  )}
+                                </View>
+                              )}
                             </View>
                           )}
                         </View>
@@ -546,6 +704,32 @@ const MyVouchers = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {webViewOptions && (
+        <RazorpayWebView
+          visible={webViewVisible}
+          options={webViewOptions}
+          onSuccess={async (data) => {
+            setWebViewVisible(false);
+            const ctx = webViewContext;
+            setWebViewContext(null);
+            setWebViewOptions(null);
+            if (ctx) await verifyInstallmentResult(ctx.claimId, ctx.amount, data);
+          }}
+          onCancel={() => {
+            setWebViewVisible(false);
+            setWebViewContext(null);
+            setWebViewOptions(null);
+            toast.error("Payment cancelled");
+          }}
+          onError={(err) => {
+            setWebViewVisible(false);
+            setWebViewContext(null);
+            setWebViewOptions(null);
+            toast.error(err || "Payment failed");
+          }}
+        />
+      )}
     </View>
   );
 };
