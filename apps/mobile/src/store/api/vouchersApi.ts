@@ -49,6 +49,14 @@ export const vouchersApi = baseApi.injectEndpoints({
       query: (id) => ({ url: `/vouchers/${id}`, method: 'DELETE' }),
       invalidatesTags: ['Voucher'],
     }),
+    uploadVoucherImage: builder.mutation<{ url: string }, FormData>({
+      query: (body) => ({
+        url: '/uploads/image',
+        method: 'POST',
+        body,
+        formData: true,
+      }),
+    }),
     createVoucherPaymentIntent: builder.mutation<
       {
         key: string; order_id: string; amount: number; currency: string;
@@ -116,6 +124,7 @@ export const {
   useUpdateVoucherStatusMutation,
   useUpdateVoucherMutation,
   useDeleteVoucherMutation,
+  useUploadVoucherImageMutation,
   useCreateVoucherPaymentIntentMutation,
   useVerifyVoucherPaymentMutation,
   useCreateInstallmentPaymentIntentMutation,

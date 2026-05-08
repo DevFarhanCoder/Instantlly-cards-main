@@ -22,7 +22,7 @@ export type RootStackParamList = {
   CardScanner: undefined;
   UnifiedScanner: undefined;
   EventCreate: undefined;
-  VoucherCreate: { promotionId?: number } | undefined;
+  VoucherCreate: { promotionId?: number; voucherId?: number } | undefined;
   PublicCard: { id: string } | undefined;
   MyPasses: undefined;
   Profile: undefined;

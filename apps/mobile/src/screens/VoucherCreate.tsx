@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, CalendarDays, Globe, Image as ImageIcon, Upload } from "lucide-react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
@@ -13,7 +13,7 @@ import { Textarea } from "../components/ui/textarea";
 import { useAuth } from "../hooks/useAuth";
 import { usePromotionContext } from "../contexts/PromotionContext";
 import { useCreateVoucher } from "../hooks/useVouchers";
-import { useGetVoucherQuery, useUpdateVoucherMutation } from "../store/api/vouchersApi";
+import { useGetVoucherQuery, useUpdateVoucherMutation, useUploadVoucherImageMutation } from "../store/api/vouchersApi";
 import { toast } from "../lib/toast";
 import { useIconColor } from "../theme/colors";
 
@@ -40,6 +40,7 @@ const VoucherCreate = () => {
   const { selectedPromotion, selectedPromotionId } = usePromotionContext();
   const createVoucher = useCreateVoucher();
   const [updateVoucher, { isLoading: isUpdating }] = useUpdateVoucherMutation();
+  const [uploadVoucherImage] = useUploadVoucherImageMutation();
   const { data: editingVoucher } = useGetVoucherQuery(editVoucherId ?? 0, { skip: !editVoucherId });
 
   const editingPromotionId = (editingVoucher as any)?.business_promotion_id ?? (editingVoucher as any)?.business_promotion?.id ?? null;
@@ -48,6 +49,7 @@ const VoucherCreate = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showValidTillPicker, setShowValidTillPicker] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [uploadingField, setUploadingField] = useState<"voucher_image" | "voucher_banner" | null>(null);
 
   const defaultCategory = "general";
 
@@ -141,11 +143,36 @@ const VoucherCreate = () => {
         quality: 0.8,
         ...(field !== "voucher_banner" ? { aspect: [1, 1] as [number, number] } : {}),
       });
-      if (!result.canceled && result.assets[0]) {
-        update(field, result.assets[0].uri);
+      if (result.canceled || !result.assets[0]) return;
+
+      const asset = result.assets[0];
+      // Show local preview immediately
+      update(field, asset.uri);
+
+      // Upload to S3
+      setUploadingField(field);
+      try {
+        const fileName = asset.fileName || asset.uri.split("/").pop() || "voucher.jpg";
+        const formData = new FormData();
+        formData.append("file", {
+          uri: Platform.OS === "android" ? asset.uri : asset.uri.replace("file://", ""),
+          name: fileName,
+          type: asset.mimeType || "image/jpeg",
+        } as any);
+
+        const { url } = await uploadVoucherImage(formData).unwrap();
+        update(field, url);
+        toast.success("Image uploaded");
+      } catch (uploadErr: any) {
+        console.error("[VoucherCreate] Image upload failed:", uploadErr);
+        update(field, "");
+        toast.error(uploadErr?.data?.error || "Failed to upload image");
+      } finally {
+        setUploadingField(null);
       }
     } catch (e: any) {
       toast.error(e?.message || "Could not open image picker");
+      setUploadingField(null);
     }
   };
 
@@ -234,6 +261,16 @@ const VoucherCreate = () => {
     if (!user) {
       toast.error("Please sign in");
       navigation.navigate("Auth");
+      return;
+    }
+    if (uploadingField) {
+      toast.error("Please wait for the image to finish uploading");
+      return;
+    }
+    // Guard: never submit local file:// URIs
+    const isLocalUri = (u: string) => !!u && (u.startsWith("file://") || u.startsWith("content://") || u.startsWith("ph://"));
+    if (isLocalUri(form.voucher_image) || isLocalUri(form.voucher_banner)) {
+      toast.error("Image is still uploading. Please try again in a moment.");
       return;
     }
     if (!validateForm()) {
@@ -440,6 +477,7 @@ const VoucherCreate = () => {
           <Text className="text-xs text-muted-foreground">Shows as logo icon on the voucher card</Text>
           <Pressable
             onPress={() => pickImage("voucher_image")}
+            disabled={uploadingField === "voucher_image"}
             className="rounded-xl border-2 border-dashed border-border items-center justify-center py-6 gap-2"
           >
             {form.voucher_image ? (
@@ -450,6 +488,12 @@ const VoucherCreate = () => {
                 <Text className="text-xs text-muted-foreground">Tap to select logo image (1:1)</Text>
               </>
             )}
+            {uploadingField === "voucher_image" ? (
+              <View className="absolute inset-0 items-center justify-center bg-background/70 rounded-xl">
+                <ActivityIndicator size="small" />
+                <Text className="text-xs text-muted-foreground mt-1">Uploading...</Text>
+              </View>
+            ) : null}
           </Pressable>
           {form.voucher_image ? (
             <Pressable onPress={() => update("voucher_image", "")}>
@@ -463,6 +507,7 @@ const VoucherCreate = () => {
           <Text className="text-xs text-muted-foreground">Full-width banner shown when customer taps the voucher card</Text>
           <Pressable
             onPress={() => pickImage("voucher_banner")}
+            disabled={uploadingField === "voucher_banner"}
             className="rounded-xl border-2 border-dashed border-border items-center justify-center py-6 gap-2"
           >
             {form.voucher_banner ? (
@@ -473,6 +518,12 @@ const VoucherCreate = () => {
                 <Text className="text-xs text-muted-foreground">Tap to select banner image (16:9)</Text>
               </>
             )}
+            {uploadingField === "voucher_banner" ? (
+              <View className="absolute inset-0 items-center justify-center bg-background/70 rounded-xl">
+                <ActivityIndicator size="small" />
+                <Text className="text-xs text-muted-foreground mt-1">Uploading...</Text>
+              </View>
+            ) : null}
           </Pressable>
           {form.voucher_banner ? (
             <Pressable onPress={() => update("voucher_banner", "")}>
