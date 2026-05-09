@@ -728,7 +728,7 @@ const VoucherDetail = () => {
             </DialogDescription>
           </DialogHeader>
           <View className="items-center py-4">
-            <QRCode value={`instantly://voucher/${voucher.id}/claim/${claimReference}`} size={160} />
+            <QRCode value={`instantllycards://voucher/${voucher.id}/claim/${claimReference}`} size={160} />
             <Text className="mt-3 text-sm font-mono font-bold text-foreground">
               REF: {claimReference}
             </Text>
