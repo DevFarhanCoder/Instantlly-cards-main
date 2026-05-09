@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { addYears } from "date-fns";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -69,6 +69,8 @@ const VoucherCreate = () => {
     company_name: "",
     phone_number: "",
     address: "",
+    city: "",
+    pincode: "",
     allows_installment: false,
     upfront_amount: "",
     what_we_do: "",
@@ -109,6 +111,8 @@ const VoucherCreate = () => {
       company_name: v.company_name ?? "",
       phone_number: v.phone_number ?? "",
       address: v.address ?? "",
+      city: v.city ?? "",
+      pincode: v.pincode ?? "",
       allows_installment: Boolean(v.allows_installment),
       upfront_amount: v.upfront_amount != null ? String(v.upfront_amount) : "",
       what_we_do: v.what_we_do ?? "",
@@ -189,12 +193,19 @@ const VoucherCreate = () => {
   const validateForm = () => {
     const nextErrors: Record<string, string> = {};
     if (!resolvedPromotionId) nextErrors.promotion = "Select a promotion first";
-    if (!form.title || form.title.trim().length < 3) nextErrors.title = "Title must be at least 3 characters";
+    if (!form.title || form.title.trim().length < 3) nextErrors.title = "Title is required";
+    if (!form.city || !form.city.trim()) nextErrors.city = "City is required";
+    const pincodeTrimmed = (form.pincode || "").trim();
+    if (!pincodeTrimmed) {
+      nextErrors.pincode = "Pincode is required";
+    } else if (!/^\d{4,10}$/.test(pincodeTrimmed)) {
+      nextErrors.pincode = "Pincode is required";
+    }
 
     const original = Number(form.original_price);
     const discounted = Number(form.discounted_price);
-    if (!form.original_price || Number.isNaN(original) || original <= 0) nextErrors.original_price = "Enter a valid original price";
-    if (!form.discounted_price || Number.isNaN(discounted) || discounted < 0) nextErrors.discounted_price = "Enter a valid discounted price";
+    if (!form.original_price || Number.isNaN(original) || original <= 0) nextErrors.original_price = "Original price is required";
+    if (!form.discounted_price || Number.isNaN(discounted) || discounted < 0) nextErrors.discounted_price = "Discounted price is required";
     if (!Number.isNaN(original) && !Number.isNaN(discounted) && discounted > original) {
       nextErrors.discounted_price = "Discounted price cannot exceed original price";
     }
@@ -226,13 +237,15 @@ const VoucherCreate = () => {
     return Boolean(
       resolvedPromotionId &&
       form.title.trim().length >= 3 &&
+      form.city.trim().length > 0 &&
+      form.pincode.trim().length > 0 &&
       !Number.isNaN(original) &&
       !Number.isNaN(discounted) &&
       original > 0 &&
       discounted >= 0 &&
       discounted <= original
     );
-  }, [resolvedPromotionId, form.title, form.original_price, form.discounted_price]);
+  }, [resolvedPromotionId, form.title, form.original_price, form.discounted_price, form.city, form.pincode]);
 
   const handleSubmit = async () => {
     if (!user) {
@@ -242,6 +255,9 @@ const VoucherCreate = () => {
     }
     if (uploadingField) {
       toast.error("Please wait for the image to finish uploading");
+      return;
+    }
+    if (!validateForm()) {
       return;
     }
     // Guard: never submit local file:// URIs
@@ -286,6 +302,8 @@ const VoucherCreate = () => {
       company_name: form.company_name || null,
       phone_number: form.phone_number || null,
       address: form.address || null,
+      city: form.city.trim(),
+      pincode: form.pincode.trim(),
       allows_installment: form.allows_installment,
       upfront_amount: form.allows_installment && form.upfront_amount ? parseFloat(form.upfront_amount) : null,
       what_we_do: form.what_we_do || null,
@@ -541,6 +559,27 @@ const VoucherCreate = () => {
         </View>
 
         <View className="gap-2">
+          <Label>City *</Label>
+          <Input
+            placeholder="e.g. Bengaluru"
+            value={form.city}
+            onChangeText={(v) => update("city", v)}
+          />
+          {errors.city ? <Text className="text-xs text-destructive">{errors.city}</Text> : null}
+        </View>
+
+        <View className="gap-2">
+          <Label>Pincode *</Label>
+          <Input
+            placeholder="e.g. 560001"
+            keyboardType="number-pad"
+            value={form.pincode}
+            onChangeText={(v) => update("pincode", v)}
+          />
+          {errors.pincode ? <Text className="text-xs text-destructive">{errors.pincode}</Text> : null}
+        </View>
+
+        <View className="gap-2">
           <Label>Terms & Conditions</Label>
           <Textarea
             placeholder="e.g. Valid Mon-Fri only. Cannot be combined with other offers."
@@ -639,7 +678,7 @@ const VoucherCreate = () => {
 
       {!isKeyboardVisible && (
         <View className="border-t border-border bg-card px-4 py-3">
-          <Button className="w-full rounded-xl py-4" onPress={handleSubmit} disabled={createVoucher.isPending || isUpdating || !canSubmit}>
+          <Button className="w-full rounded-xl py-4" onPress={handleSubmit} disabled={createVoucher.isPending || isUpdating}>
             {isEditMode
               ? (isUpdating ? "Saving..." : "Save Changes")
               : (createVoucher.isPending ? "Creating..." : "Create Voucher")}

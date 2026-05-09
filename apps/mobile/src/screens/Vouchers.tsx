@@ -9,6 +9,7 @@ import { Input } from "../components/ui/input";
 import { Skeleton } from "../components/ui/skeleton";
 import { voucherCategories } from "../data/categories";
 import { useVouchers, type Voucher } from "../hooks/useVouchers";
+import { useAppLocation } from "../contexts/LocationContext";
 import { cn, formatINR } from "../lib/utils";
 import { colors } from "../theme/colors";
 import { differenceInDays, isValid } from "date-fns";
@@ -41,7 +42,9 @@ const Vouchers = () => {
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const { data: vouchers = [], isLoading, isFetching, refetch: refetchVouchers } = useVouchers();
+  const [tab, setTab] = useState<"near" | "all">("near");
+  const { city: userCity } = useAppLocation();
+  const { data: vouchers = [], isLoading, isFetching, refetch: refetchVouchers } = useVouchers({ nearMe: tab === "near" });
   const [bannerVoucher, setBannerVoucher] = useState<Voucher | null>(null);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -87,11 +90,30 @@ const Vouchers = () => {
           </Button>
         </View>
         <Text className="mt-1 text-xs text-primary-foreground/70">
-          Best deals & discounts near you
+          {tab === "near" ? (userCity ? `Near Me: ${userCity}` : "Near Me") : "All Vouchers"}
         </Text>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }} refreshControl={
+
+      {/* Near Me / All tabs */}
+      <View style={{ flexDirection: "row", backgroundColor: "#ffffff", borderBottomWidth: 1, borderBottomColor: "#e5e7eb" }}>
+        <Pressable
+          onPress={() => setTab("near")}
+          style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 12, borderBottomWidth: tab === "near" ? 2 : 0, borderBottomColor: "#2563eb" }}
+        >
+          <Text style={{ fontSize: 14, fontWeight: "600", color: tab === "near" ? "#2563eb" : "#6b7280" }}>
+            {`Near Me${userCity ? " (" + userCity + ")" : ""}`}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setTab("all")}
+          style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 12, borderBottomWidth: tab === "all" ? 2 : 0, borderBottomColor: "#2563eb" }}
+        >
+          <Text style={{ fontSize: 14, fontWeight: "600", color: tab === "all" ? "#2563eb" : "#6b7280" }}>
+            All
+          </Text>
+        </Pressable>
+      </View>      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }} refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
         }>
         <View className="px-4 py-4 gap-5">
