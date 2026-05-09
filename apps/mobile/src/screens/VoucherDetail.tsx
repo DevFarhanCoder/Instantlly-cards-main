@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Share, Text, TextInput, View } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
+import * as Clipboard from "expo-clipboard";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, Clock, Globe, MapPin, Phone, Share2, ShieldCheck, Tag, X } from "lucide-react-native";
 import { Badge } from "../components/ui/badge";
@@ -346,6 +349,43 @@ const VoucherDetail = () => {
     }
   };
 
+  const handleShare = async () => {
+    const playStoreUrl = `https://play.google.com/store/apps/details?id=com.instantllycards.www.twa`;
+    const titleText = voucher?.title ?? `Voucher`;
+    const message = `\uD83D\uDCF1 Download Instantlly Cards:\n${playStoreUrl}`;
+    const imageUrl = voucher?.voucher_banner || voucher?.banner_url || voucher?.voucher_image || voucher?.image_url || null;
+    if (imageUrl) {
+      try {
+        const ext = (imageUrl.split(`.`).pop()?.split(`?`)[0] ?? `jpg`).substring(0, 4);
+        const localUri = `${FileSystem.cacheDirectory}share-${voucher?.id}.${ext}`;
+        const dl = await FileSystem.downloadAsync(imageUrl, localUri);
+        if (dl.status === 200) {
+          // Try react-native-share (production build) — shares image + text together.
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const RNShare = require("react-native-share").default;
+            const base64 = await FileSystem.readAsStringAsync(dl.uri, { encoding: FileSystem.EncodingType.Base64 });
+            await RNShare.open({
+              title: titleText,
+              message,
+              url: `data:image/${ext === `jpg` ? `jpeg` : ext};base64,${base64}`,
+              failOnCancel: false,
+            });
+            return;
+          } catch (rnErr) {
+            // Expo Go or RNShare unavailable — fall back to expo-sharing (image only) + clipboard text
+            console.log(`[SHARE] RNShare unavailable, using expo-sharing fallback`);
+          }
+          await Clipboard.setStringAsync(message);
+          await Sharing.shareAsync(dl.uri, { dialogTitle: titleText, mimeType: `image/${ext === `jpg` ? `jpeg` : ext}` });
+          return;
+        }
+      } catch (err) {
+        console.log(`[SHARE] image share failed:`, err);
+      }
+    }
+    try { await Share.share({ title: titleText, message }); } catch (_) {}
+  };
   return (
     <View className="flex-1 bg-background">
       <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-4">
@@ -353,7 +393,7 @@ const VoucherDetail = () => {
           <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Voucher Details</Text>
-        <Pressable>
+        <Pressable onPress={handleShare}>
           <Share2 size={20} color="#6a7181" />
         </Pressable>
       </View>

@@ -51,6 +51,24 @@ const VoucherDetail = () => {
   const expiryDays = voucher.expires_at ? differenceInDays(new Date(voucher.expires_at), new Date()) : null;
   const expiryLabel = expiryDays === null ? "No expiry" : expiryDays < 0 ? "Expired" : expiryDays === 0 ? "Expires today" : `${expiryDays} days left`;
 
+  const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.instantllycards.www.twa";
+  const voucherUrl = `https://instantllycards.com/vouchers/${id}`;
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  const handleShare = async () => {
+    const shareData = {
+      title: `${voucher.discount_label ? voucher.discount_label + " - " : ""}${voucher.title}`,
+      text: `🎁 ${voucher.discount_label ? voucher.discount_label + " " : ""}${voucher.title}\n\n👉 ${voucherUrl}\n\n📱 Download Instantlly Cards:\n${PLAY_STORE_URL}`,
+      url: voucherUrl,
+    };
+    if (navigator.share) {
+      try { await navigator.share(shareData); } catch (_) {}
+    } else {
+      await navigator.clipboard.writeText(voucherUrl);
+      toast.success("Link copied to clipboard!");
+    }
+  };
+
   const handlePurchase = async () => {
     if (!user) {
       toast.error("Please sign in first");
@@ -72,8 +90,25 @@ const VoucherDetail = () => {
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-card px-4 py-4">
         <button onClick={() => navigate(-1)}><ArrowLeft className="h-5 w-5 text-foreground" /></button>
         <h1 className="text-lg font-bold text-foreground">Voucher Details</h1>
-        <button><Share2 className="h-5 w-5 text-muted-foreground" /></button>
+        <button onClick={handleShare}><Share2 className="h-5 w-5 text-muted-foreground" /></button>
       </div>
+
+      {isMobile && (
+        <div className="mx-4 mt-3 flex items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Get the full experience</p>
+            <p className="text-xs text-muted-foreground">Open in Instantlly Cards app</p>
+          </div>
+          <a
+            href={PLAY_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
+          >
+            Download App
+          </a>
+        </div>
+      )}
 
       <div className="px-4 py-5 space-y-5">
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative rounded-2xl bg-muted h-48 flex items-center justify-center overflow-hidden">
