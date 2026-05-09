@@ -54,6 +54,8 @@ const VoucherCreate = () => {
     company_name: "",
     phone_number: "",
     address: "",
+    city: "",
+    pincode: "",
     allows_installment: false,
     upfront_amount: "",
     business_promotion_id: defaultPromotionId,
@@ -71,6 +73,19 @@ const VoucherCreate = () => {
       toast.error("Please fill title and pricing");
       return;
     }
+    if (!form.city.trim()) {
+      toast.error("City is required");
+      return;
+    }
+    const pincodeTrimmed = form.pincode.trim();
+    if (!pincodeTrimmed) {
+      toast.error("Pincode is required");
+      return;
+    }
+    if (!/^\d{4,10}$/.test(pincodeTrimmed)) {
+      toast.error("Enter a valid pincode");
+      return;
+    }
     await createVoucher.mutateAsync({
       title: form.title,
       subtitle: form.subtitle || null,
@@ -86,6 +101,8 @@ const VoucherCreate = () => {
       company_name: form.company_name || null,
       phone_number: form.phone_number || null,
       address: form.address || null,
+      city: form.city.trim(),
+      pincode: form.pincode.trim(),
       allows_installment: form.allows_installment,
       upfront_amount: form.allows_installment && form.upfront_amount ? parseFloat(form.upfront_amount) : null,
       business_promotion_id: form.business_promotion_id,
@@ -197,6 +214,17 @@ const VoucherCreate = () => {
         <div className="space-y-2">
           <Label>Address (Where to Redeem)</Label>
           <Input placeholder="e.g. Shop 5, MG Road, Bengaluru" value={form.address} onChange={(e) => update("address", e.target.value)} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label>City *</Label>
+            <Input placeholder="e.g. Bengaluru" value={form.city} onChange={(e) => update("city", e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label>Pincode *</Label>
+            <Input inputMode="numeric" placeholder="e.g. 560001" value={form.pincode} onChange={(e) => update("pincode", e.target.value)} />
+          </div>
         </div>
 
         <div className="flex items-center justify-between rounded-xl border border-border bg-card p-4">

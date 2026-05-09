@@ -202,7 +202,7 @@ const ServiceSelectionScreen = (props: any) => <ServiceSelection {...props} />;
 
 // ─── Deep link config ────────────────────────────────────────────────────────
 const linking = {
-  prefixes: ['instantllycards://', 'https://instantlly.lovable.app'],
+  prefixes: ['instantllycards://', 'https://instantlly.lovable.app', 'https://instantllycards.com'],
   config: {
     screens: {
       // instantllycards://join?code=XXXX
@@ -215,6 +215,8 @@ const linking = {
       EventDetail: { path: 'event/:id' },
       // https://api.instantllycards.com/api/events/:id/share → EventDetail screen
       // (handled by the share page's JS redirect to instantllycards://event/:id)
+      // instantllycards://vouchers/:id  (and  https://instantllycards.com/vouchers/:id)
+      VoucherDetail: { path: 'vouchers/:id' },
     },
   },
 };

@@ -65,6 +65,10 @@ import {
 import type { AppEvent, AppTicketTier } from "../store/api/eventsApi";
 import { promptAddToCalendar } from "../utils/calendar";
 import { EventAgendaSection } from "../components/ui/EventAgendaSection";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
+import * as Clipboard from "expo-clipboard";
+import { Asset } from "expo-asset";
 
 /**
  * EventDetail — Phase 2 frontend.
@@ -238,17 +242,74 @@ const EventDetail = () => {
   // ─── Share handler ──────────────────────────────────────────────────
   const handleShareWhatsApp = useCallback(async () => {
     if (!event) return;
-    const apiBase = process.env.EXPO_PUBLIC_API_URL || 'https://api.instantllycards.com';
+    const apiBase = process.env.EXPO_PUBLIC_API_URL || `https://api.instantllycards.com`;
     const shareUrl = `${apiBase}/api/events/${event.id}/share`;
-    const dateStr = event.date ? new Date(event.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    const dateStr = event.date ? new Date(event.date).toLocaleDateString(`en-IN`, { day: `numeric`, month: `long`, year: `numeric` }) : ``;
     const lines = [
-      `🎉 *${event.title}*`,
-      event.venue || event.location ? `📍 ${event.venue || event.location}` : '',
-      dateStr ? `📅 ${dateStr}${event.time ? ' at ' + event.time : ''}` : '',
-      event.description ? `\n${event.description}` : '',
-      `\n👉 Register here:\n${shareUrl}`,
-    ].filter(Boolean).join('\n');
+      `\uD83C\uDF89 *${event.title}*`,
+      event.venue || event.location ? `\uD83D\uDCCD ${event.venue || event.location}` : ``,
+      dateStr ? `\uD83D\uDCC5 ${dateStr}${event.time ? ` at ` + event.time : ``}` : ``,
+      event.description ? `\n${event.description}` : ``,
+      `\n\uD83D\uDC49 Register here:\n${shareUrl}`,
+    ].filter(Boolean).join(`\n`);
 
+    // Pick image per rules: venue_images take precedence; else company_logo; else default app logo.
+    const evAny = event as any;
+    const venueImgs: string[] = Array.isArray(evAny.venue_images) ? evAny.venue_images.filter(Boolean) : [];
+    const companyLogo: string | null = evAny.company_logo || null;
+    let remoteImageUrl: string | null = null;
+    let useDefaultAsset = false;
+    if (venueImgs.length > 0) { remoteImageUrl = venueImgs[0]; }
+    else if (companyLogo) { remoteImageUrl = companyLogo; }
+    else { useDefaultAsset = true; }
+
+    let localUri: string | null = null;
+    let mimeExt = `jpg`;
+    try {
+      if (useDefaultAsset) {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const asset = Asset.fromModule(require(`../../assets/Instantlly_Logo-removebg.png`));
+        await asset.downloadAsync();
+        localUri = asset.localUri || asset.uri;
+        mimeExt = `png`;
+      } else if (remoteImageUrl) {
+        mimeExt = (remoteImageUrl.split(`.`).pop()?.split(`?`)[0] ?? `jpg`).substring(0, 4).toLowerCase();
+        const target = `${FileSystem.cacheDirectory}event-share-${event.id}.${mimeExt}`;
+        const dl = await FileSystem.downloadAsync(remoteImageUrl, target);
+        if (dl.status === 200) localUri = dl.uri;
+      }
+    } catch (e) {
+      console.log(`[EVENT SHARE] image prep failed:`, e);
+    }
+
+    const mimeType = `image/${mimeExt === `jpg` ? `jpeg` : mimeExt}`;
+
+    if (localUri) {
+      // Try react-native-share (image + text in one share — production builds only)
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const RNShare = require(`react-native-share`).default;
+        const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+        await RNShare.open({
+          title: event.title,
+          message: lines,
+          url: `data:${mimeType};base64,${base64}`,
+          failOnCancel: false,
+        });
+        return;
+      } catch (rnErr) {
+        console.log(`[EVENT SHARE] RNShare unavailable, using expo-sharing fallback`);
+      }
+      try {
+        await Clipboard.setStringAsync(lines);
+        await Sharing.shareAsync(localUri, { dialogTitle: event.title, mimeType });
+        return;
+      } catch (e) {
+        console.log(`[EVENT SHARE] expo-sharing failed:`, e);
+      }
+    }
+
+    // Final fallback — text only (WhatsApp deep link, then native share sheet)
     const waUrl = `whatsapp://send?text=${encodeURIComponent(lines)}`;
     const canOpen = await Linking.canOpenURL(waUrl);
     if (canOpen) {
