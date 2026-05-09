@@ -13,6 +13,7 @@ export type RootStackParamList = {
   VoucherDetail: { id: string; claimId?: number; installmentInfo?: any } | undefined;
   MyVouchers: undefined;
   MyCreatedVouchers: undefined;
+  VoucherScanner: { voucherId?: number } | undefined;
   Ads: undefined;
   AdCreate: { cardId?: string } | undefined;
   AdDashboard: undefined;

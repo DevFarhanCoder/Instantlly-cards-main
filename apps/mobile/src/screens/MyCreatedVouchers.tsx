@@ -9,6 +9,8 @@ import {
   CreditCard,
   Pencil,
   Plus,
+  QrCode,
+  ShieldCheck,
   Tag,
   Ticket,
   Trash2,
@@ -29,6 +31,7 @@ import {
   useDeleteVoucherMutation,
   useGetVoucherClaimsQuery,
   useGetVoucherInstallmentLedgerQuery,
+  useGetAllMyClaimsQuery,
 } from "../store/api/vouchersApi";
 
 const safeFormat = (d: any, fmt: string, fb = "—") => {
@@ -50,6 +53,10 @@ const MyCreatedVouchers = () => {
   const [claimsVoucherId, setClaimsVoucherId] = useState<number | null>(null);
   const [ledgerVoucherId, setLedgerVoucherId] = useState<number | null>(null);
   const [historyClaim, setHistoryClaim] = useState<any | null>(null);
+  // Global claims modal: null = closed, "active" | "redeemed" | "expired" = open with filter
+  const [globalClaimsFilter, setGlobalClaimsFilter] = useState<string | null>(null);
+  const [showActiveVouchers, setShowActiveVouchers] = useState(false);
+  const [claimsFromActive, setClaimsFromActive] = useState(false);
 
   const { data: claims = [], isFetching: claimsFetching } = useGetVoucherClaimsQuery(
     claimsVoucherId ?? 0,
@@ -58,6 +65,10 @@ const MyCreatedVouchers = () => {
   const { data: ledger = [], isFetching: ledgerFetching } = useGetVoucherInstallmentLedgerQuery(
     ledgerVoucherId ?? 0,
     { skip: !ledgerVoucherId }
+  );
+  const { data: globalClaims = [], isFetching: globalClaimsFetching } = useGetAllMyClaimsQuery(
+    globalClaimsFilter ? { status: globalClaimsFilter } : undefined,
+    { skip: !globalClaimsFilter }
   );
 
   const handleRefresh = useCallback(async () => {
@@ -120,6 +131,7 @@ const MyCreatedVouchers = () => {
 
   const activeVouchers = vouchers.filter((v: any) => v.status === "active").length;
   const totalClaims = vouchers.reduce((s: number, v: any) => s + (v.claimed_count || 0), 0);
+  const totalRedeemed = vouchers.reduce((s: number, v: any) => s + (v.redeemed_claims || 0), 0);
 
   return (
     <View className="flex-1 bg-background">
@@ -136,6 +148,13 @@ const MyCreatedVouchers = () => {
         >
           <Plus size={14} color="#fff" />
           <Text className="text-xs font-semibold text-primary-foreground">New</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => navigation.navigate("VoucherScanner")}
+          className="flex-row items-center gap-1 rounded-lg bg-primary px-3 py-1.5"
+        >
+          <QrCode size={14} color="#fff" />
+          <Text className="text-xs font-semibold text-primary-foreground">Scan</Text>
         </Pressable>
       </View>
 
@@ -154,16 +173,30 @@ const MyCreatedVouchers = () => {
               <Text className="mt-1 text-xl font-bold text-foreground">{vouchers.length}</Text>
               <Text className="text-[10px] text-muted-foreground">Total</Text>
             </View>
-            <View className="flex-1 rounded-xl border border-border bg-card p-3 items-center">
+            <Pressable
+              className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
+              onPress={() => setShowActiveVouchers(true)}
+            >
               <CheckCircle2 size={18} color="#16a34a" />
               <Text className="mt-1 text-xl font-bold text-foreground">{activeVouchers}</Text>
-              <Text className="text-[10px] text-muted-foreground">Active</Text>
-            </View>
-            <View className="flex-1 rounded-xl border border-border bg-card p-3 items-center">
+              <Text className="text-[10px] text-green-600 font-medium">Active ›</Text>
+            </Pressable>
+            <Pressable
+              className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
+              onPress={() => setGlobalClaimsFilter("active")}
+            >
               <Users size={18} color="#f97316" />
               <Text className="mt-1 text-xl font-bold text-foreground">{totalClaims}</Text>
-              <Text className="text-[10px] text-muted-foreground">Claimed</Text>
-            </View>
+              <Text className="text-[10px] text-orange-500 font-medium">Claimed ›</Text>
+            </Pressable>
+            <Pressable
+              className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
+              onPress={() => setGlobalClaimsFilter("redeemed")}
+            >
+              <ShieldCheck size={18} color="#2463eb" />
+              <Text className="mt-1 text-xl font-bold text-foreground">{totalRedeemed}</Text>
+              <Text className="text-[10px] text-primary font-medium">Redeemed ›</Text>
+            </Pressable>
           </View>
 
           {/* List */}
@@ -232,6 +265,26 @@ const MyCreatedVouchers = () => {
                             </Text>
                           </View>
                         ) : null}
+                      </View>
+                      {/* Claim status breakdown */}
+                      <View className="flex-row items-center gap-2 mt-1 flex-wrap">
+                        <View className="flex-row items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5">
+                          <Text className="text-[10px] font-semibold text-orange-600">
+                            {v.active_claims ?? 0} active
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5">
+                          <Text className="text-[10px] font-semibold text-primary">
+                            {v.redeemed_claims ?? 0} redeemed
+                          </Text>
+                        </View>
+                        {(v.expired_claims ?? 0) > 0 && (
+                          <View className="flex-row items-center gap-1 rounded-full bg-muted px-2 py-0.5">
+                            <Text className="text-[10px] font-semibold text-muted-foreground">
+                              {v.expired_claims} expired
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     </View>
                   </View>
@@ -310,7 +363,12 @@ const MyCreatedVouchers = () => {
       </ScrollView>
 
       {/* Claims Modal */}
-      <Dialog open={!!claimsVoucherId} onOpenChange={(open) => !open && setClaimsVoucherId(null)}>
+      <Dialog open={!!claimsVoucherId} onOpenChange={(open) => {
+        if (!open) {
+          setClaimsVoucherId(null);
+          if (claimsFromActive) { setClaimsFromActive(false); setShowActiveVouchers(true); }
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Voucher Claims</DialogTitle>
@@ -320,6 +378,21 @@ const MyCreatedVouchers = () => {
           ) : claims.length === 0 ? (
             <View className="py-8 items-center"><Text className="text-sm text-muted-foreground">No claims yet</Text></View>
           ) : (
+            <>
+              {/* Summary bar */}
+              <View className="flex-row gap-2 pb-2">
+                {[
+                  { label: "Total", count: claims.length, color: "#6b7280" },
+                  { label: "Active", count: claims.filter((c: any) => c.status === "active").length, color: "#f97316" },
+                  { label: "Redeemed", count: claims.filter((c: any) => c.status === "redeemed").length, color: "#2463eb" },
+                  { label: "Expired", count: claims.filter((c: any) => c.status === "expired").length, color: "#9ca3af" },
+                ].map(({ label, count, color }) => (
+                  <View key={label} className="flex-1 rounded-lg bg-muted/50 p-2 items-center">
+                    <Text className="text-base font-bold text-foreground" style={{ color }}>{count}</Text>
+                    <Text className="text-[9px] text-muted-foreground">{label}</Text>
+                  </View>
+                ))}
+              </View>
             <ScrollView className="max-h-96" showsVerticalScrollIndicator={false}>
               <View className="gap-2 py-2">
                 {claims.map((c: any) => (
@@ -362,8 +435,122 @@ const MyCreatedVouchers = () => {
                 ))}
               </View>
             </ScrollView>
+            </>
           )}
-          <Button className="w-full rounded-xl mt-2" onPress={() => setClaimsVoucherId(null)}>Close</Button>
+          <Button className="w-full rounded-xl mt-2" onPress={() => {
+            setClaimsVoucherId(null);
+            if (claimsFromActive) { setClaimsFromActive(false); setShowActiveVouchers(true); }
+          }}>{claimsFromActive ? "← Back" : "Close"}</Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Active Vouchers Modal */}
+      <Dialog open={showActiveVouchers} onOpenChange={(open) => !open && setShowActiveVouchers(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Active Vouchers</DialogTitle>
+          </DialogHeader>
+          {vouchers.filter((v: any) => v.status === "active").length === 0 ? (
+            <View className="py-8 items-center">
+              <Text className="text-sm text-muted-foreground">No active vouchers</Text>
+            </View>
+          ) : (
+            <ScrollView className="max-h-[70vh]" showsVerticalScrollIndicator={false}>
+              <View className="gap-2 py-2">
+                {vouchers.filter((v: any) => v.status === "active").map((v: any) => (
+                  <Pressable
+                    key={v.id}
+                    className="rounded-lg border border-border bg-muted/30 p-3 gap-1 active:opacity-70"
+                    onPress={() => { setShowActiveVouchers(false); setClaimsFromActive(true); setClaimsVoucherId(v.id); }}
+                  >
+                    <View className="flex-row items-start justify-between gap-2">
+                      <Text className="flex-1 text-sm font-semibold text-foreground" numberOfLines={1}>{v.title}</Text>
+                      <View className="rounded-full bg-green-500/10 px-2 py-0.5">
+                        <Text className="text-[10px] font-semibold text-green-600">active</Text>
+                      </View>
+                    </View>
+                    <Text className="text-sm font-bold text-primary">
+                      ₹{formatINR(Number(v.original_price ?? 0))}
+                      {v.discount_label ? <Text className="text-[11px] font-normal text-muted-foreground">  {v.discount_label}</Text> : null}
+                    </Text>
+                    <View className="flex-row items-center gap-3 mt-0.5">
+                      <View className="flex-row items-center gap-1 rounded-full bg-orange-500/10 px-2 py-0.5">
+                        <Text className="text-[10px] font-semibold text-orange-600">{v.active_claims ?? 0} active claims</Text>
+                      </View>
+                      <View className="flex-row items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5">
+                        <Text className="text-[10px] font-semibold text-primary">{v.redeemed_claims ?? 0} redeemed</Text>
+                      </View>
+                    </View>
+                    {v.expires_at && (
+                      <Text className="text-[10px] text-muted-foreground mt-0.5">
+                        Expires {safeFormat(v.expires_at, "d MMM yyyy")}
+                      </Text>
+                    )}
+                    <Text className="text-[10px] text-primary/60 mt-0.5">Tap to view claims →</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
+          )}
+          <Button className="w-full rounded-xl mt-2" onPress={() => setShowActiveVouchers(false)}>Close</Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Global Claims Modal (Claimed / Redeemed stats tap) */}
+      <Dialog open={!!globalClaimsFilter} onOpenChange={(open) => !open && setGlobalClaimsFilter(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {globalClaimsFilter === "redeemed" ? "Redeemed Claims" : "Active Claims"}
+            </DialogTitle>
+          </DialogHeader>
+          {globalClaimsFetching ? (
+            <View className="py-8 items-center"><Text className="text-sm text-muted-foreground">Loading…</Text></View>
+          ) : globalClaims.length === 0 ? (
+            <View className="py-8 items-center">
+              <Text className="text-sm text-muted-foreground">
+                No {globalClaimsFilter} claims yet
+              </Text>
+            </View>
+          ) : (
+            <ScrollView className="max-h-[70vh]" showsVerticalScrollIndicator={false}>
+              <View className="gap-2 py-2">
+                {globalClaims.map((c: any) => (
+                  <View key={c.claim_id} className="rounded-lg border border-border bg-muted/30 p-3 gap-1">
+                    <View className="flex-row items-start justify-between gap-2">
+                      <View className="flex-1">
+                        <Text className="text-sm font-semibold text-foreground">{c.user_name || "Customer"}</Text>
+                        <Text className="text-[11px] text-muted-foreground">{c.user_phone}</Text>
+                      </View>
+                      <View className={`rounded-full px-2 py-0.5 ${
+                        c.status === "redeemed" ? "bg-primary/10" : "bg-orange-500/10"
+                      }`}>
+                        <Text className={`text-[10px] font-semibold capitalize ${
+                          c.status === "redeemed" ? "text-primary" : "text-orange-600"
+                        }`}>{c.status}</Text>
+                      </View>
+                    </View>
+                    <View className="mt-1 rounded-md bg-card border border-border px-2 py-1">
+                      <Text className="text-[11px] font-medium text-foreground" numberOfLines={1}>
+                        🎁 {c.voucher_title}
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center gap-3 mt-0.5">
+                      <Text className="text-[10px] text-muted-foreground">
+                        Claimed: {safeFormat(c.claimed_at, "d MMM yyyy")}
+                      </Text>
+                      {c.redeemed_at && (
+                        <Text className="text-[10px] text-muted-foreground">
+                          Redeemed: {safeFormat(c.redeemed_at, "d MMM yyyy")}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          )}
+          <Button className="w-full rounded-xl mt-2" onPress={() => setGlobalClaimsFilter(null)}>Close</Button>
         </DialogContent>
       </Dialog>
 

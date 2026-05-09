@@ -115,6 +115,17 @@ export const vouchersApi = baseApi.injectEndpoints({
       query: (voucherId) => `/vouchers/${voucherId}/claims`,
       providesTags: (_r, _e, id) => [{ type: 'Voucher', id }],
     }),
+    getAllMyClaims: builder.query<any[], { status?: string } | void>({
+      query: (args) => {
+        const status = args && 'status' in args ? args.status : undefined;
+        return status ? `/vouchers/all-claims?status=${status}` : '/vouchers/all-claims';
+      },
+      providesTags: ['Voucher'],
+    }),
+    redeemVoucherByQr: builder.mutation<any, { voucher_id: number; claim_id: number }>({
+      query: (body) => ({ url: '/vouchers/redeem-by-qr', method: 'POST', body }),
+      invalidatesTags: ['Voucher'],
+    }),
   }),
 });
 
@@ -139,4 +150,6 @@ export const {
   useGetMyInstallmentsQuery,
   useGetVoucherInstallmentLedgerQuery,
   useGetVoucherClaimsQuery,
+  useGetAllMyClaimsQuery,
+  useRedeemVoucherByQrMutation,
 } = vouchersApi;

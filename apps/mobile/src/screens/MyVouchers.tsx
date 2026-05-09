@@ -634,11 +634,14 @@ const MyVouchers = () => {
           {qrVoucher && (
             <View className="items-center py-4">
               <QRCode
-                value={`instantly://voucher/${qrVoucher.voucher_id}/claim/${qrVoucher.id}`}
+                value={`instantllycards://voucher/${qrVoucher.voucher_id}/claim/${qrVoucher.id}`}
                 size={160}
               />
               <Text className="mt-3 text-sm font-mono font-bold text-foreground">
                 CLM-{qrVoucher.id}
+              </Text>
+              <Text className="mt-0.5 text-xs text-muted-foreground font-mono">
+                Voucher #{qrVoucher.voucher_id}
               </Text>
               <Text className="mt-1 text-xs text-muted-foreground">
                 Show this QR to the merchant

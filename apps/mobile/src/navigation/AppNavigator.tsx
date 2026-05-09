@@ -32,6 +32,7 @@ import MyCards from "../screens/MyCards";
 import Messaging from "../screens/Messaging";
 import MyVouchers from "../screens/MyVouchers";
 import MyCreatedVouchers from "../screens/MyCreatedVouchers";
+import VoucherScanner from "../screens/VoucherScanner";
 import Vouchers from "../screens/Vouchers";
 import VoucherDetail from "../screens/VoucherDetail";
 import PlaceholderScreen from "../screens/PlaceholderScreen";
@@ -149,6 +150,7 @@ const VouchersScreen       = withLayout(Vouchers);
 const VoucherDetailScreen  = withLayout(VoucherDetail);
 const MyVouchersScreen     = withLayout(MyVouchers);
 const MyCreatedVouchersScreen = withLayout(MyCreatedVouchers);
+const VoucherScannerScreen = withLayout(VoucherScanner);
 const AdsScreen            = withLayout(Ads);
 const AdCreateScreen       = withLayout(AdCreate);
 const AdDashboardScreen    = withLayout(AdDashboard);
@@ -720,6 +722,7 @@ const AppNavigator = () => {
         <Stack.Screen name="VoucherDetail" component={VoucherDetailScreen} />
         <Stack.Screen name="MyVouchers" component={MyVouchersScreen} />
         <Stack.Screen name="MyCreatedVouchers" component={MyCreatedVouchersScreen} />
+        <Stack.Screen name="VoucherScanner" component={VoucherScannerScreen} />
         <Stack.Screen name="AdCreate" component={AdCreateScreen} />
         <Stack.Screen name="AdDashboard" component={AdDashboardScreen} />
         <Stack.Screen name="EventDetail" component={EventDetailScreen} />
