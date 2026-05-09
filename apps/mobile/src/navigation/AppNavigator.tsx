@@ -3,7 +3,9 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import * as ExpoNotifications from "expo-notifications";
 import { useDeferredGroupJoin } from "../hooks/useDeferredGroupJoin";
+import { useDeferredEventNavigation } from "../hooks/useDeferredEventNavigation";
 import { checkInstallReferrer } from "../utils/deferredGroupJoin";
+import { checkEventInstallReferrer } from "../utils/deferredEventNavigation";
 import { captureInitialReferralIfPresent, captureInstallReferralIfPresent } from "../utils/referral";
 import { socketService } from "../services/socketService";
 import { useAuth } from "../hooks/useAuth";
@@ -209,6 +211,10 @@ const linking = {
       Auth: 'signup',
       // instantllycards://card/:id  (and  https://instantlly.lovable.app/card/:id)
       PublicCard: { path: 'card/:id' },
+      // instantllycards://event/:id → EventDetail screen
+      EventDetail: { path: 'event/:id' },
+      // https://api.instantllycards.com/api/events/:id/share → EventDetail screen
+      // (handled by the share page's JS redirect to instantllycards://event/:id)
     },
   },
 };
@@ -218,15 +224,18 @@ const AppNavigator = () => {
   const { user } = useAuth();
 
   // On first launch after Play Store install, read the referrer and save any
-  // pending group join code to AsyncStorage.
+  // pending group join code or event ID to AsyncStorage.
   useEffect(() => {
     checkInstallReferrer();
+    checkEventInstallReferrer();
     captureInitialReferralIfPresent();
     captureInstallReferralIfPresent();
   }, []);
 
   // After the user logs in / signs up, process any deferred join code.
   useDeferredGroupJoin();
+  // After the user logs in / signs up, navigate to any deferred event.
+  useDeferredEventNavigation();
 
   // Connect socket when logged in; disconnect on logout.
   // Also ensure notification permission is granted so group message notifications work.

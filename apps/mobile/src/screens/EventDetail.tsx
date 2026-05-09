@@ -4,6 +4,7 @@ import {
   Dimensions,
   Image,
   ImageSourcePropType,
+  Linking,
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -11,6 +12,7 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   StatusBar,
   Text,
   View,
@@ -22,6 +24,7 @@ import {
   CheckCircle,
   Clock,
   MapPin,
+  Share2,
   Tag,
   Users,
 } from "lucide-react-native";
@@ -231,6 +234,29 @@ const EventDetail = () => {
   // Parallax hero scroll animation — must be declared before any early returns
   const HERO_H = 200;
   const scrollY = useRef(new Animated.Value(0)).current;
+
+  // ─── Share handler ──────────────────────────────────────────────────
+  const handleShareWhatsApp = useCallback(async () => {
+    if (!event) return;
+    const apiBase = process.env.EXPO_PUBLIC_API_URL || 'https://api.instantllycards.com';
+    const shareUrl = `${apiBase}/api/events/${event.id}/share`;
+    const dateStr = event.date ? new Date(event.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    const lines = [
+      `🎉 *${event.title}*`,
+      event.venue || event.location ? `📍 ${event.venue || event.location}` : '',
+      dateStr ? `📅 ${dateStr}${event.time ? ' at ' + event.time : ''}` : '',
+      event.description ? `\n${event.description}` : '',
+      `\n👉 Register here:\n${shareUrl}`,
+    ].filter(Boolean).join('\n');
+
+    const waUrl = `whatsapp://send?text=${encodeURIComponent(lines)}`;
+    const canOpen = await Linking.canOpenURL(waUrl);
+    if (canOpen) {
+      await Linking.openURL(waUrl);
+    } else {
+      await Share.share({ message: lines, title: event.title });
+    }
+  }, [event]);
 
   // ─── Action handlers ────────────────────────────────────────────────
 
@@ -574,7 +600,7 @@ const EventDetail = () => {
           position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
           backgroundColor: backBg,
           paddingTop: 10, paddingBottom: 10, paddingHorizontal: 16,
-          flexDirection: "row", alignItems: "center",
+          flexDirection: "row", alignItems: "center", justifyContent: "space-between",
         }}
       >
         <Pressable
@@ -588,6 +614,18 @@ const EventDetail = () => {
         >
           <ArrowLeft size={18} color="#fff" />
           <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>Back</Text>
+        </Pressable>
+        <Pressable
+          onPress={handleShareWhatsApp}
+          style={{
+            flexDirection: "row", alignItems: "center", gap: 6,
+            backgroundColor: "rgba(0,0,0,0.35)", borderRadius: 20,
+            paddingHorizontal: 12, paddingVertical: 6,
+          }}
+          hitSlop={10}
+        >
+          <Share2 size={18} color="#fff" />
+          <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>Share</Text>
         </Pressable>
       </Animated.View>
 
