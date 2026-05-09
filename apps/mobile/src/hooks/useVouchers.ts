@@ -1,6 +1,7 @@
 import { useDispatch } from "react-redux";
 import { toast } from "../lib/toast";
 import { baseApi } from "../store/api/baseApi";
+import { useAppLocation } from "../contexts/LocationContext";
 import {
   useListVouchersQuery,
   useGetVoucherQuery,
@@ -33,6 +34,8 @@ export interface Voucher {
   company_name: string | null;
   phone_number: string | null;
   address: string | null;
+  city: string | null;
+  pincode: string | null;
   voucher_image: string | null;
   voucher_banner: string | null;
   what_we_do: string | null;
@@ -108,6 +111,8 @@ const mapVoucher = (v: any): Voucher => {
     company_name: v.company_name ?? null,
     phone_number: v.phone_number ?? null,
     address: v.address ?? null,
+    city: v.city ?? null,
+    pincode: v.pincode ?? null,
     voucher_image: v.voucher_image ?? null,
     voucher_banner: v.voucher_banner ?? null,
     what_we_do: v.what_we_do ?? null,
@@ -131,8 +136,13 @@ const mapVoucher = (v: any): Voucher => {
   };
 };
 
-export function useVouchers() {
-  const result = useListVouchersQuery({ page: 1 }, { refetchOnMountOrArgChange: true });
+export function useVouchers(opts?: { nearMe?: boolean }) {
+  const { city } = useAppLocation();
+  const nearMe = opts?.nearMe ?? true;
+  const result = useListVouchersQuery(
+    { page: 1, city: nearMe && city ? city : undefined },
+    { refetchOnMountOrArgChange: true }
+  );
   return {
     ...result,
     data: (result.data?.data || []).map(mapVoucher) as Voucher[],
@@ -234,6 +244,8 @@ export function useCreateVoucher() {
           company_name: (voucher as any).company_name || undefined,
           phone_number: (voucher as any).phone_number || undefined,
           address: (voucher as any).address || undefined,
+          city: (voucher as any).city || undefined,
+          pincode: (voucher as any).pincode || undefined,
           voucher_image: (voucher as any).voucher_image || undefined,
           voucher_banner: (voucher as any).voucher_banner || undefined,
           what_we_do: (voucher as any).what_we_do || undefined,

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, Clock, Globe, MapPin, Phone, Share2, ShieldCheck, Tag, X } from "lucide-react-native";
@@ -29,15 +29,15 @@ import {
 import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
 
 const emojiMap: Record<string, string> = {
-  travel: "🏖️",
-  beauty: "💆",
-  food: "🍽️",
-  health: "💪",
-  shopping: "🛍️",
-  entertainment: "🎬",
-  activities: "🏄",
-  education: "📚",
-  general: "🎁",
+  travel: "???",
+  beauty: "??",
+  food: "???",
+  health: "??",
+  shopping: "???",
+  entertainment: "??",
+  activities: "??",
+  education: "??",
+  general: "??",
 };
 
 const VoucherDetail = () => {
@@ -116,7 +116,7 @@ const VoucherDetail = () => {
   if (!voucher) {
     return (
       <View className="flex-1 items-center justify-center">
-        <Text className="text-5xl mb-3">🔍</Text>
+        <Text className="text-5xl mb-3">??</Text>
         <Text className="text-muted-foreground">Voucher not found</Text>
         <Button variant="outline" className="mt-3" onPress={() => navigation.goBack()}>
           Go back
@@ -184,7 +184,7 @@ const VoucherDetail = () => {
         promo_applied: latestIntent?.promo_applied ?? false,
         allows_installment: isPayingUpfront,
       }).unwrap();
-      toast.success("Voucher claimed! 🎉");
+      toast.success("Voucher claimed! ??");
       setPaymentMode(null);
       finishClaim(result.id, result.installment);
     } catch (e: any) {
@@ -205,7 +205,7 @@ const VoucherDetail = () => {
         amount: amt,
       }).unwrap();
       toast.success(result.installment_status === "completed"
-        ? "Balance fully paid! 🎉"
+        ? "Balance fully paid! ??"
         : `₹${formatINR(amt)} paid. Remaining: ₹${formatINR(Number(result.remaining_balance))}`);
       setShowInstallmentPay(false);
       setInstallmentInfo({ ...installmentInfo, remaining_balance: result.remaining_balance });
@@ -234,7 +234,7 @@ const VoucherDetail = () => {
       return;
     }
 
-    // Paid voucher — create order + open Razorpay
+    // Paid voucher � create order + open Razorpay
     try {
       // Always create a fresh intent for the selected payment mode.
       const intent = await createIntent({
@@ -316,7 +316,7 @@ const VoucherDetail = () => {
         currency: intent.currency,
         order_id: intent.order_id,
         name: voucher?.title || "Voucher",
-        description: `Installment payment — ${intent.voucher_title}`,
+        description: `Installment payment � ${intent.voucher_title}`,
         prefill: { name: user?.name || undefined, contact: user?.phone || undefined },
         theme: { color: "#2463eb" },
       };
@@ -466,7 +466,7 @@ const VoucherDetail = () => {
           )}
 
           {/* Business Info */}
-          {(voucher.company_name || voucher.phone_number || voucher.address || voucher.what_we_do || voucher.website) && (
+          {(voucher.company_name || voucher.phone_number || voucher.address || (voucher as any).city || voucher.what_we_do || voucher.website) && (
             <View className="rounded-xl border border-border bg-card p-4 gap-3">
               <Text className="text-sm font-semibold text-foreground">About the Business</Text>
               {voucher.company_name && (
@@ -502,6 +502,14 @@ const VoucherDetail = () => {
                   <Text className="flex-1 text-sm text-muted-foreground underline">{voucher.address}</Text>
                 </Pressable>
               )}
+              {(voucher as any).city && (
+                <View className="flex-row items-center gap-2">
+                  <MapPin size={14} color={iconColor} />
+                  <Text className="text-sm text-muted-foreground">
+                    {(voucher as any).city}{(voucher as any).pincode ? ` - ${(voucher as any).pincode}` : ""}
+                  </Text>
+                </View>
+              )}
               {voucher.website ? (
                 <Pressable
                   className="flex-row items-center gap-2"
@@ -528,12 +536,12 @@ const VoucherDetail = () => {
               </View>
               <View className="gap-1.5">
                 {voucher.terms
-                  .split(/(?:\r?\n)+|(?<=[.!?])\s+(?=[A-Z₹])/)
+                  .split(/(?:\r?\n)+|(?<=[.!?])\s+(?=[A-Z?])/)
                   .map((s) => s.trim())
                   .filter((s) => s.length > 0)
                   .map((line, idx) => (
                     <View key={idx} className="flex-row gap-2">
-                      <Text className="text-xs text-muted-foreground">•</Text>
+                      <Text className="text-xs text-muted-foreground">�</Text>
                       <Text className="flex-1 text-xs text-muted-foreground">{line}</Text>
                     </View>
                   ))}
@@ -570,8 +578,8 @@ const VoucherDetail = () => {
               ? "Voucher Expired"
               : promoApplied
                 ? voucher.allows_installment
-                  ? `Claim Now — ₹${formatINR(applicablePrice)} (Pay ₹${formatINR(Number(voucher.upfront_amount))} Upfront)`
-                  : `Claim Voucher — ₹${formatINR(applicablePrice)}`
+                  ? `Claim Now � ₹${formatINR(applicablePrice)} (Pay ₹${formatINR(Number(voucher.upfront_amount))} Upfront)`
+                  : `Claim Voucher � ₹${formatINR(applicablePrice)}`
                 : "Claim Voucher"}
           </Text>
         </Button>
@@ -584,7 +592,7 @@ const VoucherDetail = () => {
             <DialogDescription>
               {promoApplied
                 ? voucher.allows_installment
-                  ? `₹${formatINR(applicablePrice)} total — Pay ₹${formatINR(Number(voucher.upfront_amount))} now and the rest within 30 days.`
+                  ? `₹${formatINR(applicablePrice)} total � Pay ₹${formatINR(Number(voucher.upfront_amount))} now and the rest within 30 days.`
                   : `You're about to claim ${voucher.title} for ₹${formatINR(applicablePrice)}`
                 : `You're about to claim ${voucher.title}`}
             </DialogDescription>
@@ -616,7 +624,7 @@ const VoucherDetail = () => {
 
           {promoApplied && (
             <View className="rounded-lg bg-green-50 dark:bg-green-950/20 px-3 py-2 flex-row items-center justify-between">
-              <Text className="text-sm text-green-600 dark:text-green-400 font-semibold">✅ {promoCode} applied!</Text>
+              <Text className="text-sm text-green-600 dark:text-green-400 font-semibold">? {promoCode} applied!</Text>
               <Pressable onPress={() => { setPromoApplied(false); setPromoCode(""); setIntentData(null); }}>
                 <Text className="text-xs text-green-600 dark:text-green-400 underline">Remove</Text>
               </Pressable>
@@ -660,7 +668,7 @@ const VoucherDetail = () => {
             <View className="gap-2 w-full">
               <>
                 {(() => {
-                  const RAZORPAY_MAX = 500000; // ₹5,00,000 single-payment cap
+                  const RAZORPAY_MAX = 500000; // ?5,00,000 single-payment cap
                   const fullExceedsLimit = Number(applicablePrice) > RAZORPAY_MAX;
                   const upfrontExceedsLimit = Number(voucher.upfront_amount ?? 0) > RAZORPAY_MAX;
                   const showFullButton = !fullExceedsLimit;
@@ -686,7 +694,7 @@ const VoucherDetail = () => {
                       {fullExceedsLimit && voucher.allows_installment && (
                         <View className="rounded-lg bg-amber-50 dark:bg-amber-950/20 px-3 py-2">
                           <Text className="text-xs text-amber-700 dark:text-amber-400">
-                            Full payment over ₹5,00,000 isn't supported online. Pay upfront now and the rest in installments.
+                            Full payment over ?5,00,000 isn't supported online. Pay upfront now and the rest in installments.
                           </Text>
                         </View>
                       )}
@@ -694,7 +702,7 @@ const VoucherDetail = () => {
                       {fullExceedsLimit && !voucher.allows_installment && (
                         <View className="rounded-lg bg-amber-50 dark:bg-amber-950/20 px-3 py-2">
                           <Text className="text-xs text-amber-700 dark:text-amber-400">
-                            This voucher's price exceeds the online payment limit of ₹5,00,000. Please contact the business directly.
+                            This voucher's price exceeds the online payment limit of ?5,00,000. Please contact the business directly.
                           </Text>
                         </View>
                       )}

@@ -1,5 +1,4 @@
 import { baseApi } from './baseApi';
-
 export interface EventBusiness {
   id: number;
   company_name: string | null;
