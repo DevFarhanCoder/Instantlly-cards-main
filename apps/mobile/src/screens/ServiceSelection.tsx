@@ -23,11 +23,12 @@ type ServiceType = 'home-based' | 'business-visiting';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'ServiceSelection'>;
 
-export default function ServiceSelectionScreen() {
+export default function ServiceSelectionScreen({ route }: { route?: { params?: { role?: 'customer' | 'business' } } }) {
   const navigation = useNavigation<Nav>();
   const dispatch = useAppDispatch();
   const [selectedService, setSelectedService] = useState<ServiceType | null>(null);
   const [updateServiceType, { isLoading }] = useUpdateServiceTypeMutation();
+  const role = route?.params?.role ?? 'business';
 
   const handleSelect = async (serviceType: ServiceType) => {
     if (isLoading) return;
@@ -35,7 +36,7 @@ export default function ServiceSelectionScreen() {
     try {
       await updateServiceType({ serviceType }).unwrap();
       dispatch(updateUser({ service_type: serviceType }));
-      navigation.navigate('MyCards');
+      navigation.navigate(role === 'business' ? 'MyCards' : 'Home');
     } catch (err: any) {
       Alert.alert(
         'Error',

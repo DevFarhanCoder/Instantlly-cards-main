@@ -200,10 +200,8 @@ const Auth = ({ navigation }: Props) => {
           // Navigate to redirect screen if specified, otherwise Home (or ServiceSelection for new business accounts)
           if (redirectScreen) {
             navigation.navigate(redirectScreen, redirectParams);
-          } else if (roleTab === 'business') {
-            navigation.navigate('ServiceSelection');
           } else {
-            navigation.navigate("Home");
+            navigation.navigate('ServiceSelection', { role: roleTab });
           }
         }
       } else {
@@ -221,8 +219,8 @@ const Auth = ({ navigation }: Props) => {
             SecureStore.setItemAsync('activeRole', roleTab);
             if (redirectScreen) {
               navigation.navigate(redirectScreen, redirectParams);
-            } else if (roleTab === 'business' && !freshUser.service_type) {
-              navigation.navigate('ServiceSelection');
+            } else if (!freshUser.service_type) {
+              navigation.navigate('ServiceSelection', { role: roleTab });
             } else {
               navigation.navigate(roleTab === 'business' ? "MyCards" : "Home");
             }
