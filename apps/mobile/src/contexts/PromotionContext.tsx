@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+﻿import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../hooks/useAuth';
 import { useGetMyPromotionsQuery } from '../store/api/promotionsApi';
@@ -34,18 +34,20 @@ export function PromotionProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { data: promotions = [], isLoading } = useGetMyPromotionsQuery(undefined, { skip: !user });
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [storageLoaded, setStorageLoaded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     AsyncStorage.getItem(SELECTED_PROMOTION_KEY)
       .then((stored) => {
-        if (!mounted || !stored) return;
-        const parsed = parseInt(stored, 10);
-        if (!Number.isNaN(parsed)) {
-          setSelectedId(parsed);
+        if (!mounted) return;
+        if (stored) {
+          const parsed = parseInt(stored, 10);
+          if (!Number.isNaN(parsed)) setSelectedId(parsed);
         }
+        setStorageLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => { if (mounted) setStorageLoaded(true); });
 
     return () => {
       mounted = false;
@@ -110,7 +112,7 @@ export function PromotionProvider({ children }: { children: React.ReactNode }) {
       selectPromotion,
       selectedPromotion,
       tier,
-      isLoading,
+      isLoading: isLoading || !storageLoaded,
     }),
     [promotions, effectiveSelectedId, selectPromotion, selectedPromotion, tier, isLoading],
   );
