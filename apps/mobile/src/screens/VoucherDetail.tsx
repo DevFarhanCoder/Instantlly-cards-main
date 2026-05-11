@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Share, Text, TextInput, View } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
@@ -407,11 +407,9 @@ const VoucherDetail = () => {
             className="relative h-52 rounded-2xl bg-muted overflow-hidden"
             onPress={() => setShowBannerPreview(true)}
           >
-            {/* Banner background */}
-            {voucher.voucher_banner ? (
-              <Image source={{ uri: voucher.voucher_banner }} className="absolute inset-0 w-full h-full" resizeMode="cover" />
-            ) : voucher.voucher_image ? (
-              <Image source={{ uri: voucher.voucher_image }} className="absolute inset-0 w-full h-full" resizeMode="cover" style={{ opacity: 0.25 }} />
+            {/* Logo image */}
+            {voucher.voucher_image ? (
+              <Image source={{ uri: voucher.voucher_image }} className="absolute inset-0 w-full h-full" resizeMode="contain" />
             ) : (
               <View className="absolute inset-0 items-center justify-center">
                 <Image source={require("../../assets/Instantlly_Logo-removebg.png")} style={{ width: 140, height: 140 }} resizeMode="contain" />
@@ -419,16 +417,6 @@ const VoucherDetail = () => {
             )}
             {/* Gradient overlay for readability */}
             <View className="absolute bottom-0 left-0 right-0 h-24" style={{ backgroundColor: "transparent" }} />
-            {/* Logo badge */}
-            {voucher.voucher_image && (
-              <View className="absolute top-3 right-3">
-                <Image
-                  source={{ uri: voucher.voucher_image }}
-                  className="w-14 h-14 rounded-full border-2 border-white"
-                  resizeMode="cover"
-                />
-              </View>
-            )}
             {voucher.discount_label && (
               <Badge className="absolute left-3 top-3 bg-primary text-primary-foreground border-none text-sm px-3 py-1">
                 {voucher.discount_label}
@@ -793,9 +781,9 @@ const VoucherDetail = () => {
         onRequestClose={() => setShowBannerPreview(false)}
       >
         <View className="flex-1 bg-black">
-          {voucher.voucher_banner ? (
+          {voucher.voucher_image ? (
             <Image
-              source={{ uri: voucher.voucher_banner }}
+              source={{ uri: voucher.voucher_image }}
               style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%" }}
               resizeMode="contain"
             />

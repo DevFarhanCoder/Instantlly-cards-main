@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+﻿import { useCallback, useMemo, useState } from "react";
 import { Image, Modal, Pressable, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { ChevronRight, Clock, Filter, Search, Ticket, Users, X } from "lucide-react-native";
+import { ChevronDown, ChevronRight, Clock, Filter, MapPin, Search, Ticket, Users, X } from "lucide-react-native";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -14,6 +14,7 @@ import { cn, formatINR } from "../lib/utils";
 import { colors } from "../theme/colors";
 import { differenceInDays, isValid } from "date-fns";
 import { useIconColor } from "../theme/colors";
+import { LocationPickerModal } from "../components/ui/LocationPickerModal";
 
 const emojiImages: Record<string, string> = {
   travel: "🏖️",
@@ -43,7 +44,8 @@ const Vouchers = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [tab, setTab] = useState<"near" | "all">("near");
-  const { city: userCity } = useAppLocation();
+  const { city: userCity, isLoading: locationLoading, isManual, permissionDenied } = useAppLocation();
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const { data: vouchers = [], isLoading, isFetching, refetch: refetchVouchers } = useVouchers({ nearMe: tab === "near" });
   const [bannerVoucher, setBannerVoucher] = useState<Voucher | null>(null);
 
@@ -72,27 +74,40 @@ const Vouchers = () => {
 
   return (
     <View className="flex-1 bg-background">
-      <View className="bg-primary px-4 py-4">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center gap-2">
-            <Text className="text-xl">💎</Text>
-            <Text className="text-xl font-bold text-primary-foreground">
-              Vouchers Market
-            </Text>
-          </View>
-          <Button
-            size="sm"
-            variant="secondary"
-            className="gap-1"
-            onPress={() => navigation.navigate("MyVouchers")}
-          >
-            <Ticket size={14} color={iconColor} /> My Vouchers
-          </Button>
+      <Pressable
+        onPress={() => setShowLocationPicker(true)}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          paddingBottom: 10,
+          backgroundColor: colors.card,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+          gap: 10,
+        }}
+      >
+        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#ef444415", alignItems: "center", justifyContent: "center" }}>
+          <MapPin size={18} color="#ef4444" />
         </View>
-        <Text className="mt-1 text-xs text-primary-foreground/70">
-          {tab === "near" ? (userCity ? `Near Me: ${userCity}` : "Near Me") : "All Vouchers"}
-        </Text>
-      </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 11, color: colors.mutedForeground, fontWeight: "500", marginBottom: 1 }}>
+            {isManual ? "Selected city" : "Your location"}
+          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+            <Text style={{ fontSize: 17, fontWeight: "800", color: permissionDenied && !userCity ? colors.mutedForeground : colors.foreground, flexShrink: 1 }} numberOfLines={1}>
+              {locationLoading ? "Detecting..." : (userCity ?? (permissionDenied ? "Tap to set location" : "Select City"))}
+            </Text>
+            <ChevronDown size={16} color={colors.foreground} />
+          </View>
+        </View>
+        <Button size="sm" variant="outline" className="gap-1" onPress={() => navigation.navigate("MyVouchers")}>
+          <Ticket size={14} color={iconColor} />
+          <Text style={{ fontSize: 12, fontWeight: "600" }}>My Vouchers</Text>
+        </Button>
+      </Pressable>
+      <LocationPickerModal visible={showLocationPicker} onClose={() => setShowLocationPicker(false)} />
 
 
       {/* Near Me / All tabs */}
@@ -296,34 +311,32 @@ const Vouchers = () => {
       </ScrollView>
 
       {/* Banner preview modal */}
-      <Modal visible={!!bannerVoucher} transparent animationType="slide" onRequestClose={() => setBannerVoucher(null)}>
-        <View className="flex-1 bg-black">
-          {bannerVoucher?.voucher_banner ? (
-            <Image
-              source={{ uri: bannerVoucher.voucher_banner }}
-              style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, width: '100%', height: '100%' }}
-              resizeMode="contain"
-            />
-          ) : (
-            <View className="flex-1 items-center justify-center">
-              <Image source={require("../../assets/Instantlly_Logo-removebg.png")} style={{ width: 160, height: 160 }} resizeMode="contain" />
-            </View>
-          )}
+      <Modal visible={!!bannerVoucher} transparent={false} animationType="slide" statusBarTranslucent onRequestClose={() => setBannerVoucher(null)}>
+        <View style={{ flex: 1, backgroundColor: "#000" }}>
+          {/* Image fills all space above info panel */}
+          <View style={{ flex: 1, position: "relative", paddingTop: 50 }}>
+            {bannerVoucher?.voucher_banner ? (
+              <Image
+                source={{ uri: bannerVoucher.voucher_banner }}
+                style={{ width: "100%", height: "100%" }}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                <Image source={require("../../assets/Instantlly_Logo-removebg.png")} style={{ width: 160, height: 160 }} resizeMode="contain" />
+              </View>
+            )}
+            {/* Close button over the image */}
+            <Pressable
+              onPress={() => setBannerVoucher(null)}
+              style={{ position: "absolute", top: 52, right: 16, backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 20, padding: 8 }}
+            >
+              <X size={20} color="white" />
+            </Pressable>
+          </View>
 
-          <Pressable
-            className="absolute top-14 right-4 rounded-full bg-black/50 p-2"
-            onPress={() => setBannerVoucher(null)}
-          >
-            <X size={20} color="white" />
-          </Pressable>
-
-          <View className="absolute bottom-0 left-0 right-0 px-4 pb-8 pt-4 bg-black/60">
-            <Text className="mb-1 text-2xl font-bold text-white">
-              {bannerVoucher?.title}
-            </Text>
-            <Text className="mb-3 text-4xl font-bold text-white">
-              ₹{formatINR(bannerVoucher?.original_price ?? 0)}
-            </Text>
+          {/* Info panel below the image - no gap */}
+          <View style={{ backgroundColor: "#111", paddingHorizontal: 20, paddingTop: 4, paddingBottom: 36 }}>
             <Button
               className="w-full rounded-xl py-4"
               onPress={() => {
@@ -337,9 +350,9 @@ const Vouchers = () => {
           </View>
         </View>
       </Modal>
+
     </View>
   );
 };
 
 export default Vouchers;
-

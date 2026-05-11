@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
@@ -34,7 +34,7 @@ import { AppHeader } from "../components/ui/AppHeader";
 const BusinessAnalytics = () => {
   const navigation = useNavigation<any>();
   const { user } = useAuth();
-  const { tier, selectedPromotionId, selectedPromotion, promotions } = usePromotionContext();
+  const { tier, selectedPromotionId, selectedPromotion, promotions, isLoading: promotionLoading } = usePromotionContext();
   const hasSelectedListing = Boolean(selectedPromotionId);
   const hasAnyPromotion = (promotions?.length ?? 0) > 0;
   const businessName = selectedPromotion?.business_name || "Business";
@@ -46,10 +46,10 @@ const BusinessAnalytics = () => {
   console.log(`[BusinessAnalytics] render: selectedPromotionId=${selectedPromotionId} tier=${tier} canAccess=${hasFeature(tier, 'analytics')} selectedCardId=${selectedCardId} cardIds=${JSON.stringify(cardIds)}`);
 
   useEffect(() => {
-    if (user && !selectedPromotionId && hasAnyPromotion) {
+    if (!promotionLoading && user && !selectedPromotionId && hasAnyPromotion) {
       navigation.navigate("BusinessSelectorScreen");
     }
-  }, [user, selectedPromotionId, hasAnyPromotion, navigation]);
+  }, [promotionLoading, user, selectedPromotionId, hasAnyPromotion, navigation]);
 
   const { data: analytics = [], isLoading, refetch: refetchAnalytics } = useQuery({
     queryKey: ["card-analytics-full", selectedPromotionId, cardIds],
