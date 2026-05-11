@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Linking,
@@ -45,8 +45,6 @@ const SubcategoryDetail = () => {
   const categoryName = route.params?.categoryName as string ?? "Category";
   const categoryIcon = route.params?.categoryIcon as string ?? "📁";
 
-  // [DEBUG-CATEGORY] Temporary log — remove after category investigation
-  console.log('[FRONTEND-CATEGORY-SENT]', { subcategory, categoryName, categoryIcon });
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
@@ -66,11 +64,12 @@ const SubcategoryDetail = () => {
   } = useDirectoryFeed({
     pageSize: 30,
     category: subcategory,
-    lat: userLocation?.latitude,
-    lng: userLocation?.longitude,
+    // Only use GPS proximity when no city is known — combining city+lat/lng causes the radius filter to return 0
+    lat: globalCity ? undefined : userLocation?.latitude,
+    lng: globalCity ? undefined : userLocation?.longitude,
     radius: 10000,
     city: globalCity ?? undefined,
-    state: globalState ?? undefined,
+    // state omitted — city alone is sufficient; passing state separately triggers an extra key-reset when city+state update in different renders
   });
 
   const filteredCards = useMemo(() => {
@@ -259,7 +258,7 @@ const SubcategoryDetail = () => {
                         </View>
                         <View className="flex-1 min-w-0">
                           <View className="flex-row items-center gap-1">
-                            <Text className="text-sm font-bold text-foreground" numberOfLines={1}>{card.full_name}</Text>
+                            <Text className="text-sm font-bold text-foreground" numberOfLines={1} style={{ flexShrink: 1 }}>{card.full_name}</Text>
                             {card.is_verified && (
                               <CheckCircle size={14} color={colors.primary} />
                             )}

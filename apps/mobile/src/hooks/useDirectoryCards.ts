@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useListPromotionsQuery, useListPromotionsNearbyQuery, useGetPromotionQuery } from "../store/api/promotionsApi";
 import { useGetCardQuery, useListCardsQuery } from "../store/api/businessCardsApi";
 
@@ -247,6 +247,8 @@ export function useDirectoryFeed(options?: { pageSize?: number; category?: strin
   const [hasMore, setHasMore] = useState(true);
   const lastKeyRef = useRef<string>("");
   const refetchRef = useRef<(() => void) | null>(null);
+  // True between setItems([]) call and the next data effect commit — keeps skeleton visible
+  const isPendingResetRef = useRef(true); // true on mount so first render always shows skeleton
   const useNearby = Boolean(options?.lat && options?.lng) || Boolean(options?.city || options?.state);
 
   const nearbyQuery = useListPromotionsNearbyQuery(
@@ -308,6 +310,7 @@ export function useDirectoryFeed(options?: { pageSize?: number; category?: strin
       setPage(1);
       setItems([]);
       setHasMore(true);
+      isPendingResetRef.current = true;
       if (!isInitialMount && refetchRef.current) {
         refetchRef.current();
       }
@@ -320,6 +323,7 @@ export function useDirectoryFeed(options?: { pageSize?: number; category?: strin
 
     if (!query.data && !cardsQuery.data) {
       if (!query.isLoading && !query.isFetching && !cardsQuery.isLoading && !cardsQuery.isFetching) {
+        isPendingResetRef.current = false;
         setItems([]);
       }
       return;
@@ -343,6 +347,7 @@ export function useDirectoryFeed(options?: { pageSize?: number; category?: strin
     setHasMore(totalFetched >= pageSize);
 
     if (page === 1) {
+      isPendingResetRef.current = false;
       setItems(merged);
       return;
     }
@@ -360,7 +365,8 @@ export function useDirectoryFeed(options?: { pageSize?: number; category?: strin
 
   return {
     data: items,
-    isLoading: (query.isLoading || cardsQuery.isLoading) && page === 1,
+    // Also treat as loading while a key-reset is pending (prevents 'No results' flash before new data arrives)
+    isLoading: ((query.isLoading || cardsQuery.isLoading) || isPendingResetRef.current || ((query.isFetching || cardsQuery.isFetching) && items.length === 0)) && page === 1,
     isFetching: query.isFetching || cardsQuery.isFetching,
     hasMore,
     loadMore,
