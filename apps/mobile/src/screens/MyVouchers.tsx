@@ -25,7 +25,7 @@ import { formatINR } from "../lib/utils";
 import QRCode from "react-native-qrcode-svg";
 import { format, isValid } from "date-fns";
 import * as Clipboard from "expo-clipboard";
-import { useIconColor } from "../theme/colors";
+import { useIconColor, useColors } from "../theme/colors";
 
 /** Safely format a date string — returns fallback on invalid input */
 const safeFormat = (dateStr: any, fmt: string, fallback = "N/A") => {
@@ -57,6 +57,7 @@ const tabs = ["All", "Active", "Redeemed", "Expired", "Transfers"];
 
 const MyVouchers = () => {
   const iconColor = useIconColor();
+  const colors = useColors();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { data: claimedVouchers = [], isLoading, refetch: refetchVouchers } = useMyVouchers();
@@ -174,6 +175,7 @@ const MyVouchers = () => {
   const [qrVoucher, setQrVoucher] = useState<ClaimedVoucher | null>(null);
   const [transferVoucherTarget, setTransferVoucherTarget] = useState<ClaimedVoucher | null>(null);
   const [transferPhone, setTransferPhone] = useState("");
+  const [transferQty, setTransferQty] = useState(1);
   const [expandedInstallments, setExpandedInstallments] = useState<Set<string>>(new Set());
   const toggleInstallment = (id: string) => setExpandedInstallments((prev) => {
     const next = new Set(prev);
@@ -415,14 +417,41 @@ const MyVouchers = () => {
                             <Text className="flex-1 text-sm font-semibold text-foreground" numberOfLines={1}>
                               {voucher?.title || "Voucher"}
                             </Text>
-                            <View
-                              testID={`voucher-status-${v.id}`}
-                              className={`flex-row items-center gap-1 rounded-full px-2 py-0.5 ${config.bg}`}
-                            >
-                              <StatusIcon size={12} color={config.iconColor} />
-                              <Text className={`text-[10px] font-semibold ${config.text}`}>
-                                {config.label}
-                              </Text>
+                            <View className="flex-row items-center gap-1.5">
+                              {v.is_owner_gifted && (
+                                <View className="flex-row items-center gap-0.5 rounded-full px-2 py-0.5 bg-purple-500/10">
+                                  <Gift size={10} color="#9333ea" />
+                                  <Text className="text-[10px] font-semibold text-purple-600">Gifted</Text>
+                                </View>
+                              )}
+                              {v.quantity > 1 && (
+                                <View className={`rounded-full px-2 py-0.5 ${
+                                  v.redeemed_count >= v.quantity
+                                    ? "bg-primary/10"
+                                    : v.redeemed_count > 0
+                                    ? "bg-amber-500/10"
+                                    : "bg-muted"
+                                }`}>
+                                  <Text className={`text-[10px] font-semibold ${
+                                    v.redeemed_count >= v.quantity
+                                      ? "text-primary"
+                                      : v.redeemed_count > 0
+                                      ? "text-amber-600"
+                                      : "text-muted-foreground"
+                                  }`}>
+                                    {v.redeemed_count}/{v.quantity} used
+                                  </Text>
+                                </View>
+                              )}
+                              <View
+                                testID={`voucher-status-${v.id}`}
+                                className={`flex-row items-center gap-1 rounded-full px-2 py-0.5 ${config.bg}`}
+                              >
+                                <StatusIcon size={12} color={config.iconColor} />
+                                <Text className={`text-[10px] font-semibold ${config.text}`}>
+                                  {config.label}
+                                </Text>
+                              </View>
                             </View>
                           </View>
                           {voucher?.subtitle ? (
@@ -439,6 +468,27 @@ const MyVouchers = () => {
                           <Text className="mt-0.5 text-sm font-mono font-bold text-foreground">
                             CLM-{v.id}
                           </Text>
+                          {v.quantity > 1 && (
+                            <View className="mt-1.5 flex-row items-center gap-1.5">
+                              <View className={`rounded-full px-2 py-0.5 ${
+                                v.quantity - v.redeemed_count === 0
+                                  ? "bg-primary/10"
+                                  : v.redeemed_count > 0
+                                  ? "bg-amber-500/10"
+                                  : "bg-green-500/10"
+                              }`}>
+                                <Text className={`text-[11px] font-semibold ${
+                                  v.quantity - v.redeemed_count === 0
+                                    ? "text-primary"
+                                    : v.redeemed_count > 0
+                                    ? "text-amber-600"
+                                    : "text-green-600"
+                                }`}>
+                                  {v.quantity - v.redeemed_count} of {v.quantity} remaining
+                                </Text>
+                              </View>
+                            </View>
+                          )}
                           <View className="mt-2.5 flex-row gap-2">
                             <Button
                               size="sm"
@@ -470,6 +520,7 @@ const MyVouchers = () => {
                               onPress={() => {
                                 setTransferVoucherTarget(v);
                                 setTransferPhone("");
+                                setTransferQty(1);
                               }}
                             >
                               <Send size={14} color={actionIconColor} />
@@ -643,6 +694,25 @@ const MyVouchers = () => {
               <Text className="mt-0.5 text-xs text-muted-foreground font-mono">
                 Voucher #{qrVoucher.voucher_id}
               </Text>
+              {qrVoucher.quantity > 1 && (
+                <View className={`mt-2 rounded-full px-3 py-1 ${
+                  qrVoucher.quantity - qrVoucher.redeemed_count === 0
+                    ? "bg-primary/10"
+                    : qrVoucher.redeemed_count > 0
+                    ? "bg-amber-500/10"
+                    : "bg-green-500/10"
+                }`}>
+                  <Text className={`text-xs font-semibold ${
+                    qrVoucher.quantity - qrVoucher.redeemed_count === 0
+                      ? "text-primary"
+                      : qrVoucher.redeemed_count > 0
+                      ? "text-amber-600"
+                      : "text-green-600"
+                  }`}>
+                    {qrVoucher.quantity - qrVoucher.redeemed_count} of {qrVoucher.quantity} vouchers remaining
+                  </Text>
+                </View>
+              )}
               <Text className="mt-1 text-xs text-muted-foreground">
                 Show this QR to the merchant
               </Text>
@@ -662,49 +732,88 @@ const MyVouchers = () => {
           <DialogHeader>
             <DialogTitle>Transfer Voucher</DialogTitle>
             <DialogDescription>
-              Send this voucher to another user by their mobile number.
+              Send voucher(s) to another user by their mobile number.
             </DialogDescription>
           </DialogHeader>
-          {transferVoucherTarget && (
-            <View className="gap-4 py-2">
-              <View className="rounded-lg bg-muted p-3">
-                <Text className="text-sm font-semibold text-foreground">
-                  {transferVoucherTarget.voucher?.title || "Voucher"}
-                </Text>
-                <Text className="mt-0.5 text-xs text-muted-foreground">
-                  Reference: CLM-{transferVoucherTarget.id}
-                </Text>
+          {transferVoucherTarget && (() => {
+            const maxTransferable = transferVoucherTarget.quantity - transferVoucherTarget.redeemed_count;
+            return (
+              <View className="gap-4 py-2">
+                <View className="rounded-lg bg-muted p-3">
+                  <Text className="text-sm font-semibold text-foreground">
+                    {transferVoucherTarget.voucher?.title || "Voucher"}
+                  </Text>
+                  <Text className="mt-0.5 text-xs text-muted-foreground">
+                    Reference: CLM-{transferVoucherTarget.id}
+                  </Text>
+                  {maxTransferable > 1 && (
+                    <Text className="mt-0.5 text-xs text-muted-foreground">
+                      You have {maxTransferable} unredeemed voucher{maxTransferable !== 1 ? "s" : ""} available to transfer
+                    </Text>
+                  )}
+                </View>
+
+                {maxTransferable > 1 && (
+                  <View className="gap-1.5">
+                    <Text className="text-sm font-medium text-foreground">How many to transfer?</Text>
+                    <View className="flex-row items-center gap-3">
+                      <Pressable
+                        onPress={() => setTransferQty((q) => Math.max(1, q - 1))}
+                        style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+                      >
+                        <Text style={{ fontSize: 22, color: colors.foreground }}>−</Text>
+                      </Pressable>
+                      <View style={{ width: 48, height: 40, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 18, fontWeight: "bold", color: colors.foreground }}>{transferQty}</Text>
+                      </View>
+                      <Pressable
+                        onPress={() => setTransferQty((q) => Math.min(maxTransferable, q + 1))}
+                        style={{ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+                      >
+                        <Text style={{ fontSize: 22, color: colors.foreground }}>+</Text>
+                      </Pressable>
+                      <Text className="flex-1 text-xs text-muted-foreground">
+                        {transferQty === maxTransferable ? "All your vouchers" : `${maxTransferable - transferQty} will stay with you`}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                <View className="gap-2">
+                  <Text className="text-sm font-medium text-foreground">
+                    Recipient Mobile Number
+                  </Text>
+                  <Input
+                    placeholder="Enter 10-digit mobile number"
+                    value={transferPhone}
+                    onChangeText={setTransferPhone}
+                    keyboardType="phone-pad"
+                    className="rounded-lg"
+                    maxLength={10}
+                  />
+                </View>
+                <Button
+                  className="w-full rounded-xl"
+                  disabled={transferPhone.replace(/\D/g, "").length < 10 || isTransferring}
+                  onPress={() => {
+                    transferVoucher(
+                      { voucherId: transferVoucherTarget.voucher_id, recipientPhone: transferPhone.trim(), quantity: maxTransferable > 1 ? transferQty : undefined },
+                      {
+                        onSuccess: () => setTransferVoucherTarget(null),
+                        onStaleClaim: () => setTransferVoucherTarget(null),
+                      }
+                    );
+                  }}
+                >
+                  {isTransferring
+                    ? "Transferring..."
+                    : maxTransferable > 1
+                    ? `Transfer ${transferQty} Voucher${transferQty !== 1 ? "s" : ""}`
+                    : "Transfer Voucher"}
+                </Button>
               </View>
-              <View className="gap-2">
-                <Text className="text-sm font-medium text-foreground">
-                  Recipient Mobile Number
-                </Text>
-                <Input
-                  placeholder="Enter 10-digit mobile number"
-                  value={transferPhone}
-                  onChangeText={setTransferPhone}
-                  keyboardType="phone-pad"
-                  className="rounded-lg"
-                  maxLength={10}
-                />
-              </View>
-              <Button
-                className="w-full rounded-xl"
-                disabled={transferPhone.replace(/\D/g, "").length < 10 || isTransferring}
-                onPress={() => {
-                  transferVoucher(
-                    { voucherId: transferVoucherTarget.voucher_id, recipientPhone: transferPhone.trim() },
-                    {
-                      onSuccess: () => setTransferVoucherTarget(null),
-                      onStaleClaim: () => setTransferVoucherTarget(null),
-                    }
-                  );
-                }}
-              >
-                {isTransferring ? "Transferring..." : "Transfer Voucher"}
-              </Button>
-            </View>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

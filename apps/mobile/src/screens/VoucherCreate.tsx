@@ -601,7 +601,7 @@ const VoucherCreate = () => {
             {errors.min_claim ? <Text className="text-xs text-destructive">{errors.min_claim}</Text> : null}
           </View>
           <View className="flex-1 gap-2">
-            <Label>Max Claims</Label>
+            <Label>Total Vouchers Available</Label>
             <Input
               placeholder="Unlimited"
               keyboardType="number-pad"

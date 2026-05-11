@@ -45,6 +45,7 @@ export interface Voucher {
   image_url: string | null;
   banner_url: string | null;
   min_claim: number | null;
+  business_promotion_owner_id?: number | null;
   promotion?: {
     id: string;
     business_name: string;
@@ -63,6 +64,9 @@ export interface ClaimedVoucher {
   status: string;
   claimed_at: string;
   redeemed_at: string | null;
+  quantity: number;
+  redeemed_count: number;
+  is_owner_gifted: boolean;
   voucher?: Voucher;
 }
 
@@ -122,6 +126,7 @@ const mapVoucher = (v: any): Voucher => {
     image_url: v.image_url ?? v.voucher_image ?? null,
     banner_url: v.banner_url ?? (Array.isArray(v.voucher_images) && v.voucher_images.length > 0 ? v.voucher_images[0] : null),
     min_claim: v.min_claim ?? null,
+    business_promotion_owner_id: v.business_promotion?.user_id ?? null,
     promotion: v.business_promotion
       ? {
           id: String(v.business_promotion.id),
@@ -169,6 +174,9 @@ export function useMyVouchers() {
       status: c.status || (c.redeemed_at ? "redeemed" : "active"),
       claimed_at: c.claimed_at,
       redeemed_at: c.redeemed_at ?? null,
+      quantity: Number(c.quantity ?? 1),
+      redeemed_count: Number(c.redeemed_count ?? 0),
+      is_owner_gifted: Boolean(c.is_owner_gifted),
       voucher: c.voucher ? mapVoucher(c.voucher) : undefined,
     })) as ClaimedVoucher[],
   };
@@ -274,9 +282,11 @@ export function useTransferVoucher() {
       {
         voucherId,
         recipientPhone,
+        quantity,
       }: {
         voucherId: string;
         recipientPhone: string;
+        quantity?: number;
       },
       options?: { onSuccess?: () => void; onError?: (e: any) => void; onStaleClaim?: () => void }
     ) => {
@@ -284,6 +294,7 @@ export function useTransferVoucher() {
         const data = await trigger({
           voucher_id: Number(voucherId),
           recipient_phone: recipientPhone,
+          quantity,
         }).unwrap();
         toast.success("Voucher transferred successfully! 🎁");
         options?.onSuccess?.();

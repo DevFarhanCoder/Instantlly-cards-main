@@ -31,8 +31,12 @@ export const vouchersApi = baseApi.injectEndpoints({
       query: (id) => ({ url: `/vouchers/${id}/claim`, method: 'POST' }),
       invalidatesTags: ['Voucher'],
     }),
-    transferVoucher: builder.mutation<any, { voucher_id: number; recipient_phone: string }>({
+    transferVoucher: builder.mutation<any, { voucher_id: number; recipient_phone: string; quantity?: number }>({
       query: (body) => ({ url: '/vouchers/transfer', method: 'POST', body }),
+      invalidatesTags: ['Voucher'],
+    }),
+    ownerTransferVoucher: builder.mutation<any, { id: number; recipient_phone: string; quantity: number }>({
+      query: ({ id, ...body }) => ({ url: `/vouchers/${id}/owner-transfer`, method: 'POST', body }),
       invalidatesTags: ['Voucher'],
     }),
     getVoucherTransfers: builder.query<any[], void>({
@@ -67,17 +71,18 @@ export const vouchersApi = baseApi.injectEndpoints({
       {
         key: string; order_id: string; amount: number; currency: string;
         voucher_id: number; voucher_title: string;
+        quantity: number; price_per_unit: number;
         promo_applied: boolean; applicable_price: number;
         allows_installment: boolean; upfront_amount: number | null;
         remaining_after_upfront: number;
       },
-        { id: number; promo_code?: string; payment_mode?: "full" | "upfront" }
+        { id: number; promo_code?: string; payment_mode?: "full" | "upfront"; quantity?: number }
     >({
-        query: ({ id, promo_code, payment_mode }) => ({ url: `/vouchers/${id}/payment-intent`, method: 'POST', body: { promo_code, payment_mode } }),
+        query: ({ id, promo_code, payment_mode, quantity }) => ({ url: `/vouchers/${id}/payment-intent`, method: 'POST', body: { promo_code, payment_mode, quantity } }),
     }),
     verifyVoucherPayment: builder.mutation<
       any,
-      { voucherId: number; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string; promo_applied?: boolean; allows_installment?: boolean }
+      { voucherId: number; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string; promo_applied?: boolean; allows_installment?: boolean; quantity?: number }
     >({
       query: ({ voucherId, ...body }) => ({
         url: `/vouchers/${voucherId}/verify-payment`,
@@ -122,7 +127,7 @@ export const vouchersApi = baseApi.injectEndpoints({
       },
       providesTags: ['Voucher'],
     }),
-    redeemVoucherByQr: builder.mutation<any, { voucher_id: number; claim_id: number }>({
+    redeemVoucherByQr: builder.mutation<any, { voucher_id: number; claim_id: number; redeem_quantity?: number }>({
       query: (body) => ({ url: '/vouchers/redeem-by-qr', method: 'POST', body }),
       invalidatesTags: ['Voucher'],
     }),
@@ -136,6 +141,7 @@ export const {
   useGetMyCreatedVouchersQuery,
   useClaimVoucherMutation,
   useTransferVoucherMutation,
+  useOwnerTransferVoucherMutation,
   useGetVoucherTransfersQuery,
   useCreateVoucherMutation,
   useUpdateVoucherStatusMutation,
