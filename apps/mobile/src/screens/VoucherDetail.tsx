@@ -363,6 +363,26 @@ const VoucherDetail = () => {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
         }>
         <View className="px-4 py-5 gap-5">
+          {/* Banner + Logo Hero */}
+          <Pressable
+            className="relative h-52 rounded-2xl bg-muted overflow-hidden"
+            onPress={() => setShowBannerPreview(true)}
+          >
+            {/* Logo image */}
+            {voucher.voucher_image ? (
+              <Image source={{ uri: voucher.voucher_image }} className="absolute inset-0 w-full h-full" resizeMode="contain" />
+            ) : (
+              <View className="absolute inset-0 items-center justify-center">
+                <Image source={require("../../assets/Instantlly_Logo-removebg.png")} style={{ width: 140, height: 140 }} resizeMode="contain" />
+              </View>
+            )}
+            {voucher.discount_label && (
+              <Badge className="absolute left-3 top-3 bg-primary text-primary-foreground border-none text-sm px-3 py-1">
+                {voucher.discount_label}
+              </Badge>
+            )}
+          </Pressable>
+
           <View>
             <Text className="text-xl font-bold text-foreground">{voucher.title}</Text>
             {voucher.subtitle ? <Text className="mt-1 text-sm text-muted-foreground">{voucher.subtitle}</Text> : null}
@@ -763,9 +783,9 @@ const VoucherDetail = () => {
         onRequestClose={() => setShowBannerPreview(false)}
       >
         <View className="flex-1 bg-black">
-          {voucher.voucher_banner ? (
+          {voucher.voucher_banner || voucher.voucher_image ? (
             <Image
-              source={{ uri: voucher.voucher_banner }}
+              source={{ uri: (voucher.voucher_banner || voucher.voucher_image) as string }}
               style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%" }}
               resizeMode="contain"
             />
