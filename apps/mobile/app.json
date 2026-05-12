@@ -67,7 +67,7 @@
       "expo-font",
       "expo-updates",
       "expo-contacts",
-      ["./plugins/withGradleWrapper", { "version": "8.10.2" }],
+      ["./plugins/withGradleWrapper", { "version": "8.13" }],
       [
         "expo-notifications",
         {

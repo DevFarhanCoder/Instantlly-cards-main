@@ -36,7 +36,7 @@
         "EXPO_PUBLIC_API_URL": "https://backend.instantllycards.com"
       },
       "cache": {
-        "disabled": false
+        "disabled": true
       }
     }
   },
