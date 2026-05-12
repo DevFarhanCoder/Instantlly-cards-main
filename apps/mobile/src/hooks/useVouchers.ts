@@ -40,6 +40,10 @@ export interface Voucher {
   voucher_banner: string | null;
   what_we_do: string | null;
   website: string | null;
+  instagram: string | null;
+  marketed_by_instantlly: boolean;
+  voucher_start_no: number | null;
+  voucher_end_no: number | null;
   status: string;
   claimed_count: number;
   image_url: string | null;
@@ -121,6 +125,10 @@ const mapVoucher = (v: any): Voucher => {
     voucher_banner: v.voucher_banner ?? null,
     what_we_do: v.what_we_do ?? null,
     website: v.website ?? null,
+    instagram: v.instagram ?? null,
+    marketed_by_instantlly: Boolean(v.marketed_by_instantlly),
+    voucher_start_no: v.voucher_start_no != null ? Number(v.voucher_start_no) : null,
+    voucher_end_no: v.voucher_end_no != null ? Number(v.voucher_end_no) : null,
     status: v.status ?? "active",
     claimed_count: Number(v.claimed_count ?? 0),
     image_url: v.image_url ?? v.voucher_image ?? null,
@@ -156,7 +164,7 @@ export function useVouchers(opts?: { nearMe?: boolean }) {
 
 export function useVoucher(id: string) {
   const voucherId = Number(id);
-  const result = useGetVoucherQuery(voucherId, { skip: !voucherId });
+  const result = useGetVoucherQuery(voucherId, { skip: !voucherId, refetchOnMountOrArgChange: true });
   return {
     ...result,
     data: result.data ? mapVoucher(result.data) : undefined,
@@ -258,6 +266,10 @@ export function useCreateVoucher() {
           voucher_banner: (voucher as any).voucher_banner || undefined,
           what_we_do: (voucher as any).what_we_do || undefined,
           website: (voucher as any).website || undefined,
+          instagram: (voucher as any).instagram || undefined,
+          marketed_by_instantlly: (voucher as any).marketed_by_instantlly === true,
+          voucher_start_no: (voucher as any).voucher_start_no !== undefined && (voucher as any).voucher_start_no !== null && (voucher as any).voucher_start_no !== "" ? Number((voucher as any).voucher_start_no) : undefined,
+          voucher_end_no: (voucher as any).voucher_end_no !== undefined && (voucher as any).voucher_end_no !== null && (voucher as any).voucher_end_no !== "" ? Number((voucher as any).voucher_end_no) : undefined,
           allows_installment: Boolean((voucher as any).allows_installment),
           upfront_amount: (voucher as any).allows_installment ? Number((voucher as any).upfront_amount) : undefined,
           is_popular: Boolean((voucher as any).is_popular),

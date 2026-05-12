@@ -1,10 +1,23 @@
-﻿import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Share, Text, TextInput, View } from "react-native";
-import * as FileSystem from "expo-file-system/legacy";
-import * as Sharing from "expo-sharing";
-import * as Clipboard from "expo-clipboard";
+import { useCallback, useRef, useState } from "react";
+import { Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { ArrowLeft, Clock, Globe, MapPin, Phone, Share2, ShieldCheck, Tag, X } from "lucide-react-native";
+import { ArrowLeft, AtSign, Clock, Globe, MapPin, Phone, Share2, ShieldCheck, Tag, X } from "lucide-react-native";
+import Svg, { Rect, Circle, Defs, LinearGradient, Stop, Path } from "react-native-svg";
+
+const InstagramIcon = ({ size = 16 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Defs>
+      <LinearGradient id="igGrad" x1="0" y1="0" x2="1" y2="1">
+        <Stop offset="0" stopColor="#F58529" />
+        <Stop offset="0.5" stopColor="#DD2A7B" />
+        <Stop offset="1" stopColor="#8134AF" />
+      </LinearGradient>
+    </Defs>
+    <Rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="url(#igGrad)" />
+    <Circle cx="12" cy="12" r="4" fill="none" stroke="#fff" strokeWidth={2} />
+    <Circle cx="17.5" cy="6.5" r="1.2" fill="#fff" />
+  </Svg>
+);
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
@@ -17,7 +30,6 @@ import {
   useVerifyVoucherPaymentMutation,
   useCreateInstallmentPaymentIntentMutation,
   useVerifyInstallmentPaymentMutation,
-  useOwnerTransferVoucherMutation,
 } from "../store/api/vouchersApi";
 import { toast } from "../lib/toast";
 import QRCode from "react-native-qrcode-svg";
@@ -33,15 +45,15 @@ import {
 import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
 
 const emojiMap: Record<string, string> = {
-  travel: "???",
-  beauty: "??",
-  food: "???",
-  health: "??",
-  shopping: "???",
-  entertainment: "??",
-  activities: "??",
-  education: "??",
-  general: "??",
+  travel: "🏖️",
+  beauty: "💆",
+  food: "🍽️",
+  health: "💪",
+  shopping: "🛍️",
+  entertainment: "🎬",
+  activities: "🏄",
+  education: "📚",
+  general: "🎁",
 };
 
 const VoucherDetail = () => {
@@ -57,7 +69,6 @@ const VoucherDetail = () => {
   const [verifyPayment, verifyState] = useVerifyVoucherPaymentMutation();
   const [createInstallmentIntent, installIntentState] = useCreateInstallmentPaymentIntentMutation();
   const [verifyInstallment, verifyInstallState] = useVerifyInstallmentPaymentMutation();
-  const [ownerTransfer] = useOwnerTransferVoucherMutation();
 
   const [showPurchase, setShowPurchase] = useState(false);
   const [showRedemption, setShowRedemption] = useState(false);
@@ -67,15 +78,6 @@ const VoucherDetail = () => {
   const [webViewOptions, setWebViewOptions] = useState<RazorpayCheckoutOptions | null>(null);
   const [webViewMode, setWebViewMode] = useState<"claim" | "installment">("claim");
   const [paymentMode, setPaymentMode] = useState<"full" | "upfront" | null>(null);
-
-  // Quantity the user wants to purchase (min 1)
-  const [purchaseQty, setPurchaseQty] = useState(1);
-
-  // Owner-to-user direct transfer (free)
-  const [showOwnerTransfer, setShowOwnerTransfer] = useState(false);
-  const [ownerTransferPhone, setOwnerTransferPhone] = useState("");
-  const [ownerTransferQty, setOwnerTransferQty] = useState("1");
-  const [ownerTransferLoading, setOwnerTransferLoading] = useState(false);
 
   // Refs so verifyAndClaim always reads latest intent + mode without stale closures
   const intentRef = useRef<any>(null);
@@ -90,23 +92,8 @@ const VoucherDetail = () => {
   // Installment payment state
   const [showInstallmentPay, setShowInstallmentPay] = useState(false);
   const [installmentAmount, setInstallmentAmount] = useState("");
-  const [installmentInfo, setInstallmentInfo] = useState<any>(
-    (route?.params?.installmentInfo as any) || null,
-  );
+  const [installmentInfo, setInstallmentInfo] = useState<any>(null);
   const [showBannerPreview, setShowBannerPreview] = useState(false);
-
-  // Hydrate claimId / installmentInfo from route params when arriving from MyVouchers
-  useEffect(() => {
-    const paramClaimId = route?.params?.claimId;
-    const paramInfo = route?.params?.installmentInfo;
-    if (paramClaimId && claimId == null) setClaimId(Number(paramClaimId));
-    if (paramInfo && !installmentInfo) {
-      setInstallmentInfo(paramInfo);
-      const remaining = Number(paramInfo?.remaining_balance ?? 0);
-      if (remaining > 0) setInstallmentAmount(String(remaining));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route?.params?.claimId, route?.params?.installmentInfo]);
 
   const isProcessing = claimVoucher.isPending || intentState.isLoading || verifyState.isLoading ||
     installIntentState.isLoading || verifyInstallState.isLoading;
@@ -130,7 +117,7 @@ const VoucherDetail = () => {
   if (!voucher) {
     return (
       <View className="flex-1 items-center justify-center">
-        <Text className="text-5xl mb-3">??</Text>
+        <Text className="text-5xl mb-3">🔍</Text>
         <Text className="text-muted-foreground">Voucher not found</Text>
         <Button variant="outline" className="mt-3" onPress={() => navigation.goBack()}>
           Go back
@@ -150,24 +137,11 @@ const VoucherDetail = () => {
       : expiryDays === 0
       ? "Expires today"
       : `${expiryDays} days left`;
-
-  // Remaining vouchers in the pool (null = unlimited)
-  const remainingVouchers: number | null =
-    voucher.max_claims != null ? Math.max(0, voucher.max_claims - voucher.claimed_count) : null;
-
-  // Is the current user the voucher owner (business promotion owner)?
-  const isVoucherOwner =
-    user?.id != null &&
-    voucher.business_promotion_owner_id != null &&
-    user.id === voucher.business_promotion_owner_id;
-
-  // Per-unit price; multiply by purchaseQty for total
-  const pricePerUnit = promoApplied && intentData ? Number(intentData.price_per_unit ?? intentData.applicable_price) : Number(voucher.original_price);
-  const applicablePrice = promoApplied && intentData ? Number(intentData.applicable_price) : Number(voucher.original_price) * purchaseQty;
+  const applicablePrice = promoApplied && intentData ? Number(intentData.applicable_price) : Number(voucher.original_price);
   const remainingAfterUpfront = voucher.allows_installment
     ? promoApplied && intentData
-      ? Number(intentData.remaining_after_upfront ?? Math.max(0, applicablePrice - Number(voucher.upfront_amount ?? 0) * purchaseQty))
-      : Math.max(0, Number(voucher.original_price) * purchaseQty - Number(voucher.upfront_amount ?? 0) * purchaseQty)
+      ? Number(intentData.remaining_after_upfront ?? Math.max(0, applicablePrice - Number(voucher.upfront_amount ?? 0)))
+      : Math.max(0, Number(voucher.original_price) - Number(voucher.upfront_amount ?? 0))
     : 0;
 
   const finishClaim = (cId: string | number, installmentDetails?: any) => {
@@ -182,13 +156,13 @@ const VoucherDetail = () => {
     if (!voucher) return;
     if (!promoCode.trim()) { setPromoError("Enter a promo code"); return; }
     try {
-      const intent = await createIntent({ id: Number(voucher.id), promo_code: promoCode.trim().toUpperCase(), quantity: purchaseQty }).unwrap();
+      const intent = await createIntent({ id: Number(voucher.id), promo_code: promoCode.trim().toUpperCase() }).unwrap();
       if (intent.promo_applied) {
         setIntentData(intent);
         setPromoApplied(true);
         intentRef.current = intent;
         setPromoError("");
-        toast.success(`Promo applied! You save ₹${formatINR(voucher.original_price * purchaseQty - intent.applicable_price)}`);
+        toast.success(`Promo applied! You save ₹${formatINR(voucher.original_price - intent.applicable_price)}`);
       } else {
         setPromoError("Invalid promo code");
       }
@@ -210,9 +184,8 @@ const VoucherDetail = () => {
         razorpay_signature: payment.razorpay_signature,
         promo_applied: latestIntent?.promo_applied ?? false,
         allows_installment: isPayingUpfront,
-        quantity: purchaseQty,
       }).unwrap();
-      toast.success("Voucher claimed!");
+      toast.success("Voucher claimed! 🎉");
       setPaymentMode(null);
       finishClaim(result.id, result.installment);
     } catch (e: any) {
@@ -233,7 +206,7 @@ const VoucherDetail = () => {
         amount: amt,
       }).unwrap();
       toast.success(result.installment_status === "completed"
-        ? "Balance fully paid! \u2705"
+        ? "Balance fully paid! 🎉"
         : `₹${formatINR(amt)} paid. Remaining: ₹${formatINR(Number(result.remaining_balance))}`);
       setShowInstallmentPay(false);
       setInstallmentInfo({ ...installmentInfo, remaining_balance: result.remaining_balance });
@@ -262,13 +235,14 @@ const VoucherDetail = () => {
       return;
     }
 
-    // Paid voucher � create order + open Razorpay
+    // Paid voucher — create order + open Razorpay
     try {
       // Always create a fresh intent for the selected payment mode.
       const intent = await createIntent({
         id: Number(voucher.id),
         payment_mode: mode === "upfront" ? "upfront" : "full",
-        promo_code: promoApplied ? promoCode.trim().toUpperCase() : undefined,        quantity: purchaseQty,      }).unwrap();
+        promo_code: promoApplied ? promoCode.trim().toUpperCase() : undefined,
+      }).unwrap();
       setIntentData(intent);
       // Keep refs in sync so verifyAndClaim always reads the latest intent & mode
       intentRef.current = intent;
@@ -343,7 +317,7 @@ const VoucherDetail = () => {
         currency: intent.currency,
         order_id: intent.order_id,
         name: voucher?.title || "Voucher",
-        description: `Installment payment � ${intent.voucher_title}`,
+        description: `Installment payment — ${intent.voucher_title}`,
         prefill: { name: user?.name || undefined, contact: user?.phone || undefined },
         theme: { color: "#2463eb" },
       };
@@ -373,66 +347,6 @@ const VoucherDetail = () => {
     }
   };
 
-  const handleShare = async () => {
-    const playStoreUrl = `https://play.google.com/store/apps/details?id=com.instantllycards.www.twa`;
-    const titleText = voucher?.title ?? `Voucher`;
-    const message = `\uD83D\uDCF1 Download Instantlly Cards:\n${playStoreUrl}`;
-    const imageUrl = voucher?.voucher_banner || voucher?.banner_url || voucher?.voucher_image || voucher?.image_url || null;
-    if (imageUrl) {
-      try {
-        const ext = (imageUrl.split(`.`).pop()?.split(`?`)[0] ?? `jpg`).substring(0, 4);
-        const localUri = `${FileSystem.cacheDirectory}share-${voucher?.id}.${ext}`;
-        const dl = await FileSystem.downloadAsync(imageUrl, localUri);
-        if (dl.status === 200) {
-          // Try react-native-share (production build) — shares image + text together.
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const RNShare = require("react-native-share").default;
-            const base64 = await FileSystem.readAsStringAsync(dl.uri, { encoding: FileSystem.EncodingType.Base64 });
-            await RNShare.open({
-              title: titleText,
-              message,
-              url: `data:image/${ext === `jpg` ? `jpeg` : ext};base64,${base64}`,
-              failOnCancel: false,
-            });
-            return;
-          } catch (rnErr) {
-            // Expo Go or RNShare unavailable — fall back to expo-sharing (image only) + clipboard text
-            console.log(`[SHARE] RNShare unavailable, using expo-sharing fallback`);
-          }
-          await Clipboard.setStringAsync(message);
-          await Sharing.shareAsync(dl.uri, { dialogTitle: titleText, mimeType: `image/${ext === `jpg` ? `jpeg` : ext}` });
-          return;
-        }
-      } catch (err) {
-        console.log(`[SHARE] image share failed:`, err);
-      }
-    }
-    try { await Share.share({ title: titleText, message }); } catch (_) {}
-  };
-
-  const handleOwnerTransfer = async () => {
-    if (!voucher) return;
-    const qty = parseInt(ownerTransferQty, 10);
-    if (!ownerTransferPhone.trim()) { toast.error("Enter recipient phone number"); return; }
-    if (!qty || qty < 1) { toast.error("Enter a valid quantity"); return; }
-    if (remainingVouchers !== null && qty > remainingVouchers) {
-      toast.error(`Only ${remainingVouchers} voucher(s) left in the pool`); return;
-    }
-    setOwnerTransferLoading(true);
-    try {
-      await ownerTransfer({ id: Number(voucher.id), recipient_phone: ownerTransferPhone.trim(), quantity: qty }).unwrap();
-      toast.success(`${qty} voucher(s) transferred successfully!`);
-      setShowOwnerTransfer(false);
-      setOwnerTransferPhone("");
-      setOwnerTransferQty("1");
-      await refetchVoucher();
-    } catch (e: any) {
-      toast.error(e?.data?.error || e?.message || "Transfer failed");
-    } finally {
-      setOwnerTransferLoading(false);
-    }
-  };
   return (
     <View className="flex-1 bg-background">
       <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-4">
@@ -440,7 +354,7 @@ const VoucherDetail = () => {
           <ArrowLeft size={20} color={iconColor} />
         </Pressable>
         <Text className="text-lg font-bold text-foreground">Voucher Details</Text>
-        <Pressable onPress={handleShare}>
+        <Pressable>
           <Share2 size={20} color="#6a7181" />
         </Pressable>
       </View>
@@ -449,63 +363,24 @@ const VoucherDetail = () => {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
         }>
         <View className="px-4 py-5 gap-5">
-          {/* Banner + Logo Hero */}
-          <Pressable
-            className="relative h-52 rounded-2xl bg-muted overflow-hidden"
-            onPress={() => setShowBannerPreview(true)}
-          >
-            {/* Logo image */}
-            {voucher.voucher_image ? (
-              <Image source={{ uri: voucher.voucher_image }} className="absolute inset-0 w-full h-full" resizeMode="contain" />
-            ) : (
-              <View className="absolute inset-0 items-center justify-center">
-                <Image source={require("../../assets/Instantlly_Logo-removebg.png")} style={{ width: 140, height: 140 }} resizeMode="contain" />
-              </View>
-            )}
-            {/* Gradient overlay for readability */}
-            <View className="absolute bottom-0 left-0 right-0 h-24" style={{ backgroundColor: "transparent" }} />
-            {voucher.discount_label && (
-              <Badge className="absolute left-3 top-3 bg-primary text-primary-foreground border-none text-sm px-3 py-1">
-                {voucher.discount_label}
-              </Badge>
-            )}
-            <View className="absolute bottom-3 left-3 flex-row items-center gap-1 rounded-full bg-background/80 px-3 py-1">
-              <Clock size={12} color={iconColor} />
-              <Text className="text-xs font-medium text-foreground">{expiryLabel}</Text>
-            </View>
-          </Pressable>
-
-          {/* Title + Price */}
           <View>
             <Text className="text-xl font-bold text-foreground">{voucher.title}</Text>
             {voucher.subtitle ? <Text className="mt-1 text-sm text-muted-foreground">{voucher.subtitle}</Text> : null}
             <View className="mt-3 flex-row items-center gap-3">
               <Text className="text-2xl font-bold text-primary">
-                ₹{formatINR(pricePerUnit)}
+                ₹{formatINR(applicablePrice)}
               </Text>
-              <Text className="text-sm text-muted-foreground">per voucher</Text>
-              {promoApplied && pricePerUnit < voucher.original_price && (
+              {promoApplied && applicablePrice < voucher.original_price && (
                 <>
                   <Text className="text-lg text-muted-foreground line-through">
                     ₹{formatINR(voucher.original_price)}
                   </Text>
                   <Badge className="bg-green-500/10 text-green-600 border-none">
-                    Save ₹{formatINR(voucher.original_price - pricePerUnit)}/each
+                    Save ₹{formatINR(voucher.original_price - applicablePrice)}
                   </Badge>
                 </>
               )}
             </View>
-            {remainingVouchers !== null && (
-              <View className="mt-2">
-                {remainingVouchers === 0 ? (
-                  <Badge className="bg-red-100 text-red-600 border-none self-start">Sold Out</Badge>
-                ) : remainingVouchers <= 10 ? (
-                  <Badge className="bg-amber-100 text-amber-700 border-none self-start">Only {remainingVouchers} left</Badge>
-                ) : (
-                  <Badge className="bg-green-100 text-green-700 border-none self-start">{remainingVouchers} available</Badge>
-                )}
-              </View>
-            )}
           </View>
 
           {/* Installment Info (when voucher supports it) */}
@@ -513,7 +388,7 @@ const VoucherDetail = () => {
             <View className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-4 gap-2">
               <Text className="text-sm font-semibold text-amber-800 dark:text-amber-300">Installment Available</Text>
               <Text className="text-xs text-amber-700 dark:text-amber-400">
-                Pay ₹{formatINR(Number(voucher.upfront_amount) * purchaseQty)} now to claim {purchaseQty > 1 ? `${purchaseQty} vouchers` : "this voucher"}. Remaining ₹{formatINR(remainingAfterUpfront)} due within 30 days.
+                Pay ₹{formatINR(Number(voucher.upfront_amount))} now to claim. Remaining ₹{formatINR(remainingAfterUpfront)} due pay within next 30 days.
               </Text>
             </View>
           )}
@@ -553,7 +428,7 @@ const VoucherDetail = () => {
           )}
 
           {/* Business Info */}
-          {(voucher.company_name || voucher.phone_number || voucher.address || (voucher as any).city || voucher.what_we_do || voucher.website) && (
+          {(voucher.company_name || voucher.phone_number || voucher.address || (voucher as any).city || (voucher as any).pincode || voucher.what_we_do || voucher.website || voucher.instagram) && (
             <View className="rounded-xl border border-border bg-card p-4 gap-3">
               <Text className="text-sm font-semibold text-foreground">About the Business</Text>
               {voucher.company_name && (
@@ -589,11 +464,11 @@ const VoucherDetail = () => {
                   <Text className="flex-1 text-sm text-muted-foreground underline">{voucher.address}</Text>
                 </Pressable>
               )}
-              {(voucher as any).city && (
+              {((voucher as any).city || (voucher as any).pincode) && (
                 <View className="flex-row items-center gap-2">
                   <MapPin size={14} color={iconColor} />
                   <Text className="text-sm text-muted-foreground">
-                    {(voucher as any).city}{(voucher as any).pincode ? ` - ${(voucher as any).pincode}` : ""}
+                    {(voucher as any).city}{(voucher as any).city && (voucher as any).pincode ? " - " : ""}{(voucher as any).pincode}
                   </Text>
                 </View>
               )}
@@ -610,6 +485,21 @@ const VoucherDetail = () => {
                   <Text className="text-sm text-primary underline">{voucher.website}</Text>
                 </Pressable>
               ) : null}
+              {voucher.instagram ? (() => {
+                const raw = String(voucher.instagram).trim();
+                const isUrl = /^https?:\/\//i.test(raw);
+                const displayText = isUrl ? raw : `@${raw.replace(/^@/, "")}`;
+                const linkUrl = isUrl ? raw : `https://instagram.com/${raw.replace(/^@/, "")}`;
+                return (
+                  <Pressable
+                    className="flex-row items-center gap-2"
+                    onPress={() => { Linking.openURL(linkUrl).catch(() => {}); }}
+                  >
+                    <InstagramIcon size={16} />
+                    <Text className="text-sm text-primary underline">{displayText}</Text>
+                  </Pressable>
+                );
+              })() : null}
             </View>
           )}
 
@@ -623,16 +513,49 @@ const VoucherDetail = () => {
               </View>
               <View className="gap-1.5">
                 {voucher.terms
-                  .split(/(?:\r?\n)+|(?<=[.!?])\s+(?=[A-Z?])/)
+                  .split(/(?:\r?\n)+|(?<=[.!?])\s+(?=[A-Z₹])/)
                   .map((s) => s.trim())
                   .filter((s) => s.length > 0)
                   .map((line, idx) => (
-                    <View key={idx} className="flex-row gap-2">
-                      <Text className="text-xs text-muted-foreground">�</Text>
+                    <View key={idx} className="flex-row items-start gap-2">
+                      <View
+                        style={{
+                          width: 4,
+                          height: 4,
+                          borderRadius: 2,
+                          backgroundColor: "#6b7280",
+                          marginTop: 6,
+                        }}
+                      />
                       <Text className="flex-1 text-xs text-muted-foreground">{line}</Text>
                     </View>
                   ))}
               </View>
+            </View>
+          )}
+
+          {(voucher as any).marketed_by_instantlly && (
+            <View className="rounded-xl border border-border bg-card p-4 gap-3">
+              <View className="flex-row items-center gap-2">
+                <ShieldCheck size={16} color="#2463eb" />
+                <Text className="text-sm font-semibold text-foreground">
+                  Marketed By: Instantlly Cards
+                </Text>
+              </View>
+              <Pressable
+                className="flex-row items-center gap-2"
+                onPress={() => { Linking.openURL("https://www.instantlly.com").catch(() => {}); }}
+              >
+                <Globe size={14} color="#2463eb" />
+                <Text className="text-sm text-primary underline">www.instantlly.com</Text>
+              </Pressable>
+              <Pressable
+                className="flex-row items-center gap-2"
+                onPress={() => { Linking.openURL("tel:9833752025").catch(() => {}); }}
+              >
+                <Phone size={14} color={iconColor} />
+                <Text className="text-sm text-primary underline">9833752025</Text>
+              </Pressable>
             </View>
           )}
 
@@ -655,37 +578,21 @@ const VoucherDetail = () => {
       </ScrollView>
 
       <View className="border-t border-border bg-card px-4 py-3">
-        {isVoucherOwner ? (
-          <View className="gap-2">
-            <Button
-              variant="outline"
-              className="w-full rounded-xl py-4 border-primary"
-              onPress={() => setShowOwnerTransfer(true)}
-            >
-              <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "700" }}>
-                Transfer Vouchers {remainingVouchers !== null ? `(${remainingVouchers} left)` : ""}
-              </Text>
-            </Button>
-          </View>
-        ) : (
-          <Button
-            className="w-full rounded-xl py-4"
-            onPress={() => setShowPurchase(true)}
-            disabled={isProcessing || (expiryDays !== null && expiryDays < 0) || remainingVouchers === 0}
-          >
-            <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: "700" }}>
-              {expiryDays !== null && expiryDays < 0
-                ? "Voucher Expired"
-                : remainingVouchers === 0
-                ? "Sold Out"
-                : promoApplied
-                  ? voucher.allows_installment
-                    ? `Claim Now — ₹${formatINR(applicablePrice)} (Pay ₹${formatINR(Number(voucher.upfront_amount) * purchaseQty)} Upfront)`
-                    : `Claim Voucher — ₹${formatINR(applicablePrice)}`
-                  : "Claim Voucher"}
-            </Text>
-          </Button>
-        )}
+        <Button
+          className="w-full rounded-xl py-4"
+          onPress={() => setShowPurchase(true)}
+          disabled={isProcessing || (expiryDays !== null && expiryDays < 0)}
+        >
+          <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: "700" }}>
+            {expiryDays !== null && expiryDays < 0
+              ? "Voucher Expired"
+              : promoApplied
+                ? voucher.allows_installment
+                  ? `Claim Now — ₹${formatINR(applicablePrice)} (Pay ₹${formatINR(Number(voucher.upfront_amount))} Upfront)`
+                  : `Claim Voucher — ₹${formatINR(applicablePrice)}`
+                : "Claim Voucher"}
+          </Text>
+        </Button>
       </View>
 
       <Dialog open={showPurchase} onOpenChange={setShowPurchase}>
@@ -695,51 +602,11 @@ const VoucherDetail = () => {
             <DialogDescription>
               {promoApplied
                 ? voucher.allows_installment
-                  ? `₹${formatINR(applicablePrice)} total — Pay ₹${formatINR(Number(voucher.upfront_amount) * purchaseQty)} now and the rest within 30 days.`
-                  : `You're about to claim ${purchaseQty}× ${voucher.title} for ₹${formatINR(applicablePrice)}`
+                  ? `₹${formatINR(applicablePrice)} total — Pay ₹${formatINR(Number(voucher.upfront_amount))} now and the rest within 30 days.`
+                  : `You're about to claim ${voucher.title} for ₹${formatINR(applicablePrice)}`
                 : `You're about to claim ${voucher.title}`}
             </DialogDescription>
           </DialogHeader>
-
-          {/* Quantity Selector */}
-          <View className="gap-2">
-            <View className="flex-row items-center justify-between">
-              <Text className="text-sm font-semibold text-foreground">Quantity</Text>
-              {remainingVouchers !== null && (
-                <Text className="text-xs text-muted-foreground">{remainingVouchers} available</Text>
-              )}
-            </View>
-            <View className="flex-row items-center gap-3">
-              <Pressable
-                onPress={() => {
-                  const next = Math.max(1, purchaseQty - 1);
-                  setPurchaseQty(next);
-                  if (promoApplied) { setPromoApplied(false); setPromoCode(""); setIntentData(null); }
-                }}
-                style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: themeColors.border, alignItems: "center", justifyContent: "center" }}
-              >
-                <Text style={{ fontSize: 20, color: themeColors.foreground }}>−</Text>
-              </Pressable>
-              <Text className="text-lg font-bold text-foreground w-8 text-center">{purchaseQty}</Text>
-              <Pressable
-                onPress={() => {
-                  const maxQty = remainingVouchers !== null ? remainingVouchers : 999;
-                  const next = Math.min(maxQty, purchaseQty + 1);
-                  setPurchaseQty(next);
-                  if (promoApplied) { setPromoApplied(false); setPromoCode(""); setIntentData(null); }
-                }}
-                disabled={remainingVouchers !== null && purchaseQty >= remainingVouchers}
-                style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: themeColors.border, alignItems: "center", justifyContent: "center" }}
-              >
-                <Text style={{ fontSize: 20, color: themeColors.foreground }}>+</Text>
-              </Pressable>
-              {purchaseQty > 1 && (
-                <Text className="text-xs text-muted-foreground">
-                  ₹{formatINR(Number(voucher.original_price))} × {purchaseQty}
-                </Text>
-              )}
-            </View>
-          </View>
 
           {/* Promo Code Input in Dialog */}
           {voucher.code && !promoApplied && (
@@ -767,7 +634,7 @@ const VoucherDetail = () => {
 
           {promoApplied && (
             <View className="rounded-lg bg-green-50 dark:bg-green-950/20 px-3 py-2 flex-row items-center justify-between">
-              <Text className="text-sm text-green-600 dark:text-green-400 font-semibold">✔️ {promoCode} applied!</Text>
+              <Text className="text-sm text-green-600 dark:text-green-400 font-semibold">✅ {promoCode} applied!</Text>
               <Pressable onPress={() => { setPromoApplied(false); setPromoCode(""); setIntentData(null); }}>
                 <Text className="text-xs text-green-600 dark:text-green-400 underline">Remove</Text>
               </Pressable>
@@ -776,40 +643,31 @@ const VoucherDetail = () => {
 
           <View className="rounded-xl bg-muted p-3 gap-2">
             <View className="flex-row items-center justify-between">
-              <Text className="text-sm font-medium text-foreground">
-                {purchaseQty > 1 ? `Total (${purchaseQty} vouchers)` : "Pay Now"}
-              </Text>
+              <Text className="text-sm font-medium text-foreground">Pay Now</Text>
               <Text className="text-lg font-bold text-primary">
-                ₹{formatINR(promoApplied && intentData ? Number(intentData.applicable_price) : Number(voucher.original_price) * purchaseQty)}
+                ₹{formatINR(voucher.original_price)}
               </Text>
             </View>
 
-            {purchaseQty > 1 && !promoApplied && (
-              <View className="flex-row items-center justify-between">
-                <Text className="text-xs text-muted-foreground">Per voucher</Text>
-                <Text className="text-xs text-muted-foreground">₹{formatINR(Number(voucher.original_price))}</Text>
-              </View>
-            )}
-
-            {promoApplied && intentData && (
+            {promoApplied && (
               <>
                 <View className="flex-row items-center justify-between border-t border-border pt-2">
-                  <Text className="text-xs text-muted-foreground">Original ({purchaseQty} × ₹{formatINR(Number(voucher.original_price))})</Text>
-                  <Text className="text-xs text-muted-foreground line-through">₹{formatINR(Number(voucher.original_price) * purchaseQty)}</Text>
+                  <Text className="text-xs text-green-600 dark:text-green-400 font-semibold">Promo Applied</Text>
+                  <Text className="text-xs text-green-600 dark:text-green-400 font-semibold">{promoCode}</Text>
                 </View>
 
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-xs text-green-600 dark:text-green-400 font-semibold">Promo discount ({promoCode})</Text>
-                  <Text className="text-xs font-semibold text-green-600 dark:text-green-400">
-                    − ₹{formatINR(Number(voucher.original_price) * purchaseQty - Number(intentData.applicable_price))}
+                  <Text className="text-xs text-green-600 dark:text-green-400 font-semibold">Discounted Price</Text>
+                  <Text className="text-sm font-bold text-green-600 dark:text-green-400">
+                    ₹{formatINR(applicablePrice)}
                   </Text>
                 </View>
 
                 {voucher.allows_installment && (
-                  <View className="flex-row items-center justify-between border-t border-border pt-2">
-                    <Text className="text-xs text-muted-foreground">Pay upfront now</Text>
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-xs text-muted-foreground">Pay Upfront</Text>
                     <Text className="text-xs font-semibold text-foreground">
-                      ₹{formatINR(Number(voucher.upfront_amount ?? 0) * purchaseQty)}
+                      ₹{formatINR(Number(voucher.upfront_amount))}
                     </Text>
                   </View>
                 )}
@@ -821,10 +679,8 @@ const VoucherDetail = () => {
               <>
                 {(() => {
                   const RAZORPAY_MAX = 500000; // ₹5,00,000 single-payment cap
-                  const totalNow = promoApplied && intentData ? Number(intentData.applicable_price) : Number(voucher.original_price) * purchaseQty;
-                  const upfrontNow = Number(voucher.upfront_amount ?? 0) * purchaseQty;
-                  const fullExceedsLimit = totalNow > RAZORPAY_MAX;
-                  const upfrontExceedsLimit = upfrontNow > RAZORPAY_MAX;
+                  const fullExceedsLimit = Number(applicablePrice) > RAZORPAY_MAX;
+                  const upfrontExceedsLimit = Number(voucher.upfront_amount ?? 0) > RAZORPAY_MAX;
                   const showFullButton = !fullExceedsLimit;
                   const showInstallmentButton = voucher.allows_installment && !upfrontExceedsLimit;
                   return (
@@ -832,7 +688,7 @@ const VoucherDetail = () => {
                       {showFullButton && (
                         <Button className="w-full rounded-xl" onPress={() => handlePurchase("full")} disabled={isProcessing}>
                           <Text style={{ color: colors.primaryForeground, fontWeight: "600" }}>
-                            {isProcessing ? "Processing..." : `Pay ₹${formatINR(totalNow)}`}
+                            {isProcessing ? "Processing..." : `Pay ₹${formatINR(applicablePrice)}`}
                           </Text>
                         </Button>
                       )}
@@ -840,7 +696,7 @@ const VoucherDetail = () => {
                       {showInstallmentButton && (
                         <Button className="w-full rounded-xl bg-orange-500" onPress={() => handlePurchase("upfront")} disabled={isProcessing}>
                           <Text style={{ color: "#fff", fontWeight: "600" }}>
-                            {isProcessing ? "Processing..." : `Pay Upfront ₹${formatINR(upfrontNow)}`}
+                            {isProcessing ? "Processing..." : `Pay Upfront ₹${formatINR(Number(voucher.upfront_amount ?? 0))}`}
                           </Text>
                         </Button>
                       )}
@@ -848,7 +704,7 @@ const VoucherDetail = () => {
                       {fullExceedsLimit && voucher.allows_installment && (
                         <View className="rounded-lg bg-amber-50 dark:bg-amber-950/20 px-3 py-2">
                           <Text className="text-xs text-amber-700 dark:text-amber-400">
-                            Full payment over ?5,00,000 isn't supported online. Pay upfront now and the rest in installments.
+                            Full payment over ₹5,00,000 isn't supported online. Pay upfront now and the rest in installments.
                           </Text>
                         </View>
                       )}
@@ -856,7 +712,7 @@ const VoucherDetail = () => {
                       {fullExceedsLimit && !voucher.allows_installment && (
                         <View className="rounded-lg bg-amber-50 dark:bg-amber-950/20 px-3 py-2">
                           <Text className="text-xs text-amber-700 dark:text-amber-400">
-                            This voucher's price exceeds the online payment limit of ?5,00,000. Please contact the business directly.
+                            This voucher's price exceeds the online payment limit of ₹5,00,000. Please contact the business directly.
                           </Text>
                         </View>
                       )}
@@ -873,81 +729,8 @@ const VoucherDetail = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Owner Transfer Dialog */}
-      <Dialog open={showOwnerTransfer} onOpenChange={setShowOwnerTransfer}>
+      <Dialog open={showRedemption} onOpenChange={setShowRedemption}>
         <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Transfer Vouchers</DialogTitle>
-            <DialogDescription>
-              Gift vouchers directly to a user — no payment required.
-              {remainingVouchers !== null ? ` (${remainingVouchers} remaining in pool)` : ""}
-            </DialogDescription>
-          </DialogHeader>
-          <View className="gap-3">
-            <View className="gap-1">
-              <Text className="text-xs font-semibold text-foreground">Recipient Phone Number</Text>
-              <TextInput
-                className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-                placeholder="+91 9876543210"
-                placeholderTextColor={themeColors.mutedForeground}
-                keyboardType="phone-pad"
-                value={ownerTransferPhone}
-                onChangeText={setOwnerTransferPhone}
-              />
-            </View>
-            <View className="gap-1">
-              <Text className="text-xs font-semibold text-foreground">
-                Quantity {remainingVouchers !== null ? `(max ${remainingVouchers})` : ""}
-              </Text>
-              <View className="flex-row items-center gap-3">
-                <Pressable
-                  onPress={() => setOwnerTransferQty((v) => String(Math.max(1, parseInt(v, 10) - 1)))}
-                  style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: themeColors.border, alignItems: "center", justifyContent: "center" }}
-                >
-                  <Text style={{ fontSize: 20, color: themeColors.foreground }}>−</Text>
-                </Pressable>
-                <TextInput
-                  className="w-16 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground text-center"
-                  keyboardType="number-pad"
-                  value={ownerTransferQty}
-                  onChangeText={(v) => {
-                    const n = parseInt(v, 10);
-                    if (!isNaN(n) && n >= 1) {
-                      setOwnerTransferQty(String(remainingVouchers !== null ? Math.min(n, remainingVouchers) : n));
-                    } else if (v === "") {
-                      setOwnerTransferQty("");
-                    }
-                  }}
-                />
-                <Pressable
-                  onPress={() => {
-                    const cur = parseInt(ownerTransferQty, 10) || 1;
-                    const next = remainingVouchers !== null ? Math.min(cur + 1, remainingVouchers) : cur + 1;
-                    setOwnerTransferQty(String(next));
-                  }}
-                  style={{ width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: themeColors.border, alignItems: "center", justifyContent: "center" }}
-                >
-                  <Text style={{ fontSize: 20, color: themeColors.foreground }}>+</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-          <DialogFooter>
-            <View className="gap-2 w-full">
-              <Button className="w-full rounded-xl" onPress={handleOwnerTransfer} disabled={ownerTransferLoading}>
-                <Text style={{ color: colors.primaryForeground, fontWeight: "600" }}>
-                  {ownerTransferLoading ? "Transferring..." : `Transfer ${ownerTransferQty} Voucher(s)`}
-                </Text>
-              </Button>
-              <Button variant="outline" className="w-full rounded-xl" onPress={() => setShowOwnerTransfer(false)}>
-                Cancel
-              </Button>
-            </View>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showRedemption} onOpenChange={setShowRedemption}>        <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Your Voucher is Ready!</DialogTitle>
             <DialogDescription>
@@ -955,7 +738,7 @@ const VoucherDetail = () => {
             </DialogDescription>
           </DialogHeader>
           <View className="items-center py-4">
-            <QRCode value={`instantllycards://voucher/${voucher.id}/claim/${claimReference}`} size={160} />
+            <QRCode value={`instantly://voucher/${voucher.id}/claim/${claimReference}`} size={160} />
             <Text className="mt-3 text-sm font-mono font-bold text-foreground">
               REF: {claimReference}
             </Text>
@@ -980,9 +763,9 @@ const VoucherDetail = () => {
         onRequestClose={() => setShowBannerPreview(false)}
       >
         <View className="flex-1 bg-black">
-          {voucher.voucher_image ? (
+          {voucher.voucher_banner ? (
             <Image
-              source={{ uri: voucher.voucher_image }}
+              source={{ uri: voucher.voucher_banner }}
               style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%" }}
               resizeMode="contain"
             />

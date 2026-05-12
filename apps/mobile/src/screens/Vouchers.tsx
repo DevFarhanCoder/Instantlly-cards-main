@@ -1,5 +1,5 @@
-﻿import { useCallback, useMemo, useState } from "react";
-import { Image, Modal, Pressable, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Modal, Pressable, Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ChevronDown, ChevronRight, Clock, Filter, MapPin, Search, Ticket, Users, X } from "lucide-react-native";
 import { Badge } from "../components/ui/badge";
@@ -44,7 +44,7 @@ const Vouchers = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [tab, setTab] = useState<"near" | "all">("near");
-  const { city: userCity, isLoading: locationLoading, isManual, permissionDenied } = useAppLocation();
+  const { city: userCity, state: userState, isLoading: locationLoading, isManual, permissionDenied } = useAppLocation();
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const { data: vouchers = [], isLoading, isFetching, refetch: refetchVouchers } = useVouchers({ nearMe: tab === "near" });
   const [bannerVoucher, setBannerVoucher] = useState<Voucher | null>(null);
@@ -102,6 +102,11 @@ const Vouchers = () => {
             <ChevronDown size={16} color={colors.foreground} />
           </View>
         </View>
+        {userState && !locationLoading ? (
+          <View style={{ backgroundColor: colors.muted, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, maxWidth: 100 }}>
+            <Text style={{ fontSize: 10, color: colors.mutedForeground, fontWeight: "600" }} numberOfLines={1}>{userState}</Text>
+          </View>
+        ) : null}
         <Button size="sm" variant="outline" className="gap-1" onPress={() => navigation.navigate("MyVouchers")}>
           <Ticket size={14} color={iconColor} />
           <Text style={{ fontSize: 12, fontWeight: "600" }}>My Vouchers</Text>
@@ -109,26 +114,60 @@ const Vouchers = () => {
       </Pressable>
       <LocationPickerModal visible={showLocationPicker} onClose={() => setShowLocationPicker(false)} />
 
-
       {/* Near Me / All tabs */}
-      <View style={{ flexDirection: "row", backgroundColor: "#ffffff", borderBottomWidth: 1, borderBottomColor: "#e5e7eb" }}>
+      <View
+        style={{
+          flexDirection: "row",
+          backgroundColor: "#ffffff",
+          borderBottomWidth: 1,
+          borderBottomColor: "#e5e7eb",
+        }}
+      >
         <Pressable
           onPress={() => setTab("near")}
-          style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 12, borderBottomWidth: tab === "near" ? 2 : 0, borderBottomColor: "#2563eb" }}
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            paddingVertical: 12,
+            borderBottomWidth: tab === "near" ? 2 : 0,
+            borderBottomColor: "#2563eb",
+          }}
         >
-          <Text style={{ fontSize: 14, fontWeight: "600", color: tab === "near" ? "#2563eb" : "#6b7280" }}>
-            {`Near Me${userCity ? " (" + userCity + ")" : ""}`}
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: "600",
+              color: tab === "near" ? "#2563eb" : "#6b7280",
+            }}
+          >
+            Near Me{userCity ? ` (${userCity})` : ""}
           </Text>
         </Pressable>
         <Pressable
           onPress={() => setTab("all")}
-          style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 12, borderBottomWidth: tab === "all" ? 2 : 0, borderBottomColor: "#2563eb" }}
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            paddingVertical: 12,
+            borderBottomWidth: tab === "all" ? 2 : 0,
+            borderBottomColor: "#2563eb",
+          }}
         >
-          <Text style={{ fontSize: 14, fontWeight: "600", color: tab === "all" ? "#2563eb" : "#6b7280" }}>
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: "600",
+              color: tab === "all" ? "#2563eb" : "#6b7280",
+            }}
+          >
             All
           </Text>
         </Pressable>
-      </View>      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }} refreshControl={
+      </View>
+
+      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }} refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
         }>
         <View className="px-4 py-4 gap-5">
@@ -185,14 +224,17 @@ const Vouchers = () => {
                     <Pressable
                       key={v.id}
                       className="w-64 overflow-hidden rounded-xl bg-card shadow-sm"
-                    onPress={() => setBannerVoucher(v)}
-                  >
-                    <View className="relative h-36 items-center justify-center bg-muted">
-                      {v.voucher_image ? (
-                        <Image source={{ uri: v.voucher_image }} className="w-full h-full" resizeMode="contain" />
-                      ) : (
-                        <Image source={require("../../assets/Instantlly_Logo-removebg.png")} style={{ width: 80, height: 80 }} resizeMode="contain" />
-                      )}
+                      onPress={() => navigation.navigate("VoucherDetail", { id: v.id })}
+                    >
+                      <View className="relative h-36 items-center justify-center bg-muted">
+                        {/* banner > image_url, never both */}
+                        {(v as any).banner_url ? (
+                          <Image source={{ uri: (v as any).banner_url }} style={{ position: "absolute", width: "100%", height: "100%" }} resizeMode="cover" />
+                        ) : (v as any).image_url ? (
+                          <Image source={{ uri: (v as any).image_url }} style={{ position: "absolute", width: "100%", height: "100%" }} resizeMode="cover" />
+                        ) : (
+                          <Text className="text-6xl">{emojiImages[v.category] || "🎁"}</Text>
+                        )}
                         {v.discount_label && (
                           <Badge className="absolute left-2 top-2 bg-primary text-primary-foreground border-none text-xs">
                             <Text className="text-[11px] font-semibold text-primary-foreground" numberOfLines={1}>
@@ -262,13 +304,16 @@ const Vouchers = () => {
                   <Pressable
                     key={d.id}
                     className="relative flex-row gap-3 overflow-hidden rounded-xl bg-card shadow-sm"
-                    onPress={() => setBannerVoucher(d)}
+                    onPress={() => setSelectedVoucher(d)}
                   >
-                    <View className="h-24 w-24 items-center justify-center bg-muted overflow-hidden">
-                      {d.voucher_image ? (
-                        <Image source={{ uri: d.voucher_image }} className="w-full h-full" resizeMode="contain" />
+                    <View className="h-24 w-24 items-center justify-center bg-muted overflow-hidden rounded-l-xl">
+                      {/* banner > image_url, never both */}
+                      {(d as any).banner_url ? (
+                        <Image source={{ uri: (d as any).banner_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                      ) : (d as any).image_url ? (
+                        <Image source={{ uri: (d as any).image_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
                       ) : (
-                        <Image source={require("../../assets/Instantlly_Logo-removebg.png")} style={{ width: 56, height: 56 }} resizeMode="contain" />
+                        <Text className="text-4xl">{emojiImages[d.category] || "🎁"}</Text>
                       )}
                     </View>
                     <View className="flex-1 py-3 pr-4">
@@ -310,49 +355,72 @@ const Vouchers = () => {
         </View>
       </ScrollView>
 
-      {/* Banner preview modal */}
-      <Modal visible={!!bannerVoucher} transparent={false} animationType="slide" statusBarTranslucent onRequestClose={() => setBannerVoucher(null)}>
-        <View style={{ flex: 1, backgroundColor: "#000" }}>
-          {/* Image fills all space above info panel */}
-          <View style={{ flex: 1, position: "relative", paddingTop: 50 }}>
-            {bannerVoucher?.voucher_banner ? (
+      {/* Full-screen banner preview modal */}
+      <Modal
+        visible={!!selectedVoucher}
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setSelectedVoucher(null)}
+      >
+        {selectedVoucher && (
+          <View style={{ flex: 1, backgroundColor: "#000" }}>
+            {/* Full-screen image */}
+            {(selectedVoucher as any).banner_url || (selectedVoucher as any).image_url ? (
               <Image
-                source={{ uri: bannerVoucher.voucher_banner }}
-                style={{ width: "100%", height: "100%" }}
+                source={{ uri: (selectedVoucher as any).banner_url || (selectedVoucher as any).image_url }}
+                style={{ width: "100%", height: "100%", position: "absolute" }}
                 resizeMode="contain"
               />
             ) : (
               <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                <Image source={require("../../assets/Instantlly_Logo-removebg.png")} style={{ width: 160, height: 160 }} resizeMode="contain" />
+                <Text style={{ fontSize: 96 }}>{emojiImages[selectedVoucher.category] || "🎁"}</Text>
               </View>
             )}
-            {/* Close button over the image */}
+
+            {/* Dark gradient overlay */}
+            <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.35)" }} />
+
+            {/* Close button top-left */}
             <Pressable
-              onPress={() => setBannerVoucher(null)}
-              style={{ position: "absolute", top: 52, right: 16, backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 20, padding: 8 }}
+              onPress={() => setSelectedVoucher(null)}
+              style={{ position: "absolute", top: 52, left: 20, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 20, padding: 8 }}
             >
-              <X size={20} color="white" />
+              <Text style={{ color: "#fff", fontSize: 18, lineHeight: 20 }}>✕</Text>
             </Pressable>
-          </View>
 
-          {/* Info panel below the image - no gap */}
-          <View style={{ backgroundColor: "#111", paddingHorizontal: 20, paddingTop: 4, paddingBottom: 36 }}>
-            <Button
-              className="w-full rounded-xl py-4"
-              onPress={() => {
-                const v = bannerVoucher;
-                setBannerVoucher(null);
-                navigation.navigate('VoucherDetail', { id: v?.id });
-              }}
-            >
-              <Text className="text-primary-foreground font-semibold text-base">View Details</Text>
-            </Button>
+            {/* Bottom info + button */}
+            <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 24, gap: 12 }}>
+              {selectedVoucher.discount_label && (
+                <View style={{ alignSelf: "flex-start", backgroundColor: "#2463eb", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 }}>
+                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{selectedVoucher.discount_label}</Text>
+                </View>
+              )}
+              <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 4 }}>
+                {selectedVoucher.title}
+              </Text>
+              {selectedVoucher.subtitle ? (
+                <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 14 }}>{selectedVoucher.subtitle}</Text>
+              ) : null}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <Text style={{ color: "#fff", fontSize: 22, fontWeight: "700" }}>₹{selectedVoucher.discounted_price.toLocaleString()}</Text>
+                <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 16, textDecorationLine: "line-through" }}>₹{selectedVoucher.original_price.toLocaleString()}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedVoucher(null);
+                  navigation.navigate("VoucherDetail", { id: selectedVoucher.id });
+                }}
+                style={{ backgroundColor: "#fff", borderRadius: 14, paddingVertical: 16, alignItems: "center" }}
+              >
+                <Text style={{ color: "#2463eb", fontWeight: "700", fontSize: 16 }}>View Details</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        )}
       </Modal>
-
     </View>
   );
 };
 
 export default Vouchers;
+
