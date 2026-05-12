@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Alert, Image, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Alert, Image, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import {
   ArrowLeft,
@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Clock,
   CreditCard,
+  Gift,
   Pencil,
   Plus,
   QrCode,
@@ -22,11 +23,12 @@ import { Skeleton } from "../components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { useAuth } from "../hooks/useAuth";
 import { format, isValid } from "date-fns";
-import { useIconColor } from "../theme/colors";
+import { useIconColor, useColors } from "../theme/colors";
 import { toast } from "../lib/toast";
 import { formatINR } from "../lib/utils";
 import {
   useGetMyCreatedVouchersQuery,
+  useOwnerTransferVoucherMutation,
   useUpdateVoucherStatusMutation,
   useDeleteVoucherMutation,
   useGetVoucherClaimsQuery,
@@ -42,15 +44,23 @@ const safeFormat = (d: any, fmt: string, fb = "—") => {
 
 const MyCreatedVouchers = () => {
   const iconColor = useIconColor();
+  const colors = useColors();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
 
   const { data: vouchers = [], isLoading, refetch } = useGetMyCreatedVouchersQuery(undefined, { skip: !user });
   const [updateStatus] = useUpdateVoucherStatusMutation();
   const [deleteVoucher, { isLoading: isDeleting }] = useDeleteVoucherMutation();
+  const [ownerTransfer] = useOwnerTransferVoucherMutation();
 
   const [refreshing, setRefreshing] = useState(false);
   const [claimsVoucherId, setClaimsVoucherId] = useState<number | null>(null);
+
+  // Owner transfer state
+  const [transferVoucher, setTransferVoucher] = useState<any | null>(null);
+  const [transferPhone, setTransferPhone] = useState("");
+  const [transferQty, setTransferQty] = useState("1");
+  const [transferLoading, setTransferLoading] = useState(false);
   const [ledgerVoucherId, setLedgerVoucherId] = useState<number | null>(null);
   const [historyClaim, setHistoryClaim] = useState<any | null>(null);
   // Global claims modal: null = closed, "active" | "redeemed" | "expired" = open with filter
@@ -75,6 +85,33 @@ const MyCreatedVouchers = () => {
     setRefreshing(true);
     try { await refetch(); } finally { setRefreshing(false); }
   }, [refetch]);
+
+  const handleOwnerTransfer = async () => {
+    if (!transferVoucher) return;
+    const qty = parseInt(transferQty, 10);
+    if (!qty || qty < 1) { toast.error("Enter a valid quantity"); return; }
+    if (!transferPhone.trim()) { toast.error("Enter recipient phone number"); return; }
+    const remaining = transferVoucher.max_claims != null
+      ? Math.max(0, transferVoucher.max_claims - (transferVoucher.claimed_count || 0))
+      : null;
+    if (remaining !== null && qty > remaining) {
+      toast.error(`Only ${remaining} voucher(s) remaining`);
+      return;
+    }
+    setTransferLoading(true);
+    try {
+      await ownerTransfer({ id: transferVoucher.id, recipient_phone: transferPhone.trim(), quantity: qty }).unwrap();
+      toast.success(`${qty} voucher(s) gifted successfully!`);
+      setTransferPhone("");
+      setTransferQty("1");
+      setTransferVoucher(null);
+      refetch();
+    } catch (e: any) {
+      toast.error(e?.data?.error || "Transfer failed");
+    } finally {
+      setTransferLoading(false);
+    }
+  };
 
   const toggleStatus = async (id: number, current: string) => {
     const next = current === "active" ? "inactive" : "active";
@@ -315,6 +352,31 @@ const MyCreatedVouchers = () => {
                           <Text className="text-[11px] font-medium text-foreground">Ledger</Text>
                         </View>
                       </Button>
+                    )}
+                    {v.max_claims != null && (
+                      (() => {
+                        const remaining = Math.max(0, v.max_claims - (v.claimed_count || 0));
+                        return remaining > 0 ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 rounded-lg border-violet-400/60"
+                            textClassName="text-[11px]"
+                            onPress={() => { setTransferVoucher(v); setTransferPhone(""); setTransferQty("1"); }}
+                          >
+                            <View className="flex-row items-center justify-center gap-1">
+                              <Gift size={12} color="#7c3aed" />
+                              <Text className="text-[11px] font-semibold text-violet-600">
+                                Gift ({remaining})
+                              </Text>
+                            </View>
+                          </Button>
+                        ) : (
+                          <View className="flex-1 rounded-lg border border-border bg-muted/50 px-2 py-1.5 items-center justify-center">
+                            <Text className="text-[10px] font-semibold text-muted-foreground">Sold Out</Text>
+                          </View>
+                        );
+                      })()
                     )}
                     <Button
                       size="sm"
@@ -703,6 +765,121 @@ const MyCreatedVouchers = () => {
             </View>
           )}
           <Button className="w-full rounded-xl mt-2" onPress={() => setHistoryClaim(null)}>Close</Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Owner Transfer Dialog */}
+      <Dialog open={!!transferVoucher} onOpenChange={(open) => { if (!open) setTransferVoucher(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Gift Vouchers</DialogTitle>
+          </DialogHeader>
+          {transferVoucher && (() => {
+            const remaining = Math.max(0, transferVoucher.max_claims - (transferVoucher.claimed_count || 0));
+            const qty = parseInt(transferQty, 10) || 1;
+            return (
+              <View className="gap-4">
+                {/* Voucher info */}
+                <View className="rounded-xl border border-border bg-muted/30 px-3 py-2.5 gap-1">
+                  <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{transferVoucher.title}</Text>
+                  <View className="flex-row items-center gap-2">
+                    <View className="rounded-full bg-violet-500/10 px-2 py-0.5">
+                      <Text className="text-[10px] font-semibold text-violet-600">{remaining} available to gift</Text>
+                    </View>
+                    <View className="rounded-full bg-muted px-2 py-0.5">
+                      <Text className="text-[10px] text-muted-foreground">{transferVoucher.claimed_count || 0}/{transferVoucher.max_claims} claimed</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Phone */}
+                <View className="gap-1.5">
+                  <Text className="text-xs font-semibold text-foreground">Recipient Phone Number</Text>
+                  <TextInput
+                    style={{
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      fontSize: 14,
+                      color: colors.foreground,
+                    }}
+                    placeholder="+91 9876543210"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="phone-pad"
+                    value={transferPhone}
+                    onChangeText={setTransferPhone}
+                    autoFocus
+                  />
+                </View>
+
+                {/* Quantity */}
+                <View className="gap-1.5">
+                  <Text className="text-xs font-semibold text-foreground">Quantity (max {remaining})</Text>
+                  <View className="flex-row items-center gap-3">
+                    <Pressable
+                      onPress={() => setTransferQty((v) => String(Math.max(1, parseInt(v, 10) - 1)))}
+                      className="h-9 w-9 rounded-full border border-border items-center justify-center active:opacity-60"
+                    >
+                      <Text className="text-lg font-semibold text-foreground">−</Text>
+                    </Pressable>
+                    <TextInput
+                      style={{
+                        height: 36,
+                        width: 64,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        color: colors.foreground,
+                        fontSize: 14,
+                        fontWeight: 'bold',
+                        textAlign: 'center',
+                        paddingHorizontal: 8,
+                      }}
+                      keyboardType="number-pad"
+                      value={transferQty}
+                      onChangeText={(val) => {
+                        const n = parseInt(val, 10);
+                        if (!isNaN(n) && n >= 1) setTransferQty(String(Math.min(n, remaining)));
+                        else if (val === "") setTransferQty("");
+                      }}
+                    />
+                    <Pressable
+                      onPress={() => setTransferQty((v) => String(Math.min(parseInt(v, 10) + 1, remaining)))}
+                      className="h-9 w-9 rounded-full border border-border items-center justify-center active:opacity-60"
+                    >
+                      <Text className="text-lg font-semibold text-foreground">+</Text>
+                    </Pressable>
+                    <View className="flex-1 rounded-xl bg-violet-500/10 px-3 py-1.5">
+                      <Text className="text-[11px] font-semibold text-violet-600 text-center">
+                        {qty} voucher{qty !== 1 ? "s" : ""} · free
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Actions */}
+                <View className="gap-2">
+                  <Button
+                    className="w-full rounded-xl"
+                    onPress={handleOwnerTransfer}
+                    disabled={transferLoading}
+                  >
+                    <View className="flex-row items-center gap-2">
+                      <Gift size={14} color="#fff" />
+                      <Text className="text-sm font-semibold text-primary-foreground">
+                        {transferLoading ? "Gifting..." : `Gift ${qty} Voucher${qty !== 1 ? "s" : ""}`}
+                      </Text>
+                    </View>
+                  </Button>
+                  <Button variant="outline" className="w-full rounded-xl" onPress={() => setTransferVoucher(null)}>
+                    Cancel
+                  </Button>
+                </View>
+              </View>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </View>
