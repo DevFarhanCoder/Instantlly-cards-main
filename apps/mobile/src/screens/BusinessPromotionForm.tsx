@@ -127,6 +127,13 @@ const BusinessPromotionForm = () => {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [showBusinessHours, setShowBusinessHours] = useState(false);
+  const [timePickerTarget, setTimePickerTarget] = useState<{ day: string; field: 'openTime' | 'closeTime' } | null>(null);
+
+  const TIME_SLOTS = [
+    "12 AM","1 AM","2 AM","3 AM","4 AM","5 AM","6 AM","7 AM","8 AM",
+    "9 AM","10 AM","11 AM","12 PM","1 PM","2 PM","3 PM","4 PM",
+    "5 PM","6 PM","7 PM","8 PM","9 PM","10 PM","11 PM",
+  ];
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   
   // Category picker state
@@ -208,6 +215,13 @@ const BusinessPromotionForm = () => {
     setBusinessHoursDays(prev => ({
       ...prev,
       [day]: { ...prev[day], enabled: !prev[day].enabled },
+    }));
+  };
+
+  const setDayTime = (day: string, field: 'openTime' | 'closeTime', value: string) => {
+    setBusinessHoursDays(prev => ({
+      ...prev,
+      [day]: { ...prev[day], [field]: value },
     }));
   };
 
@@ -1096,19 +1110,45 @@ const BusinessPromotionForm = () => {
                   </View>
 
                   {businessHoursDays[day].enabled ? (
-                    <View className="flex-row items-center gap-3">
-                      <View className="flex-1">
-                        <Text className="text-xs text-muted-foreground mb-1">Opens at</Text>
-                        <View className="bg-muted/50 rounded-lg px-3 py-2">
-                          <Text className="text-sm">{businessHoursDays[day].openTime}</Text>
+                    <View className="gap-2">
+                      <View className="flex-row items-center gap-3">
+                        <View className="flex-1">
+                          <Text className="text-xs text-muted-foreground mb-1">Opens at</Text>
+                          <Pressable
+                            onPress={() => setTimePickerTarget({ day, field: 'openTime' })}
+                            className="bg-muted/50 rounded-lg px-3 py-2 flex-row items-center justify-between"
+                          >
+                            <Text className="text-sm text-foreground">{businessHoursDays[day].openTime}</Text>
+                            <ChevronDown size={14} color="#6b7280" />
+                          </Pressable>
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-xs text-muted-foreground mb-1">Closes at</Text>
+                          <Pressable
+                            onPress={() => setTimePickerTarget({ day, field: 'closeTime' })}
+                            className="bg-muted/50 rounded-lg px-3 py-2 flex-row items-center justify-between"
+                          >
+                            <Text className="text-sm text-foreground">{businessHoursDays[day].closeTime}</Text>
+                            <ChevronDown size={14} color="#6b7280" />
+                          </Pressable>
                         </View>
                       </View>
-                      <View className="flex-1">
-                        <Text className="text-xs text-muted-foreground mb-1">Closes at</Text>
-                        <View className="bg-muted/50 rounded-lg px-3 py-2">
-                          <Text className="text-sm">{businessHoursDays[day].closeTime}</Text>
-                        </View>
-                      </View>
+                      {/* Apply to all button */}
+                      <Pressable
+                        onPress={() => {
+                          const { openTime, closeTime } = businessHoursDays[day];
+                          setBusinessHoursDays(prev => {
+                            const next = { ...prev };
+                            Object.keys(next).forEach(d => {
+                              next[d] = { ...next[d], openTime, closeTime };
+                            });
+                            return next;
+                          });
+                        }}
+                        className="self-start"
+                      >
+                        <Text className="text-xs font-medium text-primary">Apply to all days</Text>
+                      </Pressable>
                     </View>
                   ) : (
                     <Text className="text-sm italic text-muted-foreground">Closed</Text>
@@ -1124,6 +1164,42 @@ const BusinessPromotionForm = () => {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Time Picker Modal */}
+      <Modal visible={!!timePickerTarget} transparent animationType="fade">
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}
+          onPress={() => setTimePickerTarget(null)}
+        >
+          <Pressable style={{ backgroundColor: 'white', borderRadius: 16, width: 220, maxHeight: 360, overflow: 'hidden' }}>
+            <View style={{ borderBottomWidth: 1, borderColor: '#e5e7eb', padding: 12 }}>
+              <Text style={{ fontWeight: '700', fontSize: 15, textAlign: 'center' }}>
+                {timePickerTarget?.field === 'openTime' ? 'Opens at' : 'Closes at'}
+              </Text>
+            </View>
+            <ScrollView>
+              {TIME_SLOTS.map((slot) => {
+                const isSelected = timePickerTarget && businessHoursDays[timePickerTarget.day]?.[timePickerTarget.field] === slot;
+                return (
+                  <Pressable
+                    key={slot}
+                    onPress={() => {
+                      if (timePickerTarget) {
+                        setDayTime(timePickerTarget.day, timePickerTarget.field, slot);
+                        setTimePickerTarget(null);
+                      }
+                    }}
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: isSelected ? '#eff6ff' : 'transparent' }}
+                  >
+                    <Text style={{ fontSize: 15, color: isSelected ? '#2463eb' : '#111827', fontWeight: isSelected ? '600' : '400' }}>{slot}</Text>
+                    {isSelected && <Check size={16} color="#2463eb" />}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
