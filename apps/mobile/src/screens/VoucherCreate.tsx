@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Platform, Pre
 import { addYears } from "date-fns";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, CalendarDays, Globe, Image as ImageIcon, Upload } from "lucide-react-native";
+import Svg, { Rect, Circle, Line } from "react-native-svg";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
 import { Button } from "../components/ui/button";
@@ -14,6 +15,7 @@ import { Textarea } from "../components/ui/textarea";
 import { useAuth } from "../hooks/useAuth";
 import { usePromotionContext } from "../contexts/PromotionContext";
 import { useCreateVoucher } from "../hooks/useVouchers";
+import { POPULAR_INDIAN_CITIES, normaliseCity } from "../data/indianCities";
 import { useGetVoucherQuery, useUpdateVoucherMutation, useUploadVoucherImageMutation } from "../store/api/vouchersApi";
 import { toast } from "../lib/toast";
 import { useIconColor } from "../theme/colors";
@@ -75,6 +77,10 @@ const VoucherCreate = () => {
     upfront_amount: "",
     what_we_do: "",
     website: "",
+    instagram: "",
+    marketed_by_instantlly: false,
+    voucher_start_no: "",
+    voucher_end_no: "",
     voucher_image: "",
     voucher_banner: "",
     expires_at: "",
@@ -111,12 +117,16 @@ const VoucherCreate = () => {
       company_name: v.company_name ?? "",
       phone_number: v.phone_number ?? "",
       address: v.address ?? "",
-      city: v.city ?? "",
+      city: normaliseCity(v.city ?? ""),
       pincode: v.pincode ?? "",
       allows_installment: Boolean(v.allows_installment),
       upfront_amount: v.upfront_amount != null ? String(v.upfront_amount) : "",
       what_we_do: v.what_we_do ?? "",
       website: v.website ?? "",
+      instagram: v.instagram ?? "",
+      marketed_by_instantlly: Boolean(v.marketed_by_instantlly),
+      voucher_start_no: v.voucher_start_no != null ? String(v.voucher_start_no) : "",
+      voucher_end_no: v.voucher_end_no != null ? String(v.voucher_end_no) : "",
       voucher_image: v.voucher_image ?? "",
       voucher_banner: v.voucher_banner ?? "",
     });
@@ -302,12 +312,16 @@ const VoucherCreate = () => {
       company_name: form.company_name || null,
       phone_number: form.phone_number || null,
       address: form.address || null,
-      city: form.city.trim(),
+      city: normaliseCity(form.city),
       pincode: form.pincode.trim(),
       allows_installment: form.allows_installment,
       upfront_amount: form.allows_installment && form.upfront_amount ? parseFloat(form.upfront_amount) : null,
       what_we_do: form.what_we_do || null,
       website: form.website || null,
+      instagram: form.instagram || null,
+      marketed_by_instantlly: form.marketed_by_instantlly,
+      voucher_start_no: form.voucher_start_no ? parseInt(form.voucher_start_no, 10) : null,
+      voucher_end_no: form.voucher_end_no ? parseInt(form.voucher_end_no, 10) : null,
       voucher_image: form.voucher_image || null,
       voucher_banner: form.voucher_banner || null,
     };
@@ -343,8 +357,8 @@ const VoucherCreate = () => {
       </View>
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: isKeyboardVisible ? 24 : 104 }}
-        className="px-4 py-5 gap-4"
+        contentContainerStyle={{ paddingBottom: isKeyboardVisible ? 24 : 104, gap: 10 }}
+        className="px-4 py-5"
         keyboardShouldPersistTaps="handled"
       >
         <View className="gap-2 rounded-xl border border-border bg-card p-3">
@@ -469,6 +483,60 @@ const VoucherCreate = () => {
           </View>
         </View>
 
+        <View className="gap-2">
+          <Label>Instagram (Optional)</Label>
+          <View className="flex-row items-center gap-2">
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#E1306C" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <Rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+              <Circle cx="12" cy="12" r="4" />
+              <Line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+            </Svg>
+            <Input
+              className="flex-1"
+              placeholder="@yourbusiness or https://instagram.com/..."
+              value={form.instagram}
+              onChangeText={(v) => update("instagram", v)}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          <Text className="text-xs text-muted-foreground">Enter @username or full Instagram URL</Text>
+        </View>
+
+        <View className="flex-row items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
+          <View className="flex-1 pr-2">
+            <Label>Marketed by Instantlly Cards</Label>
+            <Text className="text-xs text-muted-foreground mt-1">
+              Adds an Instantlly Cards promotion section at the end of the voucher detail page
+            </Text>
+          </View>
+          <Switch
+            checked={form.marketed_by_instantlly}
+            onCheckedChange={(v) => update("marketed_by_instantlly", v)}
+          />
+        </View>
+
+        <View className="flex-row gap-3">
+          <View className="flex-1 gap-2">
+            <Label>Voucher Start No.</Label>
+            <Input
+              placeholder="e.g. 1001"
+              value={form.voucher_start_no}
+              onChangeText={(v) => update("voucher_start_no", v.replace(/[^0-9]/g, ""))}
+              keyboardType="number-pad"
+            />
+          </View>
+          <View className="flex-1 gap-2">
+            <Label>Voucher End No.</Label>
+            <Input
+              placeholder="e.g. 1100"
+              value={form.voucher_end_no}
+              onChangeText={(v) => update("voucher_end_no", v.replace(/[^0-9]/g, ""))}
+              keyboardType="number-pad"
+            />
+          </View>
+        </View>
+
 
         <View className="gap-2">
           <Label>Voucher Logo (Optional)</Label>
@@ -560,11 +628,18 @@ const VoucherCreate = () => {
 
         <View className="gap-2">
           <Label>City *</Label>
-          <Input
-            placeholder="e.g. Bengaluru"
-            value={form.city}
-            onChangeText={(v) => update("city", v)}
-          />
+          <Select value={form.city} onValueChange={(v) => update("city", normaliseCity(v))}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select city" />
+            </SelectTrigger>
+            <SelectContent>
+              {POPULAR_INDIAN_CITIES.map((c) => (
+                <SelectItem key={c.city} value={c.city}>
+                  {c.city}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {errors.city ? <Text className="text-xs text-destructive">{errors.city}</Text> : null}
         </View>
 
