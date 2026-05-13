@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { addYears } from "date-fns";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { ArrowLeft, CalendarDays, Globe, Image as ImageIcon, Upload } from "lucide-react-native";
-import Svg, { Rect, Circle, Line } from "react-native-svg";
+import { ArrowLeft, CalendarDays, Globe, Image as ImageIcon, Plus, Upload, X } from "lucide-react-native";
+import Svg, { Path, Rect, Circle, Line } from "react-native-svg";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
 import { Button } from "../components/ui/button";
@@ -78,6 +78,9 @@ const VoucherCreate = () => {
     what_we_do: "",
     website: "",
     instagram: "",
+    facebook: "",
+    youtube: "",
+    addresses: [""],
     marketed_by_instantlly: false,
     voucher_start_no: "",
     voucher_end_no: "",
@@ -124,6 +127,11 @@ const VoucherCreate = () => {
       what_we_do: v.what_we_do ?? "",
       website: v.website ?? "",
       instagram: v.instagram ?? "",
+      facebook: (v as any).facebook ?? "",
+      youtube: (v as any).youtube ?? "",
+      addresses: Array.isArray((v as any).addresses) && (v as any).addresses.length > 0
+        ? (v as any).addresses
+        : [(v as any).address ?? ""],
       marketed_by_instantlly: Boolean(v.marketed_by_instantlly),
       voucher_start_no: v.voucher_start_no != null ? String(v.voucher_start_no) : "",
       voucher_end_no: v.voucher_end_no != null ? String(v.voucher_end_no) : "",
@@ -311,7 +319,8 @@ const VoucherCreate = () => {
       is_popular: form.is_popular,
       company_name: form.company_name || null,
       phone_number: form.phone_number || null,
-      address: form.address || null,
+      address: form.addresses.filter(Boolean)[0] || null,
+      addresses: form.addresses.filter(Boolean),
       city: normaliseCity(form.city),
       pincode: form.pincode.trim(),
       allows_installment: form.allows_installment,
@@ -319,6 +328,8 @@ const VoucherCreate = () => {
       what_we_do: form.what_we_do || null,
       website: form.website || null,
       instagram: form.instagram || null,
+      facebook: form.facebook || null,
+      youtube: form.youtube || null,
       marketed_by_instantlly: form.marketed_by_instantlly,
       voucher_start_no: form.voucher_start_no ? parseInt(form.voucher_start_no, 10) : null,
       voucher_end_no: form.voucher_end_no ? parseInt(form.voucher_end_no, 10) : null,
@@ -503,6 +514,42 @@ const VoucherCreate = () => {
           <Text className="text-xs text-muted-foreground">Enter @username or full Instagram URL</Text>
         </View>
 
+        <View className="gap-2">
+          <Label>Facebook (Optional)</Label>
+          <View className="flex-row items-center gap-2">
+            <Svg width={16} height={16} viewBox="0 0 24 24">
+              <Path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" fill="#1877F2" />
+            </Svg>
+            <Input
+              className="flex-1"
+              placeholder="@yourbusiness or https://facebook.com/..."
+              value={form.facebook}
+              onChangeText={(v) => update("facebook", v)}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          <Text className="text-xs text-muted-foreground">Enter @pagename or full Facebook URL</Text>
+        </View>
+
+        <View className="gap-2">
+          <Label>YouTube (Optional)</Label>
+          <View className="flex-row items-center gap-2">
+            <Svg width={16} height={16} viewBox="0 0 24 24">
+              <Path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.96-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" fill="#FF0000" /><Path d="M9.75 15.02V8.98L15.5 12l-5.75 3.02z" fill="#fff" />
+            </Svg>
+            <Input
+              className="flex-1"
+              placeholder="https://youtube.com/@yourchannel"
+              value={form.youtube}
+              onChangeText={(v) => update("youtube", v)}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          <Text className="text-xs text-muted-foreground">Enter channel URL or @handle</Text>
+        </View>
+
         <View className="flex-row items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
           <View className="flex-1 pr-2">
             <Label>Marketed by Instantlly Cards</Label>
@@ -618,12 +665,38 @@ const VoucherCreate = () => {
         </View>
 
         <View className="gap-2">
-          <Label>Address (Where to Redeem)</Label>
-          <Input
-            placeholder="e.g. Shop 5, MG Road, Bengaluru"
-            value={form.address}
-            onChangeText={(v) => update("address", v)}
-          />
+          <Label>Addresses (Where to Redeem)</Label>
+          {form.addresses.map((addr, idx) => (
+            <View key={idx} className="flex-row items-center gap-2">
+              <Input
+                className="flex-1"
+                placeholder={idx === 0 ? "e.g. Shop 5, MG Road, Bengaluru" : "Additional address"}
+                value={addr}
+                onChangeText={(v) => {
+                  const next = [...form.addresses];
+                  next[idx] = v;
+                  update("addresses", next);
+                }}
+              />
+              {form.addresses.length > 1 && (
+                <Pressable
+                  onPress={() => update("addresses", form.addresses.filter((_, i) => i !== idx))}
+                  className="p-1"
+                >
+                  <X size={16} color="#ef4444" />
+                </Pressable>
+              )}
+            </View>
+          ))}
+          {form.addresses.length < 5 && (
+            <Pressable
+              onPress={() => update("addresses", [...form.addresses, ""])}
+              className="flex-row items-center justify-center gap-2 rounded-lg border border-dashed border-border py-2.5"
+            >
+              <Plus size={15} color="#2463eb" />
+              <Text className="text-sm font-medium text-primary">Add another address</Text>
+            </Pressable>
+          )}
         </View>
 
         <View className="gap-2">
