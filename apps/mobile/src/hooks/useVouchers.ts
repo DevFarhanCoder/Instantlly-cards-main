@@ -34,6 +34,7 @@ export interface Voucher {
   company_name: string | null;
   phone_number: string | null;
   address: string | null;
+  addresses: string[];
   city: string | null;
   pincode: string | null;
   voucher_image: string | null;
@@ -41,6 +42,8 @@ export interface Voucher {
   what_we_do: string | null;
   website: string | null;
   instagram: string | null;
+  facebook: string | null;
+  youtube: string | null;
   marketed_by_instantlly: boolean;
   voucher_start_no: number | null;
   voucher_end_no: number | null;
@@ -71,6 +74,8 @@ export interface ClaimedVoucher {
   quantity: number;
   redeemed_count: number;
   is_owner_gifted: boolean;
+  installment_status: string | null;
+  remaining_balance: number | null;
   voucher?: Voucher;
 }
 
@@ -119,6 +124,7 @@ const mapVoucher = (v: any): Voucher => {
     company_name: v.company_name ?? null,
     phone_number: v.phone_number ?? null,
     address: v.address ?? null,
+    addresses: Array.isArray(v.addresses) && v.addresses.length > 0 ? v.addresses : (v.address ? [v.address] : []),
     city: v.city ?? null,
     pincode: v.pincode ?? null,
     voucher_image: v.voucher_image ?? null,
@@ -126,6 +132,8 @@ const mapVoucher = (v: any): Voucher => {
     what_we_do: v.what_we_do ?? null,
     website: v.website ?? null,
     instagram: v.instagram ?? null,
+    facebook: v.facebook ?? null,
+    youtube: v.youtube ?? null,
     marketed_by_instantlly: Boolean(v.marketed_by_instantlly),
     voucher_start_no: v.voucher_start_no != null ? Number(v.voucher_start_no) : null,
     voucher_end_no: v.voucher_end_no != null ? Number(v.voucher_end_no) : null,
@@ -185,6 +193,8 @@ export function useMyVouchers() {
       quantity: Number(c.quantity ?? 1),
       redeemed_count: Number(c.redeemed_count ?? 0),
       is_owner_gifted: Boolean(c.is_owner_gifted),
+      installment_status: c.installment_status ?? null,
+      remaining_balance: c.remaining_balance != null ? Number(c.remaining_balance) : null,
       voucher: c.voucher ? mapVoucher(c.voucher) : undefined,
     })) as ClaimedVoucher[],
   };

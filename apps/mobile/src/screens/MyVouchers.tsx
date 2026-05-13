@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, Clock, Gift, QrCode, Send, Ticket } from "lucide-react-native";
 import { Button } from "../components/ui/button";
@@ -518,6 +518,18 @@ const MyVouchers = () => {
                               className="flex-1 rounded-lg px-2"
                               textClassName="text-xs"
                               onPress={() => {
+                                if (
+                                  v.installment_status === 'active' &&
+                                  v.remaining_balance !== null &&
+                                  v.remaining_balance > 0
+                                ) {
+                                  Alert.alert(
+                                    'Installment Due',
+                                    `You have an outstanding balance of ₹${v.remaining_balance.toLocaleString('en-IN')} on this voucher. Please complete your installment payment before transferring.`,
+                                    [{ text: 'OK' }]
+                                  );
+                                  return;
+                                }
                                 setTransferVoucherTarget(v);
                                 setTransferPhone("");
                                 setTransferQty(1);
