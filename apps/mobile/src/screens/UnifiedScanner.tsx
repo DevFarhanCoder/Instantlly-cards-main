@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import * as SecureStore from "expo-secure-store";
@@ -9,10 +9,13 @@ import {
   Check,
   CheckCircle2,
   Keyboard,
+  Minus,
+  Plus,
   QrCode,
   Repeat2,
   Search,
   Send,
+  Tag,
   UserPlus,
   XCircle,
 } from "lucide-react-native";
@@ -30,6 +33,7 @@ import {
 } from "../components/ui/dialog";
 import { toast } from "../lib/toast";
 import { useUserRole } from "../hooks/useUserRole";
+import { useRedeemVoucherByQrMutation } from "../store/api/vouchersApi";
 import { useVerifyRegistration } from "../hooks/useEvents";
 import { useDirectoryCard } from "../hooks/useDirectoryCards";
 import { useAppDispatch } from "../store";
@@ -46,6 +50,18 @@ type EventScanState =
   | { kind: "already_used"; data: any }
   | { kind: "cancelled"; message: string }
   | { kind: "error"; message: string };
+
+type VoucherScanState =
+  | { kind: "ok"; user: { name?: string; phone?: string }; justRedeemed: number; remainingUses: number; totalQty: number }
+  | { kind: "already_redeemed"; user: { name?: string; phone?: string }; totalQty: number }
+  | { kind: "error"; message: string };
+
+function parseVoucherQr(raw: string): { voucherId: number; claimId: number } | null {
+  if (!raw) return null;
+  const m = raw.trim().match(/(?:instantllycards:\/\/)?voucher\/(\d+)\/claim\/(\d+)/i);
+  if (m) return { voucherId: parseInt(m[1], 10), claimId: parseInt(m[2], 10) };
+  return null;
+}
 
 type Mode = "exchange" | "send-only" | "save-only";
 
@@ -94,6 +110,11 @@ const UnifiedScanner = () => {
   const [scanned, setScanned] = useState(false);
 
   const [eventResult, setEventResult] = useState<EventScanState | null>(null);
+  const [voucherResult, setVoucherResult] = useState<VoucherScanState | null>(null);
+  const [voucherConfirmOpen, setVoucherConfirmOpen] = useState(false);
+  const [redeemQty, setRedeemQty] = useState(1);
+  const pendingVoucher = useRef<{ voucherId: number; claimId: number } | null>(null);
+  const [redeemByQr, { isLoading: isRedeeming }] = useRedeemVoucherByQrMutation();
   const [scannedCardId, setScannedCardId] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedMyCardId, setSelectedMyCardId] = useState<number | null>(null);
@@ -132,8 +153,43 @@ const UnifiedScanner = () => {
     setScanned(false);
     setQrInput("");
     setEventResult(null);
+    setVoucherResult(null);
+    setVoucherConfirmOpen(false);
+    setRedeemQty(1);
+    pendingVoucher.current = null;
     setScannedCardId(null);
     setPickerOpen(false);
+  };
+
+  const doVoucherRedeem = async (voucherId: number, claimId: number, qty: number) => {
+    try {
+      const data = await redeemByQr({ voucher_id: voucherId, claim_id: claimId, redeem_quantity: qty }).unwrap();
+      if (data.already_redeemed) {
+        setVoucherResult({ kind: "already_redeemed", user: data.user ?? {}, totalQty: data.quantity ?? 1 });
+      } else {
+        setVoucherResult({
+          kind: "ok",
+          user: data.user ?? {},
+          justRedeemed: data.just_redeemed ?? qty,
+          remainingUses: data.remaining_uses ?? 0,
+          totalQty: data.quantity ?? qty,
+        });
+      }
+    } catch (err: any) {
+      const status = err?.status;
+      const msg: string = err?.data?.error ?? err?.message ?? "Redemption failed";
+      setVoucherResult({
+        kind: "error",
+        message: status === 403 ? \"Only the voucher's business owner can redeem this. Make sure you're logged into the correct account.\" : status === 404 ? \"QR code not found or invalid\" : msg,
+      });
+    }
+  };
+
+  const handleVoucherConfirm = () => {
+    const p = pendingVoucher.current;
+    if (!p) return;
+    setVoucherConfirmOpen(false);
+    void doVoucherRedeem(p.voucherId, p.claimId, redeemQty);
   };
 
   const closePicker = () => setPickerOpen(false);
@@ -239,6 +295,16 @@ const UnifiedScanner = () => {
 
     setScanned(true);
 
+    // 1. Voucher QR
+    const voucherParsed = parseVoucherQr(value);
+    if (voucherParsed) {
+      pendingVoucher.current = voucherParsed;
+      setRedeemQty(1);
+      setVoucherConfirmOpen(true);
+      return;
+    }
+
+    // 2. Business card QR
     const cardId = extractCardId(value);
     if (cardId) {
       setEventResult(null);
@@ -247,6 +313,7 @@ const UnifiedScanner = () => {
       return;
     }
 
+    // 3. Event check-in (business mode only)
     if (!isBusiness) {
       toast.error("This QR isn't a business card. Event QR check-in is for business mode.");
       setTimeout(() => setScanned(false), 1200);
@@ -297,7 +364,79 @@ const UnifiedScanner = () => {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 16 }} className="px-4 py-6 gap-6">
-        {eventResult ? (
+        {voucherResult ? (
+          <View className="gap-4">
+            {voucherResult.kind === "ok" ? (
+              <Card className="border-success/50 bg-success/5">
+                <CardContent className="p-5 gap-3">
+                  <View className="flex-row items-center gap-3">
+                    <CheckCircle2 size={36} color="#16a34a" />
+                    <View className="flex-1">
+                      <Text className="font-bold text-lg text-foreground">Voucher Redeemed</Text>
+                      {voucherResult.user?.name ? (
+                        <Text className="text-xs text-muted-foreground">{voucherResult.user.name}{voucherResult.user.phone ? ` · ${voucherResult.user.phone}` : ""}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                  <View className="flex-row gap-2">
+                    <View className="flex-1 items-center rounded-lg bg-success/10 py-3">
+                      <Text className="text-xl font-bold text-green-700">{voucherResult.justRedeemed}</Text>
+                      <Text className="text-xs text-muted-foreground">Used Now</Text>
+                    </View>
+                    <View className="flex-1 items-center rounded-lg bg-amber-50 py-3">
+                      <Text className="text-xl font-bold text-amber-700">{voucherResult.remainingUses}</Text>
+                      <Text className="text-xs text-muted-foreground">Remaining</Text>
+                    </View>
+                    <View className="flex-1 items-center rounded-lg bg-primary/5 py-3">
+                      <Text className="text-xl font-bold text-primary">{voucherResult.totalQty}</Text>
+                      <Text className="text-xs text-muted-foreground">Total Bought</Text>
+                    </View>
+                  </View>
+                  {voucherResult.remainingUses > 0 ? (
+                    <View className="rounded-lg bg-amber-50 px-3 py-2">
+                      <Text className="text-xs text-amber-700">Customer still has {voucherResult.remainingUses} unused voucher{voucherResult.remainingUses > 1 ? "s" : ""}.</Text>
+                    </View>
+                  ) : null}
+                </CardContent>
+              </Card>
+            ) : voucherResult.kind === "already_redeemed" ? (
+              <Card className="border-amber-500/60 bg-amber-50">
+                <CardContent className="p-5 gap-2">
+                  <View className="flex-row items-center gap-3">
+                    <AlertTriangle size={36} color="#d97706" />
+                    <View className="flex-1">
+                      <Text className="font-bold text-lg text-foreground">Already Redeemed</Text>
+                      <Text className="text-xs text-amber-700">All {voucherResult.totalQty} voucher{voucherResult.totalQty > 1 ? "s" : ""} have already been used.</Text>
+                    </View>
+                  </View>
+                  {voucherResult.user?.name ? (
+                    <Text className="text-sm text-amber-700">{voucherResult.user.name}{voucherResult.user.phone ? ` · ${voucherResult.user.phone}` : ""}</Text>
+                  ) : null}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-destructive/50 bg-destructive/5">
+                <CardContent className="p-5">
+                  <View className="flex-row items-center gap-3">
+                    <XCircle size={36} color="#ef4444" />
+                    <View className="flex-1">
+                      <Text className="font-bold text-lg text-foreground">Redemption Failed</Text>
+                      <Text className="text-sm text-muted-foreground">{voucherResult.message}</Text>
+                    </View>
+                  </View>
+                </CardContent>
+              </Card>
+            )}
+            <Button onPress={resetAll} className="rounded-xl">
+              <QrCode size={16} color="#ffffff" /> Scan Next
+            </Button>
+          </View>
+        ) : isRedeeming ? (
+          <View className="items-center py-10 gap-3">
+            <ActivityIndicator size="large" color="#2563eb" />
+            <Text className="text-sm text-muted-foreground">Redeeming voucher...</Text>
+          </View>
+        ) : eventResult ? (
           <View className="gap-4">
             {eventResult.kind === "ok" ? (
               <Card className="border-success/50 bg-success/5">
@@ -375,7 +514,7 @@ const UnifiedScanner = () => {
               </View>
               <Text className="text-xl font-bold text-foreground">Unified QR Scanner</Text>
               <Text className="text-sm text-muted-foreground mt-1 text-center">
-                Scan business cards or event ticket QRs from one place
+                Scan business cards, event tickets, or voucher QRs from one place
               </Text>
             </View>
 
@@ -423,7 +562,7 @@ const UnifiedScanner = () => {
                 </Pressable>
               </View>
               <Text className="text-xs text-muted-foreground">
-                Card QR will open exchange options automatically. Event QR verification works in business mode.
+                Card QR opens exchange options. Voucher QR redeems a claim. Event QR check-in works in business mode.
               </Text>
             </View>
 
@@ -531,6 +670,65 @@ const UnifiedScanner = () => {
           </>
         )}
       </ScrollView>
+
+      {/* Voucher confirm dialog */}
+      <Dialog
+        open={voucherConfirmOpen}
+        onOpenChange={(v) => {
+          if (!v) {
+            setVoucherConfirmOpen(false);
+            setScanned(false);
+            pendingVoucher.current = null;
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <View className="flex-row items-center gap-2 mb-1">
+              <Tag size={18} color="#2563eb" />
+              <DialogTitle>Voucher Detected</DialogTitle>
+            </View>
+            <DialogDescription>How many vouchers would you like to redeem?</DialogDescription>
+          </DialogHeader>
+
+          <View className="items-center py-4 gap-2">
+            <View className="flex-row items-center gap-4">
+              <Pressable
+                onPress={() => setRedeemQty((q) => Math.max(1, q - 1))}
+                className="h-10 w-10 items-center justify-center rounded-full border border-border bg-muted"
+              >
+                <Minus size={18} color="#111827" />
+              </Pressable>
+              <Text className="text-3xl font-bold text-foreground w-10 text-center">{redeemQty}</Text>
+              <Pressable
+                onPress={() => setRedeemQty((q) => q + 1)}
+                className="h-10 w-10 items-center justify-center rounded-full border border-border bg-muted"
+              >
+                <Plus size={18} color="#111827" />
+              </Pressable>
+            </View>
+            <Text className="text-xs text-muted-foreground">voucher{redeemQty > 1 ? "s" : ""} to redeem</Text>
+          </View>
+
+          <View className="gap-2 pt-1">
+            <Button className="w-full rounded-xl" onPress={handleVoucherConfirm}>
+              <CheckCircle2 size={16} color="#ffffff" />
+              <Text className="text-primary-foreground font-medium"> Confirm Redemption</Text>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full rounded-xl"
+              onPress={() => {
+                setVoucherConfirmOpen(false);
+                setScanned(false);
+                pendingVoucher.current = null;
+              }}
+            >
+              Cancel
+            </Button>
+          </View>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={pickerOpen}
