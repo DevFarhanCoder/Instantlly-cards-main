@@ -180,7 +180,7 @@ const UnifiedScanner = () => {
       const msg: string = err?.data?.error ?? err?.message ?? "Redemption failed";
       setVoucherResult({
         kind: "error",
-        message: status === 403 ? \"Only the voucher's business owner can redeem this. Make sure you're logged into the correct account.\" : status === 404 ? \"QR code not found or invalid\" : msg,
+        message: status === 403 ? "Only the voucher's business owner can redeem this. Make sure you're logged into the correct account." : status === 404 ? "QR code not found or invalid" : msg,
       });
     }
   };
