@@ -17,6 +17,10 @@ import {
   useGetMyInstallmentsQuery,
   useCreateInstallmentPaymentIntentMutation,
   useVerifyInstallmentPaymentMutation,
+  useSettleOwnerTransferMutation,
+  useCreateOwnerTransferPaymentIntentMutation,
+  useVerifyOwnerTransferPaymentMutation,
+  useGetOwnerTransferPaymentsQuery,
 } from "../store/api/vouchersApi";
 import { isNativeRazorpayAvailable, openRazorpayCheckout, type RazorpayCheckoutOptions } from "../lib/payments/razorpayCheckout";
 import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
@@ -55,6 +59,45 @@ const emojiMap: Record<string, string> = {
 
 const tabs = ["All", "Active", "Redeemed", "Expired", "Transfers"];
 
+/** Lazy-loaded payment history list for a single owner-transfer. */
+const BarterPaymentHistory = ({ transferId }: { transferId: number }) => {
+  const { data = [], isLoading, isFetching } = useGetOwnerTransferPaymentsQuery(transferId);
+  if (isLoading) {
+    return <Text className="text-[10px] text-amber-700/80">Loading history…</Text>;
+  }
+  if (!data.length) {
+    return <Text className="text-[10px] text-amber-700/80">No payments yet</Text>;
+  }
+  return (
+    <View className="gap-1.5">
+      {data.map((p) => (
+        <View
+          key={p.id}
+          className="flex-row items-center justify-between rounded-md bg-white/70 px-2.5 py-1.5"
+        >
+          <View className="flex-1 pr-2">
+            <Text className="text-[12px] font-semibold text-amber-800">
+              ₹{Number(p.amount).toLocaleString("en-IN")}
+            </Text>
+            <Text className="text-[9px] text-amber-700/70">
+              {(() => {
+                const d = new Date(p.paid_at);
+                return isValid(d) ? format(d, "dd MMM yyyy, hh:mm a") : "—";
+              })()}
+            </Text>
+          </View>
+          <Text className="max-w-[55%] text-[9px] text-amber-700/60" numberOfLines={1}>
+            {p.razorpay_payment_id}
+          </Text>
+        </View>
+      ))}
+      {isFetching ? (
+        <Text className="text-[9px] text-amber-700/60">Refreshing…</Text>
+      ) : null}
+    </View>
+  );
+};
+
 const MyVouchers = () => {
   const iconColor = useIconColor();
   const colors = useColors();
@@ -66,12 +109,40 @@ const MyVouchers = () => {
   const { data: myInstallments = [], refetch: refetchInstallments } = useGetMyInstallmentsQuery(undefined, { skip: !user });
   const [createInstallmentIntent, { isLoading: creatingIntent }] = useCreateInstallmentPaymentIntentMutation();
   const [verifyInstallment, { isLoading: verifyingIntent }] = useVerifyInstallmentPaymentMutation();
+  const [settleOwnerTransfer, { isLoading: isSettling }] = useSettleOwnerTransferMutation();
+  const [createOwnerTransferIntent, { isLoading: creatingOtIntent }] = useCreateOwnerTransferPaymentIntentMutation();
+  const [verifyOwnerTransfer, { isLoading: verifyingOtIntent }] = useVerifyOwnerTransferPaymentMutation();
+  const [settlingTransferId, setSettlingTransferId] = useState<number | null>(null);
   const [payingClaimId, setPayingClaimId] = useState<number | null>(null);
   const [payAmounts, setPayAmounts] = useState<Record<number, string>>({});
+  const [payTransferAmounts, setPayTransferAmounts] = useState<Record<number, string>>({});
+  const [expandedTransferHistory, setExpandedTransferHistory] = useState<Set<number>>(new Set());
+  const [expandedBarter, setExpandedBarter] = useState<Set<number>>(new Set());
+  const toggleBarter = useCallback((transferId: number) => {
+    setExpandedBarter((prev) => {
+      const next = new Set(prev);
+      if (next.has(transferId)) next.delete(transferId);
+      else next.add(transferId);
+      return next;
+    });
+  }, []);
+  const toggleTransferHistory = useCallback((transferId: number) => {
+    setExpandedTransferHistory((prev) => {
+      const next = new Set(prev);
+      if (next.has(transferId)) next.delete(transferId);
+      else next.add(transferId);
+      return next;
+    });
+  }, []);
   const [webViewVisible, setWebViewVisible] = useState(false);
   const [webViewOptions, setWebViewOptions] = useState<RazorpayCheckoutOptions | null>(null);
-  const [webViewContext, setWebViewContext] = useState<{ claimId: number; amount: number } | null>(null);
+  const [webViewContext, setWebViewContext] = useState<
+    | { kind: "installment"; claimId: number; amount: number }
+    | { kind: "owner_transfer"; transferId: number; amount: number }
+    | null
+  >(null);
   const isPayingInstallment = creatingIntent || verifyingIntent;
+  const isPayingPending = creatingOtIntent || verifyingOtIntent;
 
   const verifyInstallmentResult = useCallback(
     async (claimId: number, payAmount: number, payment: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
@@ -125,7 +196,7 @@ const MyVouchers = () => {
           theme: { color: "#2463eb" },
         };
         const openWebViewFallback = () => {
-          setWebViewContext({ claimId, amount: payAmount });
+          setWebViewContext({ kind: "installment", claimId, amount: payAmount });
           setWebViewOptions(checkoutOptions);
           setWebViewVisible(true);
         };
@@ -171,6 +242,82 @@ const MyVouchers = () => {
     setRefreshing(true);
     try { await Promise.all([refetchVouchers(), refetchTransfers(), refetchInstallments()]); } finally { setRefreshing(false); }
   }, [refetchVouchers, refetchTransfers, refetchInstallments]);
+
+  const verifyOwnerTransferResult = useCallback(
+    async (transferId: number, payAmount: number, payment: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+      try {
+        await verifyOwnerTransfer({
+          transferId,
+          razorpay_order_id: payment.razorpay_order_id,
+          razorpay_payment_id: payment.razorpay_payment_id,
+          razorpay_signature: payment.razorpay_signature,
+          amount: payAmount,
+        }).unwrap();
+        toast.success(`\u20b9${formatINR(payAmount)} paid successfully \ud83c\udf89`);
+        setPayTransferAmounts((prev) => ({ ...prev, [transferId]: "" }));
+        await refetchVouchers();
+      } catch (e: any) {
+        toast.error(e?.data?.error || e?.message || "Verification failed");
+      }
+    },
+    [verifyOwnerTransfer, refetchVouchers],
+  );
+
+  const handlePayPending = useCallback(
+    async (transferId: number, amount: number) => {
+      if (!user) return;
+      if (!amount || amount <= 0) { toast.error("Nothing to pay"); return; }
+      const RAZORPAY_MAX = 500000;
+      if (amount > RAZORPAY_MAX) {
+        toast.error("Razorpay limit is \u20b95,00,000 per transaction. Please contact the sender to split the payment.");
+        return;
+      }
+      setSettlingTransferId(transferId);
+      try {
+        const intent = await createOwnerTransferIntent({ transferId, amount }).unwrap();
+        const payAmount = intent.pay_amount ?? amount;
+        const checkoutOptions: RazorpayCheckoutOptions = {
+          key: intent.key,
+          amount: intent.amount,
+          currency: intent.currency,
+          order_id: intent.order_id,
+          name: intent.voucher_title || "Voucher",
+          description: `Pending payment \u2014 ${intent.voucher_title || "Voucher"}`,
+          prefill: { name: user?.name || undefined, contact: user?.phone || undefined },
+          theme: { color: "#10b981" },
+        };
+        const openWebViewFallback = () => {
+          setWebViewContext({ kind: "owner_transfer", transferId, amount: payAmount });
+          setWebViewOptions(checkoutOptions);
+          setWebViewVisible(true);
+        };
+        if (isNativeRazorpayAvailable()) {
+          try {
+            const payment = await openRazorpayCheckout(checkoutOptions);
+            await verifyOwnerTransferResult(transferId, payAmount, payment);
+            return;
+          } catch (nativeErr: any) {
+            const msg = nativeErr?.message || nativeErr?.description || "";
+            if (/null|undefined|not a function|NATIVE_UNAVAILABLE/i.test(msg)) {
+              openWebViewFallback();
+              return;
+            }
+            if (nativeErr?.code === 0 || /cancelled|canceled/i.test(msg)) {
+              toast.error("Payment cancelled");
+              return;
+            }
+            throw nativeErr;
+          }
+        }
+        openWebViewFallback();
+      } catch (e: any) {
+        toast.error(e?.data?.error || e?.message || "Payment failed");
+      } finally {
+        setSettlingTransferId(null);
+      }
+    },
+    [user, createOwnerTransferIntent, verifyOwnerTransferResult],
+  );
   const [activeTab, setActiveTab] = useState("All");
   const [qrVoucher, setQrVoucher] = useState<ClaimedVoucher | null>(null);
   const [transferVoucherTarget, setTransferVoucherTarget] = useState<ClaimedVoucher | null>(null);
@@ -461,6 +608,187 @@ const MyVouchers = () => {
                           ) : null}
                         </View>
                       </View>
+
+                      {/* Barter section — shown when sender used the "Transfer to Friend" flow
+                          (i.e. pay_later, pay_barter or pay_now is non-zero on the owner transfer).
+                          Highlights the pending (pay_later) amount the recipient still owes. */}
+                      {v.owner_transfer && (
+                        Number(v.owner_transfer.pay_later) > 0 ||
+                        Number(v.owner_transfer.pay_barter) > 0 ||
+                        Number(v.owner_transfer.pay_now) > 0
+                      ) && (
+                        <View className="mt-3 overflow-hidden rounded-xl border border-amber-500/30 bg-amber-500/5">
+                          <Pressable
+                            onPress={() => toggleBarter(v.owner_transfer!.id)}
+                            className="flex-row items-center justify-between border-b border-amber-500/20 bg-amber-500/10 px-3 py-2"
+                          >
+                            <View className="flex-row items-center gap-1.5">
+                              <Gift size={12} color="#b45309" />
+                              <Text className="text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                                Free Value
+                              </Text>
+                              {Number(v.owner_transfer.pay_later) > 0 ? (
+                                <View className="ml-1 rounded-full bg-amber-600 px-2 py-0.5">
+                                  <Text className="text-[10px] font-semibold text-white">
+                                    ₹{Number(v.owner_transfer.pay_later).toLocaleString("en-IN")} pending
+                                  </Text>
+                                </View>
+                              ) : (
+                                <View className="ml-1 rounded-full bg-green-600/90 px-2 py-0.5">
+                                  <Text className="text-[10px] font-semibold text-white">Settled</Text>
+                                </View>
+                              )}
+                            </View>
+                            <View className="flex-row items-center gap-1.5">
+                              {v.owner_transfer.sender?.name ? (
+                                <Text className="max-w-[110px] text-[10px] text-amber-700/80" numberOfLines={1}>
+                                  from {v.owner_transfer.sender.name}
+                                </Text>
+                              ) : null}
+                              {expandedBarter.has(v.owner_transfer.id) ? (
+                                <ChevronUp size={14} color="#b45309" />
+                              ) : (
+                                <ChevronDown size={14} color="#b45309" />
+                              )}
+                            </View>
+                          </Pressable>
+
+                          {expandedBarter.has(v.owner_transfer.id) && (
+                          <View className="p-3">
+                            <View className="flex-row items-start justify-between">
+                              <View className="flex-1 pr-2">
+                                <View className="flex-row items-center gap-1">
+                                  <Clock size={11} color="#d97706" />
+                                  <Text className="text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                                    Pending Amount
+                                  </Text>
+                                </View>
+                                <Text className="mt-0.5 text-2xl font-bold text-amber-700">
+                                  ₹{Number(v.owner_transfer.pay_later).toLocaleString("en-IN")}
+                                </Text>
+                                <Text className="mt-0.5 text-[10px] text-amber-700/80">
+                                  Transfer to friend — pay any amount towards the balance
+                                </Text>
+                              </View>
+                            </View>
+
+                            {/* Breakdown */}
+                            <View className="mt-3 gap-1 rounded-lg bg-white/60 px-3 py-2">
+                              <View className="flex-row items-center justify-between">
+                                <Text className="text-[10px] text-amber-700/80">Total Value</Text>
+                                <Text className="text-[11px] font-semibold text-amber-800">
+                                  ₹{Number(v.owner_transfer.total_amount).toLocaleString("en-IN")}
+                                </Text>
+                              </View>
+                              <View className="flex-row items-center justify-between">
+                                <Text className="text-[10px] text-amber-700/80">Paid Now</Text>
+                                <Text className="text-[11px] text-amber-800">
+                                  ₹{Number(v.owner_transfer.pay_now).toLocaleString("en-IN")}
+                                </Text>
+                              </View>
+                              <View className="flex-row items-center justify-between">
+                                <Text className="text-[10px] text-amber-700/80">Free Value Settled</Text>
+                                <Text className="text-[11px] text-amber-800">
+                                  ₹{Number(v.owner_transfer.pay_barter).toLocaleString("en-IN")}
+                                </Text>
+                              </View>
+                              <View className="my-0.5 h-px bg-amber-500/20" />
+                              <View className="flex-row items-center justify-between">
+                                <Text className="text-[10px] font-semibold text-amber-800">Pending (Pay Later)</Text>
+                                <Text className="text-[11px] font-bold text-amber-700">
+                                  ₹{Number(v.owner_transfer.pay_later).toLocaleString("en-IN")}
+                                </Text>
+                              </View>
+                            </View>
+
+                            {/* Installment-style pay row: enter amount + Pay */}
+                            {Number(v.owner_transfer.pay_later) > 0 && (
+                              <View className="mt-3 gap-2">
+                                <Text className="text-[10px] font-semibold text-amber-700/90">
+                                  Enter amount to pay
+                                </Text>
+                                <View className="flex-row items-center gap-2">
+                                  <View className="flex-1 flex-row items-center rounded-lg border border-amber-500/40 bg-white px-2">
+                                    <Text className="text-base font-semibold text-amber-700">₹</Text>
+                                    <Input
+                                      value={payTransferAmounts[v.owner_transfer.id] ?? ""}
+                                      onChangeText={(t) =>
+                                        setPayTransferAmounts((prev) => ({
+                                          ...prev,
+                                          [v.owner_transfer!.id]: t.replace(/[^0-9.]/g, ""),
+                                        }))
+                                      }
+                                      placeholder={`Max ₹${Number(v.owner_transfer.pay_later).toLocaleString("en-IN")}`}
+                                      keyboardType="numeric"
+                                      className="flex-1 border-0 bg-transparent px-1"
+                                    />
+                                  </View>
+                                  <Button
+                                    size="sm"
+                                    className="rounded-lg bg-amber-600 px-4"
+                                    disabled={isPayingPending && settlingTransferId === v.owner_transfer.id}
+                                    onPress={() => {
+                                      const raw = (payTransferAmounts[v.owner_transfer!.id] ?? "").trim();
+                                      const remaining = Number(v.owner_transfer!.pay_later);
+                                      const entered = parseFloat(raw);
+                                      const amount = !raw || isNaN(entered) ? remaining : entered;
+                                      handlePayPending(v.owner_transfer!.id, amount);
+                                    }}
+                                  >
+                                    <Text className="text-xs font-semibold text-white">
+                                      {isPayingPending && settlingTransferId === v.owner_transfer.id ? "Paying\u2026" : "Pay"}
+                                    </Text>
+                                  </Button>
+                                </View>
+                                <View className="flex-row flex-wrap gap-1.5">
+                                  {[0.25, 0.5, 1].map((frac) => {
+                                    const amt = Math.round(Number(v.owner_transfer!.pay_later) * frac);
+                                    if (amt <= 0) return null;
+                                    const label = frac === 1 ? "Pay full" : `${Math.round(frac * 100)}%`;
+                                    return (
+                                      <Pressable
+                                        key={frac}
+                                        onPress={() =>
+                                          setPayTransferAmounts((prev) => ({
+                                            ...prev,
+                                            [v.owner_transfer!.id]: String(amt),
+                                          }))
+                                        }
+                                        className="rounded-full border border-amber-500/40 bg-white/70 px-2.5 py-0.5"
+                                      >
+                                        <Text className="text-[10px] font-semibold text-amber-700">
+                                          {label} · ₹{amt.toLocaleString("en-IN")}
+                                        </Text>
+                                      </Pressable>
+                                    );
+                                  })}
+                                </View>
+                              </View>
+                            )}
+
+                            {/* Collapsible payment history */}
+                            <Pressable
+                              onPress={() => toggleTransferHistory(v.owner_transfer!.id)}
+                              className="mt-3 flex-row items-center justify-between rounded-lg bg-amber-500/10 px-3 py-2"
+                            >
+                              <Text className="text-[11px] font-semibold text-amber-700">
+                                Payment History
+                              </Text>
+                              {expandedTransferHistory.has(v.owner_transfer.id) ? (
+                                <ChevronUp size={14} color="#b45309" />
+                              ) : (
+                                <ChevronDown size={14} color="#b45309" />
+                              )}
+                            </Pressable>
+                            {expandedTransferHistory.has(v.owner_transfer.id) && (
+                              <View className="mt-2">
+                                <BarterPaymentHistory transferId={v.owner_transfer.id} />
+                              </View>
+                            )}
+                          </View>
+                          )}
+                        </View>
+                      )}
 
                       {v.status === "active" && (
                         <View className="mt-3 rounded-lg bg-muted px-3 py-2.5">
@@ -826,7 +1154,12 @@ const MyVouchers = () => {
             const ctx = webViewContext;
             setWebViewContext(null);
             setWebViewOptions(null);
-            if (ctx) await verifyInstallmentResult(ctx.claimId, ctx.amount, data);
+            if (!ctx) return;
+            if (ctx.kind === "installment") {
+              await verifyInstallmentResult(ctx.claimId, ctx.amount, data);
+            } else if (ctx.kind === "owner_transfer") {
+              await verifyOwnerTransferResult(ctx.transferId, ctx.amount, data);
+            }
           }}
           onCancel={() => {
             setWebViewVisible(false);

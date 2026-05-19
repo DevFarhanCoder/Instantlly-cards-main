@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { Dimensions, Modal, Pressable, Text, View } from "react-native";
 import { cn } from "../../lib/utils";
 
 type DialogContextValue = {
@@ -45,7 +45,10 @@ export const DialogContent = ({
     >
       <View className="flex-1 items-center justify-center bg-black/50 px-4">
         <Pressable className="absolute inset-0" onPress={() => onOpenChange(false)} />
-        <View className={cn("w-full max-w-md rounded-2xl bg-card p-4", className)}>
+        <View
+          className={cn("w-full max-w-md rounded-2xl bg-card p-4", className)}
+          style={{ maxHeight: Dimensions.get("window").height * 0.85 }}
+        >
           {children}
         </View>
       </View>

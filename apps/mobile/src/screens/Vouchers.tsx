@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Modal, Pressable, Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Modal, Platform, Pressable, Image, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ChevronDown, ChevronRight, Clock, Filter, MapPin, Search, Ticket, Users, X } from "lucide-react-native";
 import { Badge } from "../components/ui/badge";
@@ -227,11 +227,11 @@ const Vouchers = () => {
                       onPress={() => navigation.navigate("VoucherDetail", { id: v.id })}
                     >
                       <View className="relative h-36 items-center justify-center bg-muted">
-                        {/* banner > image_url, never both */}
-                        {(v as any).banner_url ? (
-                          <Image source={{ uri: (v as any).banner_url }} style={{ position: "absolute", width: "100%", height: "100%" }} resizeMode="cover" />
-                        ) : (v as any).image_url ? (
+                        {/* show logo (image_url) on the card; banner shows in the preview modal */}
+                        {(v as any).image_url ? (
                           <Image source={{ uri: (v as any).image_url }} style={{ position: "absolute", width: "100%", height: "100%" }} resizeMode="cover" />
+                        ) : (v as any).banner_url ? (
+                          <Image source={{ uri: (v as any).banner_url }} style={{ position: "absolute", width: "100%", height: "100%" }} resizeMode="cover" />
                         ) : (
                           <Text className="text-6xl">{emojiImages[v.category] || "🎁"}</Text>
                         )}
@@ -307,11 +307,11 @@ const Vouchers = () => {
                     onPress={() => setSelectedVoucher(d)}
                   >
                     <View className="h-24 w-24 items-center justify-center bg-muted overflow-hidden rounded-l-xl">
-                      {/* banner > image_url, never both */}
-                      {(d as any).banner_url ? (
-                        <Image source={{ uri: (d as any).banner_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-                      ) : (d as any).image_url ? (
+                      {/* show logo (image_url) on the card; banner shows in the preview modal */}
+                      {(d as any).image_url ? (
                         <Image source={{ uri: (d as any).image_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                      ) : (d as any).banner_url ? (
+                        <Image source={{ uri: (d as any).banner_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
                       ) : (
                         <Text className="text-4xl">{emojiImages[d.category] || "🎁"}</Text>
                       )}
@@ -363,59 +363,58 @@ const Vouchers = () => {
         onRequestClose={() => setSelectedVoucher(null)}
       >
         {selectedVoucher && (
-          <View style={{ flex: 1, backgroundColor: "#000" }}>
-            {/* Full-screen image */}
-            {(selectedVoucher as any).banner_url || (selectedVoucher as any).image_url ? (
-              <Image
-                source={{ uri: (selectedVoucher as any).banner_url || (selectedVoucher as any).image_url }}
-                style={{ width: "100%", height: "100%", position: "absolute" }}
-                resizeMode="contain"
-              />
-            ) : (
-              <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ fontSize: 96 }}>{emojiImages[selectedVoucher.category] || "🎁"}</Text>
-              </View>
-            )}
-
-            {/* Dark gradient overlay */}
-            <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.35)" }} />
-
-            {/* Close button top-left */}
-            <Pressable
-              onPress={() => setSelectedVoucher(null)}
-              style={{ position: "absolute", top: 52, left: 20, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 20, padding: 8 }}
-            >
-              <Text style={{ color: "#fff", fontSize: 18, lineHeight: 20 }}>✕</Text>
-            </Pressable>
-
-            {/* Bottom info + button */}
-            <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 24, gap: 12 }}>
-              {selectedVoucher.discount_label && (
-                <View style={{ alignSelf: "flex-start", backgroundColor: "#2463eb", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 }}>
-                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{selectedVoucher.discount_label}</Text>
+          <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }}>
+            <StatusBar barStyle="light-content" backgroundColor="#000" />
+            {/* Image area (top half — flexible) */}
+            <View style={{ flex: 1, backgroundColor: "#000", paddingTop: Platform.OS === "android" ? StatusBar.currentHeight ?? 0 : 0 }}>
+              {(selectedVoucher as any).banner_url || (selectedVoucher as any).image_url ? (
+                <Image
+                  source={{ uri: (selectedVoucher as any).banner_url || (selectedVoucher as any).image_url }}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="contain"
+                />
+              ) : (
+                <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 96 }}>{emojiImages[selectedVoucher.category] || "🎁"}</Text>
                 </View>
               )}
-              <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.6)", textShadowRadius: 4 }}>
+
+              {/* Close button top-left */}
+              <Pressable
+                onPress={() => setSelectedVoucher(null)}
+                style={{ position: "absolute", top: 12, left: 16, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 20, width: 36, height: 36, alignItems: "center", justifyContent: "center" }}
+              >
+                <Text style={{ color: "#fff", fontSize: 18, lineHeight: 20 }}>✕</Text>
+              </Pressable>
+            </View>
+
+            {/* Bottom info + button (own area, no overlap) */}
+            <View style={{ backgroundColor: "#0b1220", padding: 20, gap: 10, paddingBottom: 28 }}>
+              {selectedVoucher.discount_label && (
+                <View style={{ alignSelf: "flex-start", backgroundColor: "#2463eb", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 }}>
+                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{selectedVoucher.discount_label} with code</Text>
+                </View>
+              )}
+              <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }} numberOfLines={2}>
                 {selectedVoucher.title}
               </Text>
               {selectedVoucher.subtitle ? (
-                <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 14 }}>{selectedVoucher.subtitle}</Text>
+                <Text style={{ color: "rgba(255,255,255,0.85)", fontSize: 14 }} numberOfLines={2}>{selectedVoucher.subtitle}</Text>
               ) : null}
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <Text style={{ color: "#fff", fontSize: 22, fontWeight: "700" }}>₹{selectedVoucher.discounted_price.toLocaleString()}</Text>
-                <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 16, textDecorationLine: "line-through" }}>₹{selectedVoucher.original_price.toLocaleString()}</Text>
+                <Text style={{ color: "#fff", fontSize: 22, fontWeight: "700" }}>₹{Number(selectedVoucher.original_price).toLocaleString("en-IN")}</Text>
               </View>
               <TouchableOpacity
                 onPress={() => {
                   setSelectedVoucher(null);
                   navigation.navigate("VoucherDetail", { id: selectedVoucher.id });
                 }}
-                style={{ backgroundColor: "#fff", borderRadius: 14, paddingVertical: 16, alignItems: "center" }}
+                style={{ backgroundColor: "#fff", borderRadius: 14, paddingVertical: 16, alignItems: "center", marginTop: 4 }}
               >
                 <Text style={{ color: "#2463eb", fontWeight: "700", fontSize: 16 }}>View Details</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </SafeAreaView>
         )}
       </Modal>
     </View>
