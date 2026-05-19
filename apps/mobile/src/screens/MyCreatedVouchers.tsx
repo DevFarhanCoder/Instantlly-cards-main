@@ -34,12 +34,48 @@ import {
   useGetVoucherClaimsQuery,
   useGetVoucherInstallmentLedgerQuery,
   useGetAllMyClaimsQuery,
+  useGetSentOwnerTransfersQuery,
+  useSettleOwnerTransferMutation,
+  useGetOwnerTransferPaymentsQuery,
 } from "../store/api/vouchersApi";
 
 const safeFormat = (d: any, fmt: string, fb = "—") => {
   if (!d) return fb;
   const date = new Date(d);
   return isValid(date) ? format(date, fmt) : fb;
+};
+
+/** Renders the Razorpay payment history for one barter (owner-transfer). */
+const BarterTransferPayments = ({ transferId }: { transferId: number }) => {
+  const { data = [], isLoading } = useGetOwnerTransferPaymentsQuery(transferId);
+  if (isLoading) {
+    return <Text className="text-[10px] text-muted-foreground">Loading payments…</Text>;
+  }
+  if (!data.length) {
+    return <Text className="text-[10px] text-muted-foreground">No payments yet</Text>;
+  }
+  return (
+    <View className="gap-1.5">
+      {data.map((p) => (
+        <View
+          key={p.id}
+          className="flex-row items-center justify-between rounded-md bg-muted/40 px-2.5 py-1.5"
+        >
+          <View className="flex-1 pr-2">
+            <Text className="text-[12px] font-semibold text-foreground">
+              ₹{Number(p.amount).toLocaleString("en-IN")}
+            </Text>
+            <Text className="text-[9px] text-muted-foreground">
+              {safeFormat(p.paid_at, "dd MMM yyyy, hh:mm a")}
+            </Text>
+          </View>
+          <Text className="max-w-[55%] text-[9px] text-muted-foreground" numberOfLines={1}>
+            {p.razorpay_payment_id}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
 };
 
 const MyCreatedVouchers = () => {
@@ -61,7 +97,29 @@ const MyCreatedVouchers = () => {
   const [transferPhone, setTransferPhone] = useState("");
   const [transferQty, setTransferQty] = useState("1");
   const [transferLoading, setTransferLoading] = useState(false);
+
+  // Transfer-to-Friend (Rajesh Modi only) state
+  const RAJESH_MODI_PHONE = "9867477227";
+  const normalizedUserPhone = (user?.phone || "").replace(/\D/g, "");
+  const isRajeshModi = normalizedUserPhone.endsWith(RAJESH_MODI_PHONE);
+  const [friendVoucher, setFriendVoucher] = useState<any | null>(null);
+  const [friendPhone, setFriendPhone] = useState("");
+  const [friendQty, setFriendQty] = useState("1");
+  const [friendPayNow, setFriendPayNow] = useState("");
+  const [friendPayLater, setFriendPayLater] = useState("");
+  const [friendPayBarter, setFriendPayBarter] = useState("");
+  const [friendLoading, setFriendLoading] = useState(false);
+  // Pending owner-transfers modal (Rajesh Modi only — sender view)
+  const [pendingTransfersOpen, setPendingTransfersOpen] = useState(false);
+  const { data: sentTransfers = [], refetch: refetchSentTransfers, isFetching: sentTransfersFetching } =
+    useGetSentOwnerTransfersQuery(undefined, { skip: !isRajeshModi });
+  const [settleOwnerTransfer] = useSettleOwnerTransferMutation();
+  const [settlingTransferId, setSettlingTransferId] = useState<number | null>(null);
+  const pendingTransfers = (sentTransfers || []).filter((t: any) => Number(t.pay_later ?? 0) > 0);
+  const totalPendingAmount = pendingTransfers.reduce((sum: number, t: any) => sum + Number(t.pay_later ?? 0), 0);
   const [ledgerVoucherId, setLedgerVoucherId] = useState<number | null>(null);
+  const [ledgerTab, setLedgerTab] = useState<"installments" | "barter">("installments");
+  const [expandedBarterTransfer, setExpandedBarterTransfer] = useState<Set<number>>(new Set());
   const [historyClaim, setHistoryClaim] = useState<any | null>(null);
   // Global claims modal: null = closed, "active" | "redeemed" | "expired" = open with filter
   const [globalClaimsFilter, setGlobalClaimsFilter] = useState<string | null>(null);
@@ -111,6 +169,75 @@ const MyCreatedVouchers = () => {
     } finally {
       setTransferLoading(false);
     }
+  };
+
+  const handleFriendTransfer = async () => {
+    if (!friendVoucher) return;
+    const qty = parseInt(friendQty, 10);
+    if (!qty || qty < 1) { toast.error("Enter a valid quantity"); return; }
+    if (!friendPhone.trim()) { toast.error("Enter recipient phone number"); return; }
+    const remaining = friendVoucher.max_claims != null
+      ? Math.max(0, friendVoucher.max_claims - (friendVoucher.claimed_count || 0))
+      : null;
+    if (remaining !== null && qty > remaining) {
+      toast.error(`Only ${remaining} voucher(s) remaining`);
+      return;
+    }
+    const unitPrice = Number(friendVoucher.original_price ?? friendVoucher.mrp ?? friendVoucher.amount ?? 0);
+    const payNow = parseInt(friendPayNow, 10) || 0;
+    const payLater = parseInt(friendPayLater, 10) || 0;
+    const payBarter = parseInt(friendPayBarter, 10) || 0;
+    const totalAmount = payNow + payLater + payBarter;
+    setFriendLoading(true);
+    try {
+      await ownerTransfer({
+        id: friendVoucher.id,
+        recipient_phone: friendPhone.trim(),
+        quantity: qty,
+        pay_now: payNow,
+        pay_later: payLater,
+        pay_barter: payBarter,
+        total_amount: totalAmount,
+      } as any).unwrap();
+      toast.success(`${qty} voucher(s) transferred successfully!`);
+      setFriendPhone("");
+      setFriendQty("1");
+      setFriendPayNow("");
+      setFriendPayLater("");
+      setFriendPayBarter("");
+      setFriendVoucher(null);
+      refetch();
+      refetchSentTransfers();
+    } catch (e: any) {
+      toast.error(e?.data?.error || "Transfer failed");
+    } finally {
+      setFriendLoading(false);
+    }
+  };
+
+  const handleMarkAsPaid = (transferId: number, amount: number, recipientName?: string | null) => {
+    Alert.alert(
+      "Mark as Paid",
+      `Mark ₹${amount.toLocaleString("en-IN")} as received from ${recipientName || "recipient"}? This clears the pending balance.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Mark Paid",
+          onPress: async () => {
+            setSettlingTransferId(transferId);
+            try {
+              await settleOwnerTransfer({ transferId }).unwrap();
+              toast.success("Payment marked as received");
+              await refetchSentTransfers();
+            } catch (err: any) {
+              toast.error(err?.data?.error || "Failed to mark as paid");
+            } finally {
+              setSettlingTransferId(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const toggleStatus = async (id: number, current: string) => {
@@ -172,27 +299,32 @@ const MyCreatedVouchers = () => {
 
   return (
     <View className="flex-1 bg-background">
-      <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-4">
-        <View className="flex-row items-center gap-3">
-          <Pressable onPress={() => navigation.goBack()}>
-            <ArrowLeft size={20} color={iconColor} />
+      <View className="flex-row items-center gap-2 border-b border-border bg-card px-4 py-4">
+        <Pressable onPress={() => navigation.goBack()} className="p-0.5">
+          <ArrowLeft size={20} color={iconColor} />
+        </Pressable>
+        <Text
+          className="flex-1 text-lg font-bold text-foreground"
+          numberOfLines={1}
+        >
+          My Created Vouchers
+        </Text>
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            onPress={() => navigation.navigate("VoucherCreate")}
+            className="flex-row items-center gap-1 rounded-lg bg-primary px-3 py-1.5 active:opacity-80"
+          >
+            <Plus size={14} color="#fff" />
+            <Text className="text-xs font-semibold text-primary-foreground">New</Text>
           </Pressable>
-          <Text className="text-lg font-bold text-foreground">My Created Vouchers</Text>
+          <Pressable
+            onPress={() => navigation.navigate("VoucherScanner")}
+            className="flex-row items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 active:opacity-80"
+          >
+            <QrCode size={14} color="#2463eb" />
+            <Text className="text-xs font-semibold text-primary">Scan</Text>
+          </Pressable>
         </View>
-        <Pressable
-          onPress={() => navigation.navigate("VoucherCreate")}
-          className="flex-row items-center gap-1 rounded-lg bg-primary px-3 py-1.5"
-        >
-          <Plus size={14} color="#fff" />
-          <Text className="text-xs font-semibold text-primary-foreground">New</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => navigation.navigate("VoucherScanner")}
-          className="flex-row items-center gap-1 rounded-lg bg-primary px-3 py-1.5"
-        >
-          <QrCode size={14} color="#fff" />
-          <Text className="text-xs font-semibold text-primary-foreground">Scan</Text>
-        </Pressable>
       </View>
 
       <ScrollView
@@ -235,6 +367,36 @@ const MyCreatedVouchers = () => {
               <Text className="text-[10px] text-primary font-medium">Redeemed ›</Text>
             </Pressable>
           </View>
+
+          {/* Pending Transfers banner (Rajesh Modi only) */}
+          {isRajeshModi && pendingTransfers.length > 0 && (
+            <Pressable
+              onPress={() => setPendingTransfersOpen(true)}
+              className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 active:opacity-80"
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 pr-3">
+                  <Text className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                    Pending Transfers
+                  </Text>
+                  <Text className="mt-1 text-base font-bold text-amber-700">
+                    ₹{totalPendingAmount.toLocaleString("en-IN")}
+                  </Text>
+                  <Text className="mt-0.5 text-[11px] text-amber-700/80">
+                    {pendingTransfers.length} transfer{pendingTransfers.length === 1 ? "" : "s"} awaiting payment
+                  </Text>
+                </View>
+                <Button
+                  size="sm"
+                  className="rounded-lg bg-amber-600 px-3"
+                  textClassName="text-xs text-white"
+                  onPress={() => setPendingTransfersOpen(true)}
+                >
+                  <Text className="text-xs font-semibold text-white">View</Text>
+                </Button>
+              </View>
+            </Pressable>
+          )}
 
           {/* List */}
           {isLoading ? (
@@ -331,12 +493,12 @@ const MyCreatedVouchers = () => {
                       size="sm"
                       variant="outline"
                       className="flex-1 rounded-lg"
-                      textClassName="text-[11px]"
+                      textClassName="text-[12px]"
                       onPress={() => setClaimsVoucherId(v.id)}
                     >
                       <View className="flex-row items-center justify-center gap-1">
-                        <Users size={12} color={iconColor} />
-                        <Text className="text-[11px] font-medium text-foreground">Claims</Text>
+                        <Users size={14} color={iconColor} />
+                        <Text className="text-[12px] font-medium text-foreground">Claims</Text>
                       </View>
                     </Button>
                     {v.allows_installment && (
@@ -344,12 +506,12 @@ const MyCreatedVouchers = () => {
                         size="sm"
                         variant="outline"
                         className="flex-1 rounded-lg"
-                        textClassName="text-[11px]"
+                        textClassName="text-[12px]"
                         onPress={() => setLedgerVoucherId(v.id)}
                       >
                         <View className="flex-row items-center justify-center gap-1">
-                          <CreditCard size={12} color={iconColor} />
-                          <Text className="text-[11px] font-medium text-foreground">Ledger</Text>
+                          <CreditCard size={14} color={iconColor} />
+                          <Text className="text-[12px] font-medium text-foreground">Ledger</Text>
                         </View>
                       </Button>
                     )}
@@ -361,19 +523,19 @@ const MyCreatedVouchers = () => {
                             size="sm"
                             variant="outline"
                             className="flex-1 rounded-lg border-violet-400/60"
-                            textClassName="text-[11px]"
+                            textClassName="text-[12px]"
                             onPress={() => { setTransferVoucher(v); setTransferPhone(""); setTransferQty("1"); }}
                           >
                             <View className="flex-row items-center justify-center gap-1">
-                              <Gift size={12} color="#7c3aed" />
-                              <Text className="text-[11px] font-semibold text-violet-600">
+                              <Gift size={14} color="#7c3aed" />
+                              <Text className="text-[12px] font-semibold text-violet-600">
                                 Gift ({remaining})
                               </Text>
                             </View>
                           </Button>
                         ) : (
                           <View className="flex-1 rounded-lg border border-border bg-muted/50 px-2 py-1.5 items-center justify-center">
-                            <Text className="text-[10px] font-semibold text-muted-foreground">Sold Out</Text>
+                            <Text className="text-[11px] font-semibold text-muted-foreground">Sold Out</Text>
                           </View>
                         );
                       })()
@@ -381,15 +543,43 @@ const MyCreatedVouchers = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      className={`flex-1 rounded-lg ${v.status === "active" ? "border-destructive/40" : "border-primary/40"}`}
+                      className={`flex-1 rounded-lg px-1 ${v.status === "active" ? "border-destructive/40" : "border-primary/40"}`}
                       textClassName="text-[11px]"
                       onPress={() => toggleStatus(v.id, v.status)}
                     >
-                      <Text className={`text-[11px] font-semibold ${v.status === "active" ? "text-destructive" : "text-primary"}`}>
+                      <Text
+                        className={`text-[11px] font-semibold ${v.status === "active" ? "text-destructive" : "text-primary"}`}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                      >
                         {v.status === "active" ? "Deactivate" : "Activate"}
                       </Text>
                     </Button>
                   </View>
+                  {isRajeshModi && (
+                    <View className="flex-row gap-2 border-t border-border bg-emerald-500/5 px-3 py-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 rounded-lg bg-emerald-600"
+                        textClassName="text-[12px]"
+                        onPress={() => {
+                          setFriendVoucher(v);
+                          setFriendPhone("");
+                          setFriendQty("1");
+                          setFriendPayNow("");
+                          setFriendPayLater("");
+                          setFriendPayBarter("");
+                        }}
+                      >
+                        <View className="flex-row items-center justify-center gap-1.5">
+                          <Gift size={14} color="#fff" />
+                          <Text className="text-[12px] font-semibold text-white">
+                            Free Value Transfer
+                          </Text>
+                        </View>
+                      </Button>
+                    </View>
+                  )}
                   <View className="flex-row gap-2 border-t border-border bg-muted/20 px-3 py-2">
                     <Button
                       size="sm"
@@ -617,12 +807,34 @@ const MyCreatedVouchers = () => {
       </Dialog>
 
       {/* Installment Ledger Modal */}
-      <Dialog open={!!ledgerVoucherId} onOpenChange={(open) => !open && setLedgerVoucherId(null)}>
+      <Dialog open={!!ledgerVoucherId} onOpenChange={(open) => { if (!open) { setLedgerVoucherId(null); setLedgerTab("installments"); setExpandedBarterTransfer(new Set()); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Installment Ledger</DialogTitle>
+            <DialogTitle>Ledger</DialogTitle>
           </DialogHeader>
-          {ledgerFetching ? (
+
+          {/* Tabs */}
+          <View className="flex-row gap-2 mb-2">
+            <Pressable
+              onPress={() => setLedgerTab("installments")}
+              className={`flex-1 rounded-lg px-3 py-2 items-center ${ledgerTab === "installments" ? "bg-primary" : "bg-muted/40"}`}
+            >
+              <Text className={`text-[12px] font-semibold ${ledgerTab === "installments" ? "text-white" : "text-foreground"}`}>
+                Installments
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setLedgerTab("barter")}
+              className={`flex-1 rounded-lg px-3 py-2 items-center ${ledgerTab === "barter" ? "bg-primary" : "bg-muted/40"}`}
+            >
+              <Text className={`text-[12px] font-semibold ${ledgerTab === "barter" ? "text-white" : "text-foreground"}`}>
+                Free Value Transfers
+              </Text>
+            </Pressable>
+          </View>
+
+          {ledgerTab === "installments" ? (
+            ledgerFetching ? (
             <View className="py-8 items-center"><Text className="text-sm text-muted-foreground">Loading…</Text></View>
           ) : ledger.length === 0 ? (
             <View className="py-8 items-center"><Text className="text-sm text-muted-foreground">No installment claims yet</Text></View>
@@ -706,8 +918,137 @@ const MyCreatedVouchers = () => {
                 </View>
               </ScrollView>
             </>
+          )
+          ) : (
+            (() => {
+              const voucherBarterTransfers = (sentTransfers || []).filter(
+                (t: any) => t.voucher_id === ledgerVoucherId
+              );
+              if (sentTransfersFetching && voucherBarterTransfers.length === 0) {
+                return (
+                  <View className="py-8 items-center">
+                    <Text className="text-sm text-muted-foreground">Loading…</Text>
+                  </View>
+                );
+              }
+              if (voucherBarterTransfers.length === 0) {
+                return (
+                  <View className="py-8 items-center">
+                    <Text className="text-sm text-muted-foreground">No free value transfers for this voucher</Text>
+                  </View>
+                );
+              }
+              const totalPaidNow = voucherBarterTransfers.reduce(
+                (s: number, t: any) => s + Number(t.pay_now ?? 0),
+                0
+              );
+              const totalPending = voucherBarterTransfers.reduce(
+                (s: number, t: any) => s + Number(t.pay_later ?? 0),
+                0
+              );
+              return (
+                <>
+                  <View className="flex-row gap-2 px-1">
+                    <View className="flex-1 rounded-xl bg-green-500/10 p-3">
+                      <Text className="text-[10px] font-semibold text-green-700 uppercase">Settled</Text>
+                      <Text className="text-base font-bold text-green-700">₹{formatINR(totalPaidNow)}</Text>
+                    </View>
+                    <View className="flex-1 rounded-xl bg-amber-500/10 p-3">
+                      <Text className="text-[10px] font-semibold text-amber-700 uppercase">Pending</Text>
+                      <Text className="text-base font-bold text-amber-700">₹{formatINR(totalPending)}</Text>
+                    </View>
+                  </View>
+                  <ScrollView className="max-h-96 mt-2" showsVerticalScrollIndicator={false}>
+                    <View className="gap-2.5 py-1">
+                      {voucherBarterTransfers.map((t: any) => {
+                        const pending = Number(t.pay_later ?? 0);
+                        const paidNow = Number(t.pay_now ?? 0);
+                        const barter = Number(t.pay_barter ?? 0);
+                        const recipientName = t.recipient?.name || "Recipient";
+                        const recipientPhone = t.recipient?.phone || t.recipient_phone || "—";
+                        const isExpanded = expandedBarterTransfer.has(t.id);
+                        return (
+                          <View key={t.id} className="rounded-xl border border-border bg-card p-3 gap-2">
+                            <View className="flex-row items-start justify-between">
+                              <View className="flex-1 pr-2">
+                                <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                                  {recipientName}
+                                </Text>
+                                <Text className="text-[11px] text-muted-foreground">{recipientPhone}</Text>
+                                <Text className="text-[10px] text-muted-foreground mt-0.5">
+                                  Qty {t.quantity} · {safeFormat(t.transferred_at, "d MMM yyyy")}
+                                </Text>
+                              </View>
+                              <View
+                                className={`rounded-full px-2 py-0.5 ${
+                                  pending > 0 ? "bg-amber-500/10" : "bg-green-500/10"
+                                }`}
+                              >
+                                <Text
+                                  className={`text-[10px] font-semibold ${
+                                    pending > 0 ? "text-amber-700" : "text-green-700"
+                                  }`}
+                                >
+                                  {pending > 0 ? `₹${formatINR(pending)} pending` : "Settled"}
+                                </Text>
+                              </View>
+                            </View>
+                            <View className="flex-row items-center justify-between">
+                              <View>
+                                <Text className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                                  Paid Now
+                                </Text>
+                                <Text className="text-sm font-bold text-green-600">
+                                  ₹{formatINR(paidNow)}
+                                </Text>
+                              </View>
+                              <View>
+                                <Text className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                                  Free Value
+                                </Text>
+                                <Text className="text-sm font-bold text-foreground">
+                                  ₹{formatINR(barter)}
+                                </Text>
+                              </View>
+                              <View>
+                                <Text className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                                  Total
+                                </Text>
+                                <Text className="text-sm font-bold text-foreground">
+                                  ₹{formatINR(Number(t.total_amount ?? 0))}
+                                </Text>
+                              </View>
+                            </View>
+                            <Pressable
+                              onPress={() =>
+                                setExpandedBarterTransfer((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(t.id)) next.delete(t.id);
+                                  else next.add(t.id);
+                                  return next;
+                                })
+                              }
+                              className="flex-row items-center justify-center rounded-lg border border-primary/30 bg-primary/5 py-1.5"
+                            >
+                              <Text className="text-[11px] font-semibold text-primary">
+                                {isExpanded ? "Hide Payment History" : "View Payment History"}
+                              </Text>
+                            </Pressable>
+                            {isExpanded && (
+                              <View className="rounded-lg bg-muted/30 p-2">
+                                <BarterTransferPayments transferId={t.id} />
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </>
+              );
+            })()
           )}
-          <Button className="w-full rounded-xl mt-2" onPress={() => setLedgerVoucherId(null)}>Close</Button>
+          <Button className="w-full rounded-xl mt-2" onPress={() => { setLedgerVoucherId(null); setLedgerTab("installments"); setExpandedBarterTransfer(new Set()); }}>Close</Button>
         </DialogContent>
       </Dialog>
 
@@ -880,6 +1221,307 @@ const MyCreatedVouchers = () => {
               </View>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Barter Transfer Dialog (Rajesh Modi only) */}
+      <Dialog open={!!friendVoucher} onOpenChange={(open) => { if (!open) setFriendVoucher(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Free Value Transfer</DialogTitle>
+          </DialogHeader>
+          {friendVoucher && (() => {
+            const remaining = friendVoucher.max_claims != null
+              ? Math.max(0, friendVoucher.max_claims - (friendVoucher.claimed_count || 0))
+              : null;
+            const qty = parseInt(friendQty, 10) || 1;
+            const payNowNum = parseInt(friendPayNow, 10) || 0;
+            const payLaterNum = parseInt(friendPayLater, 10) || 0;
+            const payBarterNum = parseInt(friendPayBarter, 10) || 0;
+            const enteredSum = payNowNum + payLaterNum + payBarterNum;
+            const unitPrice = Number(
+              friendVoucher.original_price ?? friendVoucher.mrp ?? friendVoucher.amount ?? 0
+            );
+            const voucherTotal = Math.max(0, unitPrice * qty);
+            // Allocated = what's actually settled (Pay Now + Pay Barter)
+            // Remaining = Pay Later (the pending amount the recipient still owes)
+            const allocatedAmount = payNowNum + payBarterNum;
+            const remainingAmount = payLaterNum;
+            const overpaid = enteredSum > voucherTotal;
+            const unallocated = voucherTotal - enteredSum; // > 0 means user hasn't entered enough yet
+            const inputStyle = {
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: colors.border,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              fontSize: 14,
+              color: colors.foreground,
+            } as const;
+            return (
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: 16 }}
+              >
+                <View className="gap-4">
+                  {/* Voucher info */}
+                  <View className="rounded-xl border border-border bg-muted/30 px-3 py-2.5 gap-1.5">
+                    <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{friendVoucher.title}</Text>
+                    {remaining !== null && (
+                      <View className="flex-row items-center gap-2">
+                        <View className="rounded-full bg-emerald-500/10 px-2 py-0.5">
+                          <Text className="text-[10px] font-semibold text-emerald-600">{remaining} available</Text>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Phone */}
+                  <View className="gap-1.5">
+                    <Text className="text-xs font-semibold text-foreground">Recipient Phone Number</Text>
+                    <TextInput
+                      style={inputStyle}
+                      placeholder="+91 9876543210"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="phone-pad"
+                      value={friendPhone}
+                      onChangeText={setFriendPhone}
+                      autoFocus
+                    />
+                  </View>
+
+                  {/* Pay Now */}
+                  <View className="gap-1.5">
+                    <Text className="text-xs font-semibold text-foreground">Pay Now</Text>
+                    <TextInput
+                      style={inputStyle}
+                      placeholder="0"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="number-pad"
+                      value={friendPayNow}
+                      onChangeText={(t) => setFriendPayNow(t.replace(/\D/g, ""))}
+                    />
+                  </View>
+
+                  {/* Pay Later */}
+                  <View className="gap-1.5">
+                    <Text className="text-xs font-semibold text-foreground">Pay Later</Text>
+                    <TextInput
+                      style={inputStyle}
+                      placeholder="0"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="number-pad"
+                      value={friendPayLater}
+                      onChangeText={(t) => setFriendPayLater(t.replace(/\D/g, ""))}
+                    />
+                  </View>
+
+                  {/* Free Value */}
+                  <View className="gap-1.5">
+                    <Text className="text-xs font-semibold text-foreground">Free Value</Text>
+                    <TextInput
+                      style={inputStyle}
+                      placeholder="0"
+                      placeholderTextColor={colors.mutedForeground}
+                      keyboardType="number-pad"
+                      value={friendPayBarter}
+                      onChangeText={(t) => setFriendPayBarter(t.replace(/\D/g, ""))}
+                    />
+                  </View>
+
+                  {/* Quantity */}
+                  <View className="gap-1.5">
+                    <Text className="text-xs font-semibold text-foreground">
+                      Quantity{remaining !== null ? ` (max ${remaining})` : ""}
+                    </Text>
+                    <View className="flex-row items-center gap-3">
+                      <Pressable
+                        onPress={() => setFriendQty((v) => String(Math.max(1, (parseInt(v, 10) || 1) - 1)))}
+                        className="h-9 w-9 rounded-full border border-border items-center justify-center active:opacity-60"
+                      >
+                        <Text className="text-lg font-semibold text-foreground">−</Text>
+                      </Pressable>
+                      <TextInput
+                        style={{
+                          height: 36,
+                          width: 64,
+                          borderRadius: 10,
+                          borderWidth: 1,
+                          borderColor: colors.border,
+                          color: colors.foreground,
+                          fontSize: 14,
+                          fontWeight: 'bold',
+                          textAlign: 'center',
+                          paddingHorizontal: 8,
+                        }}
+                        keyboardType="number-pad"
+                        value={friendQty}
+                        onChangeText={(val) => {
+                          const n = parseInt(val, 10);
+                          if (!isNaN(n) && n >= 1) {
+                            setFriendQty(remaining !== null ? String(Math.min(n, remaining)) : String(n));
+                          } else if (val === "") {
+                            setFriendQty("");
+                          }
+                        }}
+                      />
+                      <Pressable
+                        onPress={() => setFriendQty((v) => {
+                          const next = (parseInt(v, 10) || 0) + 1;
+                          return String(remaining !== null ? Math.min(next, remaining) : next);
+                        })}
+                        className="h-9 w-9 rounded-full border border-border items-center justify-center active:opacity-60"
+                      >
+                        <Text className="text-lg font-semibold text-foreground">+</Text>
+                      </Pressable>
+                      <View className="flex-1 rounded-xl bg-emerald-500/10 px-3 py-1.5">
+                        <Text className="text-[11px] font-semibold text-emerald-600 text-center">
+                          {qty} voucher{qty !== 1 ? "s" : ""}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Summary: Allocated = Pay Now + Pay Barter (paid). Remaining = Pay Later (pending). */}
+                  <View className="rounded-xl border border-border bg-muted/30 px-3 py-2.5 gap-1">
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-[12px] text-muted-foreground">Voucher Total</Text>
+                      <Text className="text-[13px] font-semibold text-foreground">{formatINR(voucherTotal)}</Text>
+                    </View>
+                    <View className="h-px bg-border my-1" />
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-[12px] text-muted-foreground">Pay Now</Text>
+                      <Text className="text-[12px] text-foreground">{formatINR(payNowNum)}</Text>
+                    </View>
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-[12px] text-muted-foreground">Free Value</Text>
+                      <Text className="text-[12px] text-foreground">{formatINR(payBarterNum)}</Text>
+                    </View>
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-[12px] text-muted-foreground">Pay Later (Pending)</Text>
+                      <Text className="text-[12px] font-semibold text-amber-700">{formatINR(payLaterNum)}</Text>
+                    </View>
+                    {overpaid ? (
+                      <Text className="mt-1 text-[11px] font-semibold text-destructive">
+                        Entered amounts exceed voucher total by {formatINR(enteredSum - voucherTotal)}
+                      </Text>
+                    ) : unallocated > 0 ? (
+                      <Text className="mt-1 text-[11px] text-amber-700">
+                        {formatINR(unallocated)} of the voucher total is still un-entered.
+                      </Text>
+                    ) : (
+                      <Text className="mt-1 text-[11px] text-emerald-600">
+                        Voucher total fully entered. {formatINR(payLaterNum)} will show as pending on the recipient.
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Actions */}
+                  <View className="gap-2">
+                    <Button
+                      className="w-full rounded-xl"
+                      onPress={handleFriendTransfer}
+                      disabled={friendLoading}
+                    >
+                      <View className="flex-row items-center gap-2">
+                        <Gift size={14} color="#fff" />
+                        <Text className="text-sm font-semibold text-primary-foreground">
+                          {friendLoading ? "Transferring..." : `Transfer ${qty} Voucher${qty !== 1 ? "s" : ""}`}
+                        </Text>
+                      </View>
+                    </Button>
+                    <Button variant="outline" className="w-full rounded-xl" onPress={() => setFriendVoucher(null)}>
+                      Cancel
+                    </Button>
+                  </View>
+                </View>
+              </ScrollView>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Pending Owner-Transfers Dialog (Rajesh Modi only — sender view) */}
+      <Dialog open={pendingTransfersOpen} onOpenChange={(open) => setPendingTransfersOpen(open)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Pending Transfers</DialogTitle>
+          </DialogHeader>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 16 }}
+          >
+            <View className="gap-3 px-1 py-2">
+              {sentTransfersFetching && pendingTransfers.length === 0 ? (
+                <Text className="text-center text-xs text-muted-foreground py-4">Loading...</Text>
+              ) : pendingTransfers.length === 0 ? (
+                <View className="items-center py-8">
+                  <CheckCircle2 size={36} color="#16a34a" />
+                  <Text className="mt-3 text-sm text-muted-foreground">No pending payments</Text>
+                </View>
+              ) : (
+                pendingTransfers.map((t: any) => {
+                  const pending = Number(t.pay_later ?? 0);
+                  const total = Number(t.total_amount ?? 0);
+                  const paid = Number(t.pay_now ?? 0);
+                  const recipientName = t.recipient?.name || t.recipient_phone || "Unknown";
+                  const recipientPhone = t.recipient?.phone || t.recipient_phone || "—";
+                  const isThisSettling = settlingTransferId === t.id;
+                  return (
+                    <View
+                      key={t.id}
+                      className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3"
+                    >
+                      <View className="flex-row items-start justify-between gap-2">
+                        <View className="flex-1">
+                          <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
+                            {t.voucher?.title || `Voucher #${t.voucher_id}`}
+                          </Text>
+                          <Text className="mt-0.5 text-[11px] text-muted-foreground">
+                            To {recipientName} · {recipientPhone}
+                          </Text>
+                          <Text className="mt-0.5 text-[10px] text-muted-foreground">
+                            Qty {t.quantity} · {safeFormat(t.transferred_at, "MMM d, yyyy")}
+                          </Text>
+                        </View>
+                        <View className="items-end">
+                          <Text className="text-[10px] text-amber-700/70">Pending</Text>
+                          <Text className="text-base font-bold text-amber-700">
+                            ₹{pending.toLocaleString("en-IN")}
+                          </Text>
+                        </View>
+                      </View>
+                      <View className="mt-2 flex-row items-center justify-between rounded-md bg-muted/40 px-2 py-1.5">
+                        <Text className="text-[10px] text-muted-foreground">
+                          Total ₹{total.toLocaleString("en-IN")} · Paid ₹{paid.toLocaleString("en-IN")}
+                        </Text>
+                      </View>
+                      <View className="mt-2 flex-row gap-2">
+                        <Button
+                          size="sm"
+                          className="flex-1 rounded-lg bg-amber-600"
+                          disabled={isThisSettling}
+                          onPress={() => handleMarkAsPaid(t.id, pending, recipientName)}
+                        >
+                          <Text className="text-xs font-semibold text-white">
+                            {isThisSettling ? "Marking…" : "Mark as Paid"}
+                          </Text>
+                        </Button>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+              <Button
+                variant="outline"
+                className="mt-2 w-full rounded-xl"
+                onPress={() => setPendingTransfersOpen(false)}
+              >
+                Close
+              </Button>
+            </View>
+          </ScrollView>
         </DialogContent>
       </Dialog>
     </View>

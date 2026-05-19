@@ -74,6 +74,17 @@ export interface ClaimedVoucher {
   quantity: number;
   redeemed_count: number;
   is_owner_gifted: boolean;
+  owner_transfer?: {
+    id: number;
+    voucher_id: number;
+    quantity: number;
+    pay_now: number;
+    pay_later: number;
+    pay_barter: number;
+    total_amount: number;
+    transferred_at: string;
+    sender?: { id: number; name: string | null; phone: string | null } | null;
+  } | null;
   installment_status: string | null;
   remaining_balance: number | null;
   voucher?: Voucher;
@@ -100,9 +111,13 @@ const mapVoucher = (v: any): Voucher => {
   const pct = original > 0 && discounted >= 0 && discounted < original
     ? Math.round(((original - discounted) / original) * 100)
     : 0;
-  const label = pct > 0
+  // Only emit a discount label when there is an actual discount. Showing
+  // "0% OFF" or "₹0 OFF" is misleading, so leave it null in that case.
+  const label: string | null = pct > 0
     ? `${pct}% OFF`
-    : (dType === "percent" ? `${dValue}% OFF` : `₹${dValue} OFF`);
+    : dValue > 0
+      ? (dType === "percent" ? `${dValue}% OFF` : `₹${dValue} OFF`)
+      : null;
   return {
     id: String(v.id),
     user_id: String(v.owner_user_id ?? v.user_id ?? ""),
@@ -140,7 +155,7 @@ const mapVoucher = (v: any): Voucher => {
     status: v.status ?? "active",
     claimed_count: Number(v.claimed_count ?? 0),
     image_url: v.image_url ?? v.voucher_image ?? null,
-    banner_url: v.banner_url ?? (Array.isArray(v.voucher_images) && v.voucher_images.length > 0 ? v.voucher_images[0] : null),
+    banner_url: v.banner_url ?? v.voucher_banner ?? (Array.isArray(v.voucher_images) && v.voucher_images.length > 0 ? v.voucher_images[0] : null),
     min_claim: v.min_claim ?? null,
     business_promotion_owner_id: v.business_promotion?.user_id ?? null,
     promotion: v.business_promotion
@@ -193,6 +208,19 @@ export function useMyVouchers() {
       quantity: Number(c.quantity ?? 1),
       redeemed_count: Number(c.redeemed_count ?? 0),
       is_owner_gifted: Boolean(c.is_owner_gifted),
+      owner_transfer: c.owner_transfer
+        ? {
+            id: Number(c.owner_transfer.id),
+            voucher_id: Number(c.owner_transfer.voucher_id),
+            quantity: Number(c.owner_transfer.quantity ?? 0),
+            pay_now: Number(c.owner_transfer.pay_now ?? 0),
+            pay_later: Number(c.owner_transfer.pay_later ?? 0),
+            pay_barter: Number(c.owner_transfer.pay_barter ?? 0),
+            total_amount: Number(c.owner_transfer.total_amount ?? 0),
+            transferred_at: c.owner_transfer.transferred_at,
+            sender: c.owner_transfer.sender ?? null,
+          }
+        : null,
       installment_status: c.installment_status ?? null,
       remaining_balance: c.remaining_balance != null ? Number(c.remaining_balance) : null,
       voucher: c.voucher ? mapVoucher(c.voucher) : undefined,
@@ -374,8 +402,10 @@ export function useVoucherTransfers() {
       let discount_label: string | undefined;
       if (v) {
         const dv = Number(v.discount_value ?? 0);
-        discount_label =
-          v.discount_type === "percent" ? `${dv}% OFF` : `₹${dv} OFF`;
+        if (dv > 0) {
+          discount_label =
+            v.discount_type === "percent" ? `${dv}% OFF` : `₹${dv} OFF`;
+        }
       }
       const image =
         v?.voucher_image ||

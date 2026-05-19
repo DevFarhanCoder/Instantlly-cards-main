@@ -374,19 +374,51 @@ const VoucherDetail = () => {
             className="relative h-52 rounded-2xl bg-muted overflow-hidden"
             onPress={() => setShowBannerPreview(true)}
           >
-            {/* Logo image */}
-            {voucher.voucher_image ? (
-              <Image source={{ uri: voucher.voucher_image }} className="absolute inset-0 w-full h-full" resizeMode="contain" />
+            {/* Banner image (background) */}
+            {voucher.voucher_banner ? (
+              <Image source={{ uri: voucher.voucher_banner }} className="absolute inset-0 w-full h-full" resizeMode="cover" />
+            ) : voucher.voucher_image ? (
+              <Image source={{ uri: voucher.voucher_image }} className="absolute inset-0 w-full h-full" resizeMode="cover" />
             ) : (
               <View className="absolute inset-0 items-center justify-center">
                 <Image source={require("../../assets/Instantlly_Logo-removebg.png")} style={{ width: 140, height: 140 }} resizeMode="contain" />
               </View>
             )}
+
             {voucher.discount_label && (
               <Badge className="absolute left-3 top-3 bg-primary text-primary-foreground border-none text-sm px-3 py-1">
-                {voucher.discount_label}
+                <Text className="text-primary-foreground text-sm font-semibold" numberOfLines={1}>
+                  {voucher.discount_label} with code
+                </Text>
               </Badge>
             )}
+
+            {/* Circular logo at top-right corner */}
+            {voucher.voucher_image ? (
+              <View
+                style={{
+                  position: "absolute",
+                  right: 12,
+                  top: 12,
+                  width: 72,
+                  height: 72,
+                  borderRadius: 36,
+                  backgroundColor: "#fff",
+                  borderWidth: 2,
+                  borderColor: "#fff",
+                  overflow: "hidden",
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 4,
+                  elevation: 4,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Image source={{ uri: voucher.voucher_image }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+              </View>
+            ) : null}
           </Pressable>
 
           <View>

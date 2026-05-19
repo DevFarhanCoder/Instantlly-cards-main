@@ -131,6 +131,67 @@ export const vouchersApi = baseApi.injectEndpoints({
       query: (body) => ({ url: '/vouchers/redeem-by-qr', method: 'POST', body }),
       invalidatesTags: ['Voucher'],
     }),
+    getSentOwnerTransfers: builder.query<any[], void>({
+      query: () => '/vouchers/owner-transfers/sent',
+      providesTags: ['Voucher'],
+    }),
+    settleOwnerTransfer: builder.mutation<any, { transferId: number; amount?: number }>({
+      query: ({ transferId, amount }) => ({
+        url: `/vouchers/owner-transfers/${transferId}/settle`,
+        method: 'POST',
+        body: { amount },
+      }),
+      invalidatesTags: ['Voucher'],
+    }),
+    createOwnerTransferPaymentIntent: builder.mutation<
+      {
+        key: string;
+        order_id: string;
+        amount: number;
+        currency: string;
+        transfer_id: number;
+        voucher_title: string | null;
+        pay_amount: number;
+      },
+      { transferId: number; amount?: number }
+    >({
+      query: ({ transferId, amount }) => ({
+        url: `/vouchers/owner-transfers/${transferId}/pay-intent`,
+        method: 'POST',
+        body: { amount },
+      }),
+    }),
+    verifyOwnerTransferPayment: builder.mutation<
+      any,
+      {
+        transferId: number;
+        razorpay_order_id: string;
+        razorpay_payment_id: string;
+        razorpay_signature: string;
+        amount: number;
+      }
+    >({
+      query: ({ transferId, ...body }) => ({
+        url: `/vouchers/owner-transfers/${transferId}/pay-verify`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Voucher'],
+    }),
+    getOwnerTransferPayments: builder.query<
+      Array<{
+        id: number;
+        transfer_id: number;
+        amount: string;
+        paid_at: string;
+        razorpay_order_id: string;
+        razorpay_payment_id: string;
+      }>,
+      number
+    >({
+      query: (transferId) => `/vouchers/owner-transfers/${transferId}/payments`,
+      providesTags: ['Voucher'],
+    }),
   }),
 });
 
@@ -158,4 +219,10 @@ export const {
   useGetVoucherClaimsQuery,
   useGetAllMyClaimsQuery,
   useRedeemVoucherByQrMutation,
+  useGetSentOwnerTransfersQuery,
+  useSettleOwnerTransferMutation,
+  useCreateOwnerTransferPaymentIntentMutation,
+  useVerifyOwnerTransferPaymentMutation,
+  useGetOwnerTransferPaymentsQuery,
+  useLazyGetOwnerTransferPaymentsQuery,
 } = vouchersApi;
