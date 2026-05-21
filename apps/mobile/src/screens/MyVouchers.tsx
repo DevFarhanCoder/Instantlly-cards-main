@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, Clock, Gift, QrCode, Send, Ticket } from "lucide-react-native";
 import { Button } from "../components/ui/button";
@@ -625,7 +625,7 @@ const MyVouchers = () => {
                             <View className="flex-row items-center gap-1.5">
                               <Gift size={12} color="#b45309" />
                               <Text className="text-[11px] font-bold uppercase tracking-wide text-amber-700">
-                                Free Value
+                                Barter
                               </Text>
                               {Number(v.owner_transfer.pay_later) > 0 ? (
                                 <View className="ml-1 rounded-full bg-amber-600 px-2 py-0.5">
@@ -687,7 +687,7 @@ const MyVouchers = () => {
                                 </Text>
                               </View>
                               <View className="flex-row items-center justify-between">
-                                <Text className="text-[10px] text-amber-700/80">Free Value Settled</Text>
+                                <Text className="text-[10px] text-amber-700/80">Barter Settled</Text>
                                 <Text className="text-[11px] text-amber-800">
                                   ₹{Number(v.owner_transfer.pay_barter).toLocaleString("en-IN")}
                                 </Text>
@@ -846,6 +846,26 @@ const MyVouchers = () => {
                               className="flex-1 rounded-lg px-2"
                               textClassName="text-xs"
                               onPress={() => {
+                                if (
+                                  v.installment_status === 'active' &&
+                                  v.remaining_balance !== null &&
+                                  v.remaining_balance > 0
+                                ) {
+                                  Alert.alert(
+                                    'Installment Due',
+                                    `You have an outstanding balance of ₹${v.remaining_balance.toLocaleString('en-IN')} on this voucher. Please complete your installment payment before transferring.`,
+                                    [{ text: 'OK' }]
+                                  );
+                                  return;
+                                }
+                                if (v.owner_transfer && Number(v.owner_transfer.pay_later) > 0) {
+                                  Alert.alert(
+                                    'Payment Due',
+                                    `You have a pending payment of ₹${Number(v.owner_transfer.pay_later).toLocaleString('en-IN')} on this voucher. Please clear your balance before transferring.`,
+                                    [{ text: 'OK' }]
+                                  );
+                                  return;
+                                }
                                 setTransferVoucherTarget(v);
                                 setTransferPhone("");
                                 setTransferQty(1);

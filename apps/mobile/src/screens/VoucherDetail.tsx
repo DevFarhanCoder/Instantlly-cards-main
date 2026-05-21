@@ -2,20 +2,25 @@ import { useCallback, useRef, useState } from "react";
 import { Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, AtSign, Clock, Globe, MapPin, Phone, Share2, ShieldCheck, Tag, X } from "lucide-react-native";
-import Svg, { Rect, Circle, Defs, LinearGradient, Stop, Path } from "react-native-svg";
+import Svg, { Rect, Circle, Path } from "react-native-svg";
 
 const InstagramIcon = ({ size = 16 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#E1306C" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+    <Circle cx="12" cy="12" r="4" />
+    <Circle cx="17.5" cy="6.5" r="1" />
+  </Svg>
+);
+
+const FacebookIcon = ({ size = 16 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
-    <Defs>
-      <LinearGradient id="igGrad" x1="0" y1="0" x2="1" y2="1">
-        <Stop offset="0" stopColor="#F58529" />
-        <Stop offset="0.5" stopColor="#DD2A7B" />
-        <Stop offset="1" stopColor="#8134AF" />
-      </LinearGradient>
-    </Defs>
-    <Rect x="2" y="2" width="20" height="20" rx="5" ry="5" fill="url(#igGrad)" />
-    <Circle cx="12" cy="12" r="4" fill="none" stroke="#fff" strokeWidth={2} />
-    <Circle cx="17.5" cy="6.5" r="1.2" fill="#fff" />
+    <Path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" fill="#1877F2" />
+  </Svg>
+);
+
+const YouTubeIcon = ({ size = 16 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.96-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" fill="#FF0000" /><Path d="M9.75 15.02V8.98L15.5 12l-5.75 3.02z" fill="#fff" />
   </Svg>
 );
 import { Badge } from "../components/ui/badge";
@@ -94,6 +99,7 @@ const VoucherDetail = () => {
   const [installmentAmount, setInstallmentAmount] = useState("");
   const [installmentInfo, setInstallmentInfo] = useState<any>(null);
   const [showBannerPreview, setShowBannerPreview] = useState(false);
+  const [showAllAddresses, setShowAllAddresses] = useState(false);
 
   const isProcessing = claimVoucher.isPending || intentState.isLoading || verifyState.isLoading ||
     installIntentState.isLoading || verifyInstallState.isLoading;
@@ -480,7 +486,7 @@ const VoucherDetail = () => {
           )}
 
           {/* Business Info */}
-          {(voucher.company_name || voucher.phone_number || voucher.address || (voucher as any).city || (voucher as any).pincode || voucher.what_we_do || voucher.website || voucher.instagram) && (
+          {(voucher.company_name || voucher.phone_number || voucher.address || (voucher as any).addresses?.length > 0 || (voucher as any).city || (voucher as any).pincode || voucher.what_we_do || voucher.website || voucher.instagram || (voucher as any).facebook || (voucher as any).youtube) && (
             <View className="rounded-xl border border-border bg-card p-4 gap-3">
               <Text className="text-sm font-semibold text-foreground">About the Business</Text>
               {voucher.company_name && (
@@ -504,18 +510,45 @@ const VoucherDetail = () => {
                   <Text className="text-sm text-primary underline">{voucher.phone_number}</Text>
                 </Pressable>
               )}
-              {voucher.address && (
-                <Pressable
-                  className="flex-row items-start gap-2"
-                  onPress={() => {
-                    const q = encodeURIComponent(String(voucher.address));
-                    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`).catch(() => {});
-                  }}
-                >
-                  <MapPin size={14} color={iconColor} style={{ marginTop: 2 }} />
-                  <Text className="flex-1 text-sm text-muted-foreground underline">{voucher.address}</Text>
-                </Pressable>
-              )}
+              {/* Multiple addresses */}
+              {(() => {
+                const addrs: string[] = Array.isArray((voucher as any).addresses) && (voucher as any).addresses.length > 0
+                  ? (voucher as any).addresses
+                  : voucher.address ? [voucher.address] : [];
+                if (addrs.length === 0) return null;
+                const first = addrs[0];
+                const rest = addrs.slice(1);
+                const openMap = (addr: string) => {
+                  const q = encodeURIComponent(addr);
+                  Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`).catch(() => {});
+                };
+                return (
+                  <View className="gap-2">
+                    <Pressable className="flex-row items-start gap-2" onPress={() => openMap(first)}>
+                      <MapPin size={14} color={iconColor} style={{ marginTop: 2 }} />
+                      <Text className="flex-1 text-sm text-muted-foreground underline">{first}</Text>
+                      {rest.length > 0 && !showAllAddresses && (
+                        <Pressable
+                          onPress={() => setShowAllAddresses(true)}
+                          className="ml-1"
+                        >
+                          <Text className="text-xs font-semibold text-primary">+{rest.length} more</Text>
+                        </Pressable>
+                      )}
+                    </Pressable>
+                    {showAllAddresses && rest.map((addr, idx) => (
+                      <Pressable
+                        key={idx}
+                        className="flex-row items-start gap-2 pl-5"
+                        onPress={() => openMap(addr)}
+                      >
+                        <MapPin size={13} color={iconColor} style={{ marginTop: 2 }} />
+                        <Text className="flex-1 text-sm text-muted-foreground underline">{addr}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                );
+              })()}
               {((voucher as any).city || (voucher as any).pincode) && (
                 <View className="flex-row items-center gap-2">
                   <MapPin size={14} color={iconColor} />
@@ -548,6 +581,36 @@ const VoucherDetail = () => {
                     onPress={() => { Linking.openURL(linkUrl).catch(() => {}); }}
                   >
                     <InstagramIcon size={16} />
+                    <Text className="text-sm text-primary underline">{displayText}</Text>
+                  </Pressable>
+                );
+              })() : null}
+              {(voucher as any).facebook ? (() => {
+                const raw = String((voucher as any).facebook).trim();
+                const isUrl = /^https?:\/\//i.test(raw);
+                const displayText = isUrl ? raw : `@${raw.replace(/^@/, "")}`;
+                const linkUrl = isUrl ? raw : `https://facebook.com/${raw.replace(/^@/, "")}`;
+                return (
+                  <Pressable
+                    className="flex-row items-center gap-2"
+                    onPress={() => { Linking.openURL(linkUrl).catch(() => {}); }}
+                  >
+                    <FacebookIcon size={16} />
+                    <Text className="text-sm text-primary underline">{displayText}</Text>
+                  </Pressable>
+                );
+              })() : null}
+              {(voucher as any).youtube ? (() => {
+                const raw = String((voucher as any).youtube).trim();
+                const isUrl = /^https?:\/\//i.test(raw);
+                const displayText = isUrl ? raw : raw;
+                const linkUrl = isUrl ? raw : `https://youtube.com/${raw.replace(/^\//, "")}`;
+                return (
+                  <Pressable
+                    className="flex-row items-center gap-2"
+                    onPress={() => { Linking.openURL(linkUrl).catch(() => {}); }}
+                  >
+                    <YouTubeIcon size={16} />
                     <Text className="text-sm text-primary underline">{displayText}</Text>
                   </Pressable>
                 );
@@ -589,10 +652,13 @@ const VoucherDetail = () => {
           {(voucher as any).marketed_by_instantlly && (
             <View className="rounded-xl border border-border bg-card p-4 gap-3">
               <View className="flex-row items-center gap-2">
-                <ShieldCheck size={16} color="#2463eb" />
-                <Text className="text-sm font-semibold text-foreground">
-                  Marketed By: Instantlly Cards
-                </Text>
+                <Text className="text-sm font-semibold text-foreground">Marketed By:</Text>
+                <Image
+                  source={require("../../assets/Instantlly_Logo-removebg.png")}
+                  style={{ width: 20, height: 20 }}
+                  resizeMode="contain"
+                />
+                <Text className="text-sm font-semibold text-primary">Instantlly Cards</Text>
               </View>
               <Pressable
                 className="flex-row items-center gap-2"

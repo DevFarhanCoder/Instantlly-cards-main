@@ -574,7 +574,7 @@ const MyCreatedVouchers = () => {
                         <View className="flex-row items-center justify-center gap-1.5">
                           <Gift size={14} color="#fff" />
                           <Text className="text-[12px] font-semibold text-white">
-                            Free Value Transfer
+                            Barter Transfer
                           </Text>
                         </View>
                       </Button>
@@ -828,7 +828,7 @@ const MyCreatedVouchers = () => {
               className={`flex-1 rounded-lg px-3 py-2 items-center ${ledgerTab === "barter" ? "bg-primary" : "bg-muted/40"}`}
             >
               <Text className={`text-[12px] font-semibold ${ledgerTab === "barter" ? "text-white" : "text-foreground"}`}>
-                Free Value Transfers
+                Barter Transfers
               </Text>
             </Pressable>
           </View>
@@ -934,7 +934,7 @@ const MyCreatedVouchers = () => {
               if (voucherBarterTransfers.length === 0) {
                 return (
                   <View className="py-8 items-center">
-                    <Text className="text-sm text-muted-foreground">No free value transfers for this voucher</Text>
+                    <Text className="text-sm text-muted-foreground">No barter transfers for this voucher</Text>
                   </View>
                 );
               }
@@ -1004,7 +1004,7 @@ const MyCreatedVouchers = () => {
                               </View>
                               <View>
                                 <Text className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                                  Free Value
+                                  Barter
                                 </Text>
                                 <Text className="text-sm font-bold text-foreground">
                                   ₹{formatINR(barter)}
@@ -1228,7 +1228,7 @@ const MyCreatedVouchers = () => {
       <Dialog open={!!friendVoucher} onOpenChange={(open) => { if (!open) setFriendVoucher(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Free Value Transfer</DialogTitle>
+            <DialogTitle>Barter Transfer</DialogTitle>
           </DialogHeader>
           {friendVoucher && (() => {
             const remaining = friendVoucher.max_claims != null
@@ -1317,9 +1317,9 @@ const MyCreatedVouchers = () => {
                     />
                   </View>
 
-                  {/* Free Value */}
+                  {/* Pay Barter */}
                   <View className="gap-1.5">
-                    <Text className="text-xs font-semibold text-foreground">Free Value</Text>
+                    <Text className="text-xs font-semibold text-foreground">Pay Barter</Text>
                     <TextInput
                       style={inputStyle}
                       placeholder="0"
@@ -1395,12 +1395,21 @@ const MyCreatedVouchers = () => {
                       <Text className="text-[12px] text-foreground">{formatINR(payNowNum)}</Text>
                     </View>
                     <View className="flex-row items-center justify-between">
-                      <Text className="text-[12px] text-muted-foreground">Free Value</Text>
+                      <Text className="text-[12px] text-muted-foreground">Pay Barter</Text>
                       <Text className="text-[12px] text-foreground">{formatINR(payBarterNum)}</Text>
                     </View>
                     <View className="flex-row items-center justify-between">
                       <Text className="text-[12px] text-muted-foreground">Pay Later (Pending)</Text>
                       <Text className="text-[12px] font-semibold text-amber-700">{formatINR(payLaterNum)}</Text>
+                    </View>
+                    <View className="h-px bg-border my-1" />
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-sm font-semibold text-foreground">Allocated (Paid)</Text>
+                      <Text className="text-sm font-bold text-emerald-600">{formatINR(allocatedAmount)}</Text>
+                    </View>
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-sm font-semibold text-foreground">Remaining (Pending)</Text>
+                      <Text className="text-base font-bold text-amber-600">{formatINR(remainingAmount)}</Text>
                     </View>
                     {overpaid ? (
                       <Text className="mt-1 text-[11px] font-semibold text-destructive">
