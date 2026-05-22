@@ -734,6 +734,7 @@ const VoucherCreate = () => {
             value={form.terms}
             onChangeText={(v) => update("terms", v)}
             rows={3}
+            className="text-base"
           />
         </View>
 
