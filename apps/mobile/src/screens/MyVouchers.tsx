@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Alert, Image, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ArrowLeft, CheckCircle2, ChevronDown, ChevronUp, Clock, Gift, QrCode, Send, Ticket } from "lucide-react-native";
 import { Button } from "../components/ui/button";
@@ -547,17 +547,26 @@ const MyVouchers = () => {
                 const voucher = v.voucher;
                 const actionIconColor = config.iconColor;
                 return (
-                  <View
+                  <Pressable
                     key={v.id}
                     testID={`voucher-card-${v.id}`}
+                    onPress={() => navigation.navigate("VoucherDetail", { id: v.voucher_id })}
                     className="overflow-hidden rounded-xl border border-border bg-card"
                   >
                     <View className="p-4">
                       <View className="flex-row items-start gap-3">
-                        <View className="h-12 w-12 items-center justify-center rounded-xl bg-muted">
-                          <Text className="text-2xl">
-                            {emojiMap[voucher?.category || "general"] || "🎁"}
-                          </Text>
+                        <View className="h-12 w-12 items-center justify-center overflow-hidden rounded-xl bg-muted">
+                          {voucher?.image_url || voucher?.voucher_image ? (
+                            <Image
+                              source={{ uri: (voucher.image_url || voucher.voucher_image) as string }}
+                              style={{ width: "100%", height: "100%" }}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <Text className="text-2xl">
+                              {emojiMap[voucher?.category || "general"] || "🎁"}
+                            </Text>
+                          )}
                         </View>
                         <View className="flex-1">
                           <View className="flex-row items-start justify-between gap-2">
@@ -1017,7 +1026,7 @@ const MyVouchers = () => {
                         </Text>
                       </View>
                     )}
-                  </View>
+                  </Pressable>
                 );
               })}
             </View>

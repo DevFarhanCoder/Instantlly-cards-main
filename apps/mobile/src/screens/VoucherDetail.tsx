@@ -28,7 +28,7 @@ import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { useAuth } from "../hooks/useAuth";
-import { useClaimVoucher, useVoucher } from "../hooks/useVouchers";
+import { useClaimVoucher, useMyVouchers, useVoucher } from "../hooks/useVouchers";
 import { formatINR } from "../lib/utils";
 import {
   useCreateVoucherPaymentIntentMutation,
@@ -70,6 +70,7 @@ const VoucherDetail = () => {
   const { user } = useAuth();
   const { data: voucher, isLoading, refetch: refetchVoucher } = useVoucher(id || "");
   const claimVoucher = useClaimVoucher();
+  const { data: myVouchers = [] } = useMyVouchers();
   const [createIntent, intentState] = useCreateVoucherPaymentIntentMutation();
   const [verifyPayment, verifyState] = useVerifyVoucherPaymentMutation();
   const [createInstallmentIntent, installIntentState] = useCreateInstallmentPaymentIntentMutation();
@@ -132,6 +133,7 @@ const VoucherDetail = () => {
     );
   }
 
+  const alreadyClaimed = myVouchers.some((cv) => cv.voucher_id === voucher.id);
   const expiryDays = voucher.expires_at && isValid(new Date(voucher.expires_at))
     ? differenceInDays(new Date(voucher.expires_at), new Date())
     : null;
@@ -698,11 +700,14 @@ const VoucherDetail = () => {
       <View className="border-t border-border bg-card px-4 py-3">
         <Button
           className="w-full rounded-xl py-4"
-          onPress={() => setShowPurchase(true)}
-          disabled={isProcessing || (expiryDays !== null && expiryDays < 0)}
+          onPress={() => !alreadyClaimed && setShowPurchase(true)}
+          disabled={isProcessing || alreadyClaimed || (expiryDays !== null && expiryDays < 0)}
+          variant={alreadyClaimed ? "outline" : "default"}
         >
-          <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: "700" }}>
-            {expiryDays !== null && expiryDays < 0
+          <Text style={{ color: alreadyClaimed ? themeColors.primary : colors.primaryForeground, fontSize: 16, fontWeight: "700" }}>
+            {alreadyClaimed
+              ? "✓ Already Claimed"
+              : expiryDays !== null && expiryDays < 0
               ? "Voucher Expired"
               : promoApplied
                 ? voucher.allows_installment
