@@ -4,13 +4,16 @@ import { useNavigation } from "@react-navigation/native";
 import {
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Clock,
   CreditCard,
   Gift,
   Pencil,
   Plus,
   QrCode,
+  Send,
   ShieldCheck,
   Tag,
   Ticket,
@@ -112,7 +115,7 @@ const MyCreatedVouchers = () => {
   // Pending owner-transfers modal (Rajesh Modi only — sender view)
   const [pendingTransfersOpen, setPendingTransfersOpen] = useState(false);
   const { data: sentTransfers = [], refetch: refetchSentTransfers, isFetching: sentTransfersFetching } =
-    useGetSentOwnerTransfersQuery(undefined, { skip: !isRajeshModi });
+    useGetSentOwnerTransfersQuery(undefined, { skip: !user });
   const [settleOwnerTransfer] = useSettleOwnerTransferMutation();
   const [settlingTransferId, setSettlingTransferId] = useState<number | null>(null);
   const pendingTransfers = (sentTransfers || []).filter((t: any) => Number(t.pay_later ?? 0) > 0);
@@ -121,6 +124,7 @@ const MyCreatedVouchers = () => {
   const [ledgerTab, setLedgerTab] = useState<"installments" | "barter">("installments");
   const [expandedBarterTransfer, setExpandedBarterTransfer] = useState<Set<number>>(new Set());
   const [historyClaim, setHistoryClaim] = useState<any | null>(null);
+  const [transferHistoryExpanded, setTransferHistoryExpanded] = useState(false);
   // Global claims modal: null = closed, "active" | "redeemed" | "expired" = open with filter
   const [globalClaimsFilter, setGlobalClaimsFilter] = useState<string | null>(null);
   const [showActiveVouchers, setShowActiveVouchers] = useState(false);
@@ -554,6 +558,27 @@ const MyCreatedVouchers = () => {
                       >
                         {v.status === "active" ? "Deactivate" : "Activate"}
                       </Text>
+                    </Button>
+                  </View>
+                  {/* Team / Staff management */}
+                  <View className="flex-row gap-2 border-t border-border bg-blue-500/5 px-3 py-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 rounded-lg border-blue-400/60"
+                      textClassName="text-[12px]"
+                      onPress={() =>
+                        navigation.navigate("VoucherStaff", {
+                          voucherId: v.id,
+                          voucherTitle: v.title,
+                          addresses: v.addresses ?? [],
+                        })
+                      }
+                    >
+                      <View className="flex-row items-center justify-center gap-1">
+                        <Users size={14} color="#2563eb" />
+                        <Text className="text-[12px] font-semibold text-blue-600">Team</Text>
+                      </View>
                     </Button>
                   </View>
                   {isRajeshModi && (
@@ -1110,7 +1135,7 @@ const MyCreatedVouchers = () => {
       </Dialog>
 
       {/* Owner Transfer Dialog */}
-      <Dialog open={!!transferVoucher} onOpenChange={(open) => { if (!open) setTransferVoucher(null); }}>
+      <Dialog open={!!transferVoucher} onOpenChange={(open) => { if (!open) { setTransferVoucher(null); setTransferHistoryExpanded(false); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Gift Vouchers</DialogTitle>
@@ -1125,13 +1150,77 @@ const MyCreatedVouchers = () => {
                   <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{transferVoucher.title}</Text>
                   <View className="flex-row items-center gap-2">
                     <View className="rounded-full bg-violet-500/10 px-2 py-0.5">
-                      <Text className="text-[10px] font-semibold text-violet-600">{remaining} available to gift</Text>
+                      <Text className="text-[10px] font-semibold text-violet-600">{remaining} available to transfer</Text>
                     </View>
                     <View className="rounded-full bg-muted px-2 py-0.5">
                       <Text className="text-[10px] text-muted-foreground">{transferVoucher.claimed_count || 0}/{transferVoucher.max_claims} claimed</Text>
                     </View>
                   </View>
                 </View>
+
+                {/* Past transfer history for this voucher */}
+                {(() => {
+                  const voucherTransfers = sentTransfers.filter((t: any) => t.voucher_id === transferVoucher.id);
+                  if (!voucherTransfers.length) return null;
+                  const totalQty = voucherTransfers.reduce((s: number, t: any) => s + (t.quantity || 1), 0);
+                  return (
+                    <View className="gap-1.5">
+                      <Pressable
+                        onPress={() => setTransferHistoryExpanded((v) => !v)}
+                        className="flex-row items-center justify-between rounded-xl border border-orange-200 bg-orange-500/5 px-3 py-2"
+                      >
+                        <View className="flex-row items-center gap-1.5">
+                          <Send size={12} color="#f97316" />
+                          <Text className="text-xs font-semibold text-orange-600">
+                            Transferred · {totalQty} total
+                          </Text>
+                        </View>
+                        {transferHistoryExpanded
+                          ? <ChevronUp size={14} color="#f97316" />
+                          : <ChevronDown size={14} color="#f97316" />
+                        }
+                      </Pressable>
+                      {transferHistoryExpanded && <View className="overflow-hidden rounded-xl border border-orange-200 bg-orange-500/5">
+                        {(() => {
+                          // Group by recipient (by id if available, else by phone)
+                          const grouped = new Map<string, { name: string; totalQty: number; latestDate: string | null }>();
+                          for (const t of voucherTransfers) {
+                            const key = String(t.recipient?.id ?? t.recipient_phone ?? "unknown");
+                            const name = t.recipient?.name || t.recipient_phone || "Unknown";
+                            const existing = grouped.get(key);
+                            const date = t.transferred_at ?? null;
+                            if (existing) {
+                              existing.totalQty += t.quantity || 1;
+                              if (date && (!existing.latestDate || date > existing.latestDate)) {
+                                existing.latestDate = date;
+                              }
+                            } else {
+                              grouped.set(key, { name, totalQty: t.quantity || 1, latestDate: date });
+                            }
+                          }
+                          return Array.from(grouped.entries()).map(([key, g], idx) => (
+                            <View
+                              key={key}
+                              className={`flex-row items-center justify-between px-3 py-2${idx > 0 ? " border-t border-orange-200/60" : ""}`}
+                            >
+                              <View className="flex-1 pr-2">
+                                <Text className="text-[12px] font-semibold text-foreground" numberOfLines={1}>
+                                  {g.name}
+                                </Text>
+                                <Text className="text-[10px] text-muted-foreground">
+                                  {g.latestDate ? safeFormat(g.latestDate, "dd MMM yyyy") : "—"}
+                                </Text>
+                              </View>
+                              <View className="rounded-full bg-orange-100 px-2 py-0.5">
+                                <Text className="text-[11px] font-bold text-orange-700">×{g.totalQty}</Text>
+                              </View>
+                            </View>
+                          ));
+                        })()}
+                      </View>}
+                    </View>
+                  );
+                })()}
 
                 {/* Phone */}
                 <View className="gap-1.5">

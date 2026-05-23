@@ -68,5 +68,6 @@ export type RootStackParamList = {
   ServiceSelection: { role?: 'customer' | 'business' } | undefined;
   GroupChat: { groupId: number; groupName: string };
   GroupJoin: { code: string };
+  VoucherStaff: { voucherId: number; voucherTitle: string; addresses: Array<string | { address: string; instagram?: string | null }> };
   NotFound: undefined;
 };

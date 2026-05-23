@@ -514,39 +514,60 @@ const VoucherDetail = () => {
               )}
               {/* Multiple addresses */}
               {(() => {
-                const addrs: string[] = Array.isArray((voucher as any).addresses) && (voucher as any).addresses.length > 0
-                  ? (voucher as any).addresses
-                  : voucher.address ? [voucher.address] : [];
-                if (addrs.length === 0) return null;
-                const first = addrs[0];
-                const rest = addrs.slice(1);
-                const openMap = (addr: string) => {
-                  const q = encodeURIComponent(addr);
-                  Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`).catch(() => {});
+                type AddrEntry = { address: string; instagram?: string | null };
+                const raw = (voucher as any).addresses;
+                const entries: AddrEntry[] = Array.isArray(raw) && raw.length > 0
+                  ? raw.map((a: any) =>
+                      typeof a === 'string'
+                        ? { address: a, instagram: null }
+                        : { address: a.address ?? '', instagram: a.instagram ?? null }
+                    ).filter((a: AddrEntry) => a.address)
+                  : voucher.address ? [{ address: voucher.address, instagram: null }] : [];
+                if (entries.length === 0) return null;
+                const first = entries[0];
+                const rest = entries.slice(1);
+                const isUrl = (s: string) => s.startsWith('http://') || s.startsWith('https://');
+                const openMap = (entry: AddrEntry) => {
+                  const url = isUrl(entry.address)
+                    ? entry.address
+                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(entry.address)}`;
+                  Linking.openURL(url).catch(() => {});
                 };
+                const openInsta = (insta: string) => {
+                  let url = insta.trim();
+                  if (!url.startsWith('http')) {
+                    const handle = url.replace(/^@/, '');
+                    url = `https://instagram.com/${handle}`;
+                  }
+                  Linking.openURL(url).catch(() => {});
+                };
+                const AddressRow = ({ entry, small, indent }: { entry: AddrEntry; small?: boolean; indent?: boolean }) => (
+                  <View className={`flex-row items-start gap-2${indent ? ' pl-5' : ''}`}>
+                    <Pressable className="flex-row items-start gap-2 flex-1" onPress={() => openMap(entry)}>
+                      <MapPin size={small ? 13 : 14} color={iconColor} style={{ marginTop: 2 }} />
+                      <Text className="flex-1 text-sm text-muted-foreground underline">
+                        {isUrl(entry.address) ? 'View on Maps' : entry.address}
+                      </Text>
+                    </Pressable>
+                    {entry.instagram ? (
+                      <Pressable onPress={() => openInsta(entry.instagram!)} className="mt-0.5 px-1">
+                        <AtSign size={13} color="#e1306c" />
+                      </Pressable>
+                    ) : null}
+                  </View>
+                );
                 return (
                   <View className="gap-2">
-                    <Pressable className="flex-row items-start gap-2" onPress={() => openMap(first)}>
-                      <MapPin size={14} color={iconColor} style={{ marginTop: 2 }} />
-                      <Text className="flex-1 text-sm text-muted-foreground underline">{first}</Text>
+                    <View className="flex-row items-start gap-2">
+                      <AddressRow entry={first} />
                       {rest.length > 0 && !showAllAddresses && (
-                        <Pressable
-                          onPress={() => setShowAllAddresses(true)}
-                          className="ml-1"
-                        >
+                        <Pressable onPress={() => setShowAllAddresses(true)} className="ml-1 mt-0.5">
                           <Text className="text-xs font-semibold text-primary">+{rest.length} more</Text>
                         </Pressable>
                       )}
-                    </Pressable>
-                    {showAllAddresses && rest.map((addr, idx) => (
-                      <Pressable
-                        key={idx}
-                        className="flex-row items-start gap-2 pl-5"
-                        onPress={() => openMap(addr)}
-                      >
-                        <MapPin size={13} color={iconColor} style={{ marginTop: 2 }} />
-                        <Text className="flex-1 text-sm text-muted-foreground underline">{addr}</Text>
-                      </Pressable>
+                    </View>
+                    {showAllAddresses && rest.map((entry, idx) => (
+                      <AddressRow key={idx} entry={entry} small indent />
                     ))}
                   </View>
                 );

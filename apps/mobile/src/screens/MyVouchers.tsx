@@ -570,16 +570,11 @@ const MyVouchers = () => {
                         </View>
                         <View className="flex-1">
                           <View className="flex-row items-start justify-between gap-2">
-                            <Text className="flex-1 text-sm font-semibold text-foreground" numberOfLines={1}>
+                            <Text className="flex-1 text-sm font-semibold text-foreground">
                               {voucher?.title || "Voucher"}
                             </Text>
                             <View className="flex-row items-center gap-1.5">
-                              {v.is_owner_gifted && (
-                                <View className="flex-row items-center gap-0.5 rounded-full px-2 py-0.5 bg-purple-500/10">
-                                  <Gift size={10} color="#9333ea" />
-                                  <Text className="text-[10px] font-semibold text-purple-600">Gifted</Text>
-                                </View>
-                              )}
+
                               {v.quantity > 1 && (
                                 <View className={`rounded-full px-2 py-0.5 ${
                                   v.redeemed_count >= v.quantity
