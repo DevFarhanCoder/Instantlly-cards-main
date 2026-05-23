@@ -73,6 +73,7 @@ export interface ClaimedVoucher {
   redeemed_at: string | null;
   quantity: number;
   redeemed_count: number;
+  serial_nos: number[];
   is_owner_gifted: boolean;
   owner_transfer?: {
     id: number;
@@ -207,6 +208,7 @@ export function useMyVouchers() {
       redeemed_at: c.redeemed_at ?? null,
       quantity: Number(c.quantity ?? 1),
       redeemed_count: Number(c.redeemed_count ?? 0),
+      serial_nos: Array.isArray(c.serial_nos) ? c.serial_nos.map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n)) : [],
       is_owner_gifted: Boolean(c.is_owner_gifted),
       owner_transfer: c.owner_transfer
         ? {
@@ -239,10 +241,12 @@ export function useMyCreatedVouchers() {
 export function useClaimVoucher() {
   const [trigger, state] = useClaimVoucherMutation();
   return {
-    mutateAsync: async (voucherId: string) => {
+    mutateAsync: async (voucherId: string, opts?: { quantity?: number }) => {
       try {
-        const data = await trigger(Number(voucherId)).unwrap();
-        toast.success("Voucher claimed! 🎉");
+        const id = Number(voucherId);
+        const data = await trigger(opts?.quantity ? { id, quantity: opts.quantity } : id).unwrap();
+        const qty = opts?.quantity ?? 1;
+        toast.success(qty > 1 ? `${qty} vouchers claimed! 🎉` : "Voucher claimed! 🎉");
         return data as ClaimedVoucher;
       } catch (e: any) {
         toast.error(e?.data?.error || e?.message || "Failed to claim voucher");

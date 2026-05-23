@@ -570,16 +570,10 @@ const MyVouchers = () => {
                         </View>
                         <View className="flex-1">
                           <View className="flex-row items-start justify-between gap-2">
-                            <Text className="flex-1 text-sm font-semibold text-foreground" numberOfLines={1}>
+                            <Text className="flex-1 text-lg font-bold text-foreground" numberOfLines={2}>
                               {voucher?.title || "Voucher"}
                             </Text>
                             <View className="flex-row items-center gap-1.5">
-                              {v.is_owner_gifted && (
-                                <View className="flex-row items-center gap-0.5 rounded-full px-2 py-0.5 bg-purple-500/10">
-                                  <Gift size={10} color="#9333ea" />
-                                  <Text className="text-[10px] font-semibold text-purple-600">Gifted</Text>
-                                </View>
-                              )}
                               {v.quantity > 1 && (
                                 <View className={`rounded-full px-2 py-0.5 ${
                                   v.redeemed_count >= v.quantity
@@ -830,7 +824,7 @@ const MyVouchers = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="flex-1 rounded-lg px-2"
+                              className="flex-1 rounded-lg border-2 border-foreground/60 px-2"
                               textClassName="text-xs"
                               onPress={() => setQrVoucher(v)}
                             >
@@ -840,7 +834,7 @@ const MyVouchers = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="flex-1 rounded-lg px-2"
+                              className="flex-1 rounded-lg border-2 border-foreground/60 px-2"
                               textClassName="text-xs"
                               onPress={async () => {
                                 await Clipboard.setStringAsync(`CLM-${v.id}`);
@@ -852,7 +846,7 @@ const MyVouchers = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="flex-1 rounded-lg px-2"
+                              className="flex-1 rounded-lg border-2 border-foreground/60 px-2"
                               textClassName="text-xs"
                               onPress={() => {
                                 if (
@@ -897,6 +891,17 @@ const MyVouchers = () => {
                           </Text>
                         )}
                       </View>
+                      {v.serial_nos && v.serial_nos.length > 0 && (() => {
+                        const formatted = v.serial_nos.map((n) => String(n).padStart(3, "0"));
+                        const label = formatted.length > 1
+                          ? `${formatted[0]} to ${formatted[formatted.length - 1]}`
+                          : formatted[0];
+                        return (
+                          <Text className="mt-1 text-[10px] font-medium text-foreground">
+                            Serial No{formatted.length > 1 ? "s" : ""}: {label}
+                          </Text>
+                        );
+                      })()}
                     </View>
 
                     {/* Installment payment history */}
