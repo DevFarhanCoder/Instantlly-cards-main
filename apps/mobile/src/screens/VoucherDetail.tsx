@@ -703,10 +703,10 @@ const VoucherDetail = () => {
               </Pressable>
               <Pressable
                 className="flex-row items-center gap-2"
-                onPress={() => { Linking.openURL("tel:9833752025").catch(() => {}); }}
+                onPress={() => { Linking.openURL("tel:9833752061").catch(() => {}); }}
               >
                 <Phone size={14} color={iconColor} />
-                <Text className="text-base text-primary underline">9833752025</Text>
+                <Text className="text-base text-primary underline">9833752061</Text>
               </Pressable>
             </View>
           )}

@@ -895,7 +895,7 @@ const MyVouchers = () => {
                         )}
                       </View>
                       {v.serial_nos && v.serial_nos.length > 0 && (() => {
-                        const formatted = v.serial_nos.map((n) => String(n).padStart(3, "0"));
+                        const formatted = v.serial_nos.map((n) => Number(n).toLocaleString("en-IN"));
                         const label = formatted.length > 1
                           ? `${formatted[0]} to ${formatted[formatted.length - 1]}`
                           : formatted[0];

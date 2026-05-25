@@ -480,9 +480,11 @@ const DealOfTheDaySection = ({ navigate }: { navigate: any }) => {
           <Gift size={18} color={colors.primary} />
           <Text className="text-sm font-bold text-foreground">Deal of the Day</Text>
           <View style={{ flex: 1, alignItems: "flex-end" }}>
-            <View className="rounded-full bg-destructive/10 px-2 py-0.5">
-              <Text className="text-[11px] font-bold text-destructive" numberOfLines={1}>{discountPct}% OFF with code</Text>
-            </View>
+            {discountPct > 0 && (
+              <View className="rounded-full bg-destructive/10 px-2 py-0.5">
+                <Text className="text-[11px] font-bold text-destructive" numberOfLines={1}>{discountPct}% OFF with code</Text>
+              </View>
+            )}
           </View>
         </View>
         <Text className="text-base font-bold text-foreground">{deal.title}</Text>
@@ -491,7 +493,9 @@ const DealOfTheDaySection = ({ navigate }: { navigate: any }) => {
         )}
         <View className="flex-row items-center gap-3 mt-2">
           <Text className="text-lg font-bold text-primary">₹{formatINR(deal.original_price)}</Text>
-          <Text className="text-[10px] text-muted-foreground">Apply promo to unlock ₹{formatINR(deal.discounted_price)}</Text>
+          {discountPct > 0 && (
+            <Text className="text-[10px] text-muted-foreground">Apply promo to unlock ₹{formatINR(deal.discounted_price)}</Text>
+          )}
         </View>
         <Button size="sm" className="mt-3 rounded-xl">
           <Gift size={14} color="#fff" /> Grab This Deal

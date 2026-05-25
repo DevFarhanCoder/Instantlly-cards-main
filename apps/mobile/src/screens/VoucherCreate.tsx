@@ -864,7 +864,7 @@ const VoucherCreate = () => {
             <Input
               placeholder="e.g. 100"
               keyboardType="number-pad"
-              value={form.max_claims}
+              value={form.max_claims ? Number(form.max_claims).toLocaleString("en-IN") : ""}
               onChangeText={(v) => update("max_claims", v.replace(/[^0-9]/g, ""))}
             />
             {errors.max_claims ? <Text className="text-xs text-destructive">{errors.max_claims}</Text> : null}
@@ -876,7 +876,7 @@ const VoucherCreate = () => {
             <Label>Voucher Start No.</Label>
             <Input
               placeholder="Auto"
-              value={form.voucher_start_no ? String(form.voucher_start_no).padStart(3, "0") : ""}
+              value={form.voucher_start_no ? Number(form.voucher_start_no).toLocaleString("en-IN") : ""}
               editable={false}
               keyboardType="number-pad"
               className="bg-muted/40 text-muted-foreground"
@@ -886,14 +886,14 @@ const VoucherCreate = () => {
             <Label>Voucher End No.</Label>
             <Input
               placeholder="Auto"
-              value={form.voucher_end_no ? String(form.voucher_end_no).padStart(3, "0") : ""}
+              value={form.voucher_end_no ? Number(form.voucher_end_no).toLocaleString("en-IN") : ""}
               editable={false}
               keyboardType="number-pad"
               className="bg-muted/40 text-muted-foreground"
             />
           </View>
         </View>
-        <Text className="text-[11px] text-muted-foreground -mt-1">Auto-filled from Total Vouchers (e.g. 001 to {form.max_claims ? String(form.max_claims).padStart(3, "0") : "NNN"}). Not editable.</Text>
+        <Text className="text-[11px] text-muted-foreground -mt-1">Auto-filled from Total Vouchers (e.g. 1 to {form.max_claims ? Number(form.max_claims).toLocaleString("en-IN") : "N"}). Not editable.</Text>
 
         <View className="gap-2">
           <Label>Valid Till</Label>
