@@ -556,9 +556,18 @@ const VoucherDetail = () => {
                 );
                 return (
                   <View className="gap-2">
-                    <Pressable className="flex-row items-start gap-2" onPress={() => openMap(first)}>
-                      <MapPin size={14} color={iconColor} style={{ marginTop: 2 }} />
-                      <Text className="flex-1 text-base text-muted-foreground underline">{first}</Text>
+                    <View className="flex-row items-start gap-2">
+                      <Pressable className="flex-row items-start gap-2 flex-1" onPress={() => openMap(first)}>
+                        <MapPin size={14} color={iconColor} style={{ marginTop: 2 }} />
+                        <Text className="flex-1 text-base text-muted-foreground underline">
+                          {isUrl(first.address) ? 'View on Maps' : first.address}
+                        </Text>
+                      </Pressable>
+                      {first.instagram ? (
+                        <Pressable onPress={() => openInsta(first.instagram!)} className="mt-0.5 px-1">
+                          <AtSign size={14} color="#e1306c" />
+                        </Pressable>
+                      ) : null}
                       {rest.length > 0 && !showAllAddresses && (
                         <Pressable
                           onPress={() => setShowAllAddresses(true)}
@@ -567,16 +576,9 @@ const VoucherDetail = () => {
                           <Text className="text-sm font-semibold text-primary">+{rest.length} more</Text>
                         </Pressable>
                       )}
-                    </Pressable>
+                    </View>
                     {showAllAddresses && rest.map((addr, idx) => (
-                      <Pressable
-                        key={idx}
-                        className="flex-row items-start gap-2 pl-5"
-                        onPress={() => openMap(addr)}
-                      >
-                        <MapPin size={13} color={iconColor} style={{ marginTop: 2 }} />
-                        <Text className="flex-1 text-base text-muted-foreground underline">{addr}</Text>
-                      </Pressable>
+                      <AddressRow key={idx} entry={addr} small indent />
                     ))}
                   </View>
                 );
