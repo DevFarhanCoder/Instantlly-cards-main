@@ -27,6 +27,7 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { ContactVoucherAdminModal } from "../components/ContactVoucherAdminModal";
 import { useAuth } from "../hooks/useAuth";
 import { useClaimVoucher, useVoucher } from "../hooks/useVouchers";
 import { formatINR } from "../lib/utils";
@@ -76,6 +77,7 @@ const VoucherDetail = () => {
   const [verifyInstallment, verifyInstallState] = useVerifyInstallmentPaymentMutation();
 
   const [showPurchase, setShowPurchase] = useState(false);
+  const [showClaimContact, setShowClaimContact] = useState(false);
   const [showRedemption, setShowRedemption] = useState(false);
   const [claimReference, setClaimReference] = useState("");
   const [claimId, setClaimId] = useState<number | null>(null);
@@ -732,7 +734,7 @@ const VoucherDetail = () => {
       <View className="border-t border-border bg-card px-4 py-3">
         <Button
           className="w-full rounded-xl py-4"
-          onPress={() => setShowPurchase(true)}
+          onPress={() => setShowClaimContact(true)}
           disabled={isProcessing || (expiryDays !== null && expiryDays < 0)}
         >
           <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: "700" }}>
@@ -880,6 +882,15 @@ const VoucherDetail = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ContactVoucherAdminModal
+        open={showClaimContact}
+        onOpenChange={setShowClaimContact}
+        mode="claim"
+        userName={user?.name}
+        voucherTitle={voucher?.title}
+        voucherPrice={formatINR(applicablePrice)}
+      />
 
       <Dialog open={showRedemption} onOpenChange={setShowRedemption}>
         <DialogContent className="max-w-sm">
