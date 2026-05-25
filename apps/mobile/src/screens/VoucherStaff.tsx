@@ -21,7 +21,13 @@ import { ChevronLeft, MapPin, Trash2, UserPlus, Users } from "lucide-react-nativ
 
 const ROLE_OPTIONS = [
   { value: "scanner", label: "Scanner" },
+  { value: "co-owner", label: "Co-owner" },
 ];
+
+const ROLE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  scanner: { bg: "#2563eb15", border: "#2563eb40", text: "#2563eb" },
+  "co-owner": { bg: "#7c3aed15", border: "#7c3aed40", text: "#7c3aed" },
+};
 
 export default function VoucherStaff() {
   const navigation = useNavigation<any>();
@@ -190,15 +196,15 @@ export default function VoucherStaff() {
                       paddingVertical: 7,
                       borderRadius: 20,
                       borderWidth: 1.5,
-                      borderColor: role === r.value ? "#2563eb" : colors.border,
-                      backgroundColor: role === r.value ? "#2563eb15" : "transparent",
+                      borderColor: role === r.value ? (ROLE_COLORS[r.value]?.text ?? "#2563eb") : colors.border,
+                      backgroundColor: role === r.value ? (ROLE_COLORS[r.value]?.bg ?? "#2563eb15") : "transparent",
                     }}
                   >
                     <Text
                       style={{
                         fontSize: 13,
                         fontWeight: "600",
-                        color: role === r.value ? "#2563eb" : colors.mutedForeground,
+                        color: role === r.value ? (ROLE_COLORS[r.value]?.text ?? "#2563eb") : colors.mutedForeground,
                       }}
                     >
                       {r.label}
@@ -376,13 +382,13 @@ export default function VoucherStaff() {
                     paddingHorizontal: 10,
                     paddingVertical: 4,
                     borderRadius: 20,
-                    backgroundColor: "#2563eb15",
+                    backgroundColor: ROLE_COLORS[member.role]?.bg ?? "#2563eb15",
                     borderWidth: 1,
-                    borderColor: "#2563eb40",
+                    borderColor: ROLE_COLORS[member.role]?.border ?? "#2563eb40",
                   }}
                 >
-                  <Text style={{ fontSize: 11, color: "#2563eb", fontWeight: "600" }}>
-                    {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                  <Text style={{ fontSize: 11, color: ROLE_COLORS[member.role]?.text ?? "#2563eb", fontWeight: "600" }}>
+                    {member.role === "co-owner" ? "Co-owner" : member.role.charAt(0).toUpperCase() + member.role.slice(1)}
                   </Text>
                 </View>
 

@@ -323,6 +323,7 @@ const MyVouchers = () => {
   const [transferVoucherTarget, setTransferVoucherTarget] = useState<ClaimedVoucher | null>(null);
   const [transferPhone, setTransferPhone] = useState("");
   const [transferQty, setTransferQty] = useState(1);
+  const [transferHistoryExpanded, setTransferHistoryExpanded] = useState(false);
   const [expandedInstallments, setExpandedInstallments] = useState<Set<string>>(new Set());
   const toggleInstallment = (id: string) => setExpandedInstallments((prev) => {
     const next = new Set(prev);
@@ -1088,7 +1089,7 @@ const MyVouchers = () => {
 
       <Dialog
         open={!!transferVoucherTarget}
-        onOpenChange={(open) => !open && setTransferVoucherTarget(null)}
+        onOpenChange={(open) => { if (!open) { setTransferVoucherTarget(null); setTransferHistoryExpanded(false); } }}
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -1099,6 +1100,9 @@ const MyVouchers = () => {
           </DialogHeader>
           {transferVoucherTarget && (() => {
             const maxTransferable = transferVoucherTarget.quantity - transferVoucherTarget.redeemed_count;
+            const voucherTransferHistory = transfers.filter(
+              (t) => String(t.voucher_id) === String(transferVoucherTarget.voucher_id) && String(t.sender_id) === String(user?.id ?? "")
+            );
             return (
               <View className="gap-4 py-2">
                 <View className="rounded-lg bg-muted p-3">
@@ -1138,6 +1142,58 @@ const MyVouchers = () => {
                         {transferQty === maxTransferable ? "All your vouchers" : `${maxTransferable - transferQty} will stay with you`}
                       </Text>
                     </View>
+                  </View>
+                )}
+
+                {voucherTransferHistory.length > 0 && (
+                  <View className="overflow-hidden rounded-xl border border-orange-500/30">
+                    <Pressable
+                      onPress={() => setTransferHistoryExpanded((v) => !v)}
+                      className="flex-row items-center justify-between bg-orange-500/10 px-3 py-2"
+                    >
+                      <View className="flex-row items-center gap-1.5">
+                        <Send size={12} color="#f97316" />
+                        <Text className="text-[11px] font-bold text-orange-700">
+                          Transferred · {voucherTransferHistory.length} total
+                        </Text>
+                      </View>
+                      {transferHistoryExpanded ? (
+                        <ChevronUp size={14} color="#f97316" />
+                      ) : (
+                        <ChevronDown size={14} color="#f97316" />
+                      )}
+                    </Pressable>
+                    {transferHistoryExpanded && (
+                      <View className="gap-2 p-3">
+                        {(() => {
+                          const grouped = new Map<string, { name: string; totalQty: number; lastDate: string }>();
+                          for (const t of voucherTransferHistory) {
+                            const key = t.recipient_phone || String(t.recipient_id ?? t.id);
+                            const name = (t.recipient_name && t.recipient_name.trim()) || t.recipient_phone || "Unknown";
+                            const existing = grouped.get(key);
+                            if (existing) {
+                              existing.totalQty += t.quantity;
+                              if (new Date(t.transferred_at) > new Date(existing.lastDate)) {
+                                existing.lastDate = t.transferred_at;
+                              }
+                            } else {
+                              grouped.set(key, { name, totalQty: t.quantity, lastDate: t.transferred_at });
+                            }
+                          }
+                          return Array.from(grouped.entries()).map(([key, g]) => (
+                            <View key={key} className="flex-row items-center justify-between rounded-lg bg-orange-500/5 px-3 py-2">
+                              <View className="flex-1 pr-2">
+                                <Text className="text-[12px] font-semibold text-orange-800" numberOfLines={1}>{g.name}</Text>
+                                <Text className="text-[10px] text-orange-700/70">{safeFormat(g.lastDate, "dd MMM yyyy")}</Text>
+                              </View>
+                              <View className="rounded-full bg-orange-500/20 px-2 py-0.5">
+                                <Text className="text-[11px] font-bold text-orange-700">×{g.totalQty}</Text>
+                              </View>
+                            </View>
+                          ));
+                        })()}
+                      </View>
+                    )}
                   </View>
                 )}
 
