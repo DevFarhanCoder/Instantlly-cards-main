@@ -91,6 +91,21 @@ const VoucherCreate = () => {
 
   const update = (field: string, value: any) => setForm((p) => ({ ...p, [field]: value }));
 
+  // Auto-fill voucher_start_no = 1 and voucher_end_no = max_claims whenever Total Vouchers changes.
+  // These fields are read-only and always derived from Total Vouchers.
+  useEffect(() => {
+    const max = parseInt(form.max_claims, 10);
+    if (!form.max_claims || Number.isNaN(max) || max <= 0) {
+      setForm((p) => ({ ...p, voucher_start_no: "", voucher_end_no: "" }));
+      return;
+    }
+    setForm((p) => ({
+      ...p,
+      voucher_start_no: "1",
+      voucher_end_no: String(max),
+    }));
+  }, [form.max_claims]);
+
   useEffect(() => {
     const showSub = Keyboard.addListener("keyboardDidShow", () => setIsKeyboardVisible(true));
     const hideSub = Keyboard.addListener("keyboardDidHide", () => setIsKeyboardVisible(false));
@@ -237,11 +252,37 @@ const VoucherCreate = () => {
     }
 
     const minClaim = Number(form.min_claim);
-    if (Number.isNaN(minClaim) || minClaim < 1) nextErrors.min_claim = "Min claim must be at least 1";
+    if (!form.min_claim || !String(form.min_claim).trim()) {
+      nextErrors.min_claim = "Min claim is required";
+    } else if (Number.isNaN(minClaim) || minClaim < 1) {
+      nextErrors.min_claim = "Min claim must be at least 1";
+    }
 
-    if (form.min_claim) {
-      const minClaim = Number(form.min_claim);
-      if (Number.isNaN(minClaim) || minClaim <= 0) nextErrors.min_claim = "Min claim must be greater than 0";
+    const maxClaimsNum = Number(form.max_claims);
+    if (!form.max_claims || !String(form.max_claims).trim()) {
+      nextErrors.max_claims = "Total vouchers is required";
+    } else if (Number.isNaN(maxClaimsNum) || maxClaimsNum < 1) {
+      nextErrors.max_claims = "Total vouchers must be at least 1";
+    } else if (!Number.isNaN(minClaim) && minClaim > maxClaimsNum) {
+      nextErrors.min_claim = "Min claim cannot exceed total vouchers";
+    }
+
+    const startNoTrimmed = (form.voucher_start_no || "").trim();
+    const endNoTrimmed = (form.voucher_end_no || "").trim();
+    const startNo = Number(startNoTrimmed);
+    const endNo = Number(endNoTrimmed);
+    if (!startNoTrimmed) {
+      nextErrors.voucher_start_no = "Voucher start no. is required";
+    } else if (Number.isNaN(startNo) || startNo < 0) {
+      nextErrors.voucher_start_no = "Enter a valid start number";
+    }
+    if (!endNoTrimmed) {
+      nextErrors.voucher_end_no = "Voucher end no. is required";
+    } else if (Number.isNaN(endNo) || endNo < 0) {
+      nextErrors.voucher_end_no = "Enter a valid end number";
+    }
+    if (!nextErrors.voucher_start_no && !nextErrors.voucher_end_no && endNo < startNo) {
+      nextErrors.voucher_end_no = "End no. must be greater than or equal to start no.";
     }
 
     if (form.allows_installment) {
@@ -260,6 +301,10 @@ const VoucherCreate = () => {
   const canSubmit = useMemo(() => {
     const original = Number(form.original_price);
     const discounted = Number(form.discounted_price);
+    const startNo = Number(form.voucher_start_no);
+    const endNo = Number(form.voucher_end_no);
+    const minClaim = Number(form.min_claim);
+    const maxClaimsNum = Number(form.max_claims);
     return Boolean(
       resolvedPromotionId &&
       form.title.trim().length >= 3 &&
@@ -269,9 +314,21 @@ const VoucherCreate = () => {
       !Number.isNaN(discounted) &&
       original > 0 &&
       discounted >= 0 &&
-      discounted <= original
+      discounted <= original &&
+      String(form.min_claim).trim().length > 0 &&
+      !Number.isNaN(minClaim) &&
+      minClaim >= 1 &&
+      String(form.max_claims).trim().length > 0 &&
+      !Number.isNaN(maxClaimsNum) &&
+      maxClaimsNum >= 1 &&
+      minClaim <= maxClaimsNum &&
+      form.voucher_start_no.trim().length > 0 &&
+      form.voucher_end_no.trim().length > 0 &&
+      !Number.isNaN(startNo) &&
+      !Number.isNaN(endNo) &&
+      endNo >= startNo
     );
-  }, [resolvedPromotionId, form.title, form.original_price, form.discounted_price, form.city, form.pincode]);
+  }, [resolvedPromotionId, form.title, form.original_price, form.discounted_price, form.city, form.pincode, form.min_claim, form.max_claims, form.voucher_start_no, form.voucher_end_no]);
 
   const handleSubmit = async () => {
     if (!user) {
@@ -571,28 +628,6 @@ const VoucherCreate = () => {
           />
         </View>
 
-        <View className="flex-row gap-3">
-          <View className="flex-1 gap-2">
-            <Label>Voucher Start No.</Label>
-            <Input
-              placeholder="e.g. 1001"
-              value={form.voucher_start_no}
-              onChangeText={(v) => update("voucher_start_no", v.replace(/[^0-9]/g, ""))}
-              keyboardType="number-pad"
-            />
-          </View>
-          <View className="flex-1 gap-2">
-            <Label>Voucher End No.</Label>
-            <Input
-              placeholder="e.g. 1100"
-              value={form.voucher_end_no}
-              onChangeText={(v) => update("voucher_end_no", v.replace(/[^0-9]/g, ""))}
-              keyboardType="number-pad"
-            />
-          </View>
-        </View>
-
-
         <View className="gap-2">
           <Label>Voucher Logo (Optional)</Label>
           <Text className="text-xs text-muted-foreground">Shows as logo icon on the voucher card</Text>
@@ -759,25 +794,50 @@ const VoucherCreate = () => {
 
         <View className="flex-row gap-3">
           <View className="flex-1 gap-2">
-            <Label>Min Claim</Label>
+            <Label>Min Claim *</Label>
             <Input
               placeholder="1"
               keyboardType="number-pad"
               value={form.min_claim}
-              onChangeText={(v) => update("min_claim", v)}
+              onChangeText={(v) => update("min_claim", v.replace(/[^0-9]/g, ""))}
             />
             {errors.min_claim ? <Text className="text-xs text-destructive">{errors.min_claim}</Text> : null}
           </View>
           <View className="flex-1 gap-2">
-            <Label>Total Vouchers Available</Label>
+            <Label>Total Vouchers Available *</Label>
             <Input
-              placeholder="Unlimited"
+              placeholder="e.g. 100"
               keyboardType="number-pad"
               value={form.max_claims}
-              onChangeText={(v) => update("max_claims", v)}
+              onChangeText={(v) => update("max_claims", v.replace(/[^0-9]/g, ""))}
+            />
+            {errors.max_claims ? <Text className="text-xs text-destructive">{errors.max_claims}</Text> : null}
+          </View>
+        </View>
+
+        <View className="flex-row gap-3">
+          <View className="flex-1 gap-2">
+            <Label>Voucher Start No.</Label>
+            <Input
+              placeholder="Auto"
+              value={form.voucher_start_no ? String(form.voucher_start_no).padStart(3, "0") : ""}
+              editable={false}
+              keyboardType="number-pad"
+              className="bg-muted/40 text-muted-foreground"
+            />
+          </View>
+          <View className="flex-1 gap-2">
+            <Label>Voucher End No.</Label>
+            <Input
+              placeholder="Auto"
+              value={form.voucher_end_no ? String(form.voucher_end_no).padStart(3, "0") : ""}
+              editable={false}
+              keyboardType="number-pad"
+              className="bg-muted/40 text-muted-foreground"
             />
           </View>
         </View>
+        <Text className="text-[11px] text-muted-foreground -mt-1">Auto-filled from Total Vouchers (e.g. 001 to {form.max_claims ? String(form.max_claims).padStart(3, "0") : "NNN"}). Not editable.</Text>
 
         <View className="gap-2">
           <Label>Valid Till</Label>

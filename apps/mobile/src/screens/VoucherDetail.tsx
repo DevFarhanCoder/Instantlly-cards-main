@@ -28,7 +28,7 @@ import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { useAuth } from "../hooks/useAuth";
-import { useClaimVoucher, useMyVouchers, useVoucher } from "../hooks/useVouchers";
+import { useClaimVoucher, useVoucher } from "../hooks/useVouchers";
 import { formatINR } from "../lib/utils";
 import {
   useCreateVoucherPaymentIntentMutation,
@@ -70,7 +70,6 @@ const VoucherDetail = () => {
   const { user } = useAuth();
   const { data: voucher, isLoading, refetch: refetchVoucher } = useVoucher(id || "");
   const claimVoucher = useClaimVoucher();
-  const { data: myVouchers = [] } = useMyVouchers();
   const [createIntent, intentState] = useCreateVoucherPaymentIntentMutation();
   const [verifyPayment, verifyState] = useVerifyVoucherPaymentMutation();
   const [createInstallmentIntent, installIntentState] = useCreateInstallmentPaymentIntentMutation();
@@ -133,7 +132,6 @@ const VoucherDetail = () => {
     );
   }
 
-  const alreadyClaimed = myVouchers.some((cv) => cv.voucher_id === voucher.id);
   const expiryDays = voucher.expires_at && isValid(new Date(voucher.expires_at))
     ? differenceInDays(new Date(voucher.expires_at), new Date())
     : null;
@@ -361,7 +359,7 @@ const VoucherDetail = () => {
         <Pressable onPress={() => navigation.goBack()}>
           <ArrowLeft size={20} color={iconColor} />
         </Pressable>
-        <Text className="text-lg font-bold text-foreground">Voucher Details</Text>
+        <Text className="text-xl font-bold text-foreground">Voucher Details</Text>
         <Pressable>
           <Share2 size={20} color="#6a7181" />
         </Pressable>
@@ -388,8 +386,8 @@ const VoucherDetail = () => {
             )}
 
             {voucher.discount_label && (
-              <Badge className="absolute left-3 top-3 bg-primary text-primary-foreground border-none text-sm px-3 py-1">
-                <Text className="text-primary-foreground text-sm font-semibold" numberOfLines={1}>
+              <Badge className="absolute left-3 top-3 bg-primary text-primary-foreground border-none text-base px-3 py-1">
+                <Text className="text-primary-foreground text-base font-semibold" numberOfLines={1}>
                   {voucher.discount_label} with code
                 </Text>
               </Badge>
@@ -424,15 +422,15 @@ const VoucherDetail = () => {
           </Pressable>
 
           <View>
-            <Text className="text-xl font-bold text-foreground">{voucher.title}</Text>
-            {voucher.subtitle ? <Text className="mt-1 text-sm text-muted-foreground">{voucher.subtitle}</Text> : null}
+            <Text className="text-2xl font-bold text-foreground">{voucher.title}</Text>
+            {voucher.subtitle ? <Text className="mt-1 text-base text-muted-foreground">{voucher.subtitle}</Text> : null}
             <View className="mt-3 flex-row items-center gap-3">
-              <Text className="text-2xl font-bold text-primary">
+              <Text className="text-3xl font-bold text-primary">
                 ₹{formatINR(applicablePrice)}
               </Text>
               {promoApplied && applicablePrice < voucher.original_price && (
                 <>
-                  <Text className="text-lg text-muted-foreground line-through">
+                  <Text className="text-xl text-muted-foreground line-through">
                     ₹{formatINR(voucher.original_price)}
                   </Text>
                   <Badge className="bg-green-500/10 text-green-600 border-none">
@@ -446,8 +444,8 @@ const VoucherDetail = () => {
           {/* Installment Info (when voucher supports it) */}
           {voucher.allows_installment && (
             <View className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-4 gap-2">
-              <Text className="text-sm font-semibold text-amber-800 dark:text-amber-300">Installment Available</Text>
-              <Text className="text-xs text-amber-700 dark:text-amber-400">
+              <Text className="text-base font-semibold text-amber-800 dark:text-amber-300">Installment Available</Text>
+              <Text className="text-sm text-amber-700 dark:text-amber-400">
                 Pay ₹{formatINR(Number(voucher.upfront_amount))} now to claim. Remaining ₹{formatINR(remainingAfterUpfront)} due pay within next 30 days.
               </Text>
             </View>
@@ -456,24 +454,24 @@ const VoucherDetail = () => {
           {/* Active Installment Status (after claim) */}
           {installmentInfo && installmentInfo.remaining_balance > 0 && (
             <View className="rounded-xl border border-orange-300 bg-orange-50 dark:bg-orange-950/20 p-4 gap-3">
-              <Text className="text-sm font-semibold text-orange-800 dark:text-orange-300">Installment Balance Due</Text>
+              <Text className="text-base font-semibold text-orange-800 dark:text-orange-300">Installment Balance Due</Text>
               <View className="flex-row justify-between">
-                <Text className="text-xs text-orange-700 dark:text-orange-400">Remaining</Text>
-                <Text className="text-sm font-bold text-orange-800 dark:text-orange-300">
+                <Text className="text-sm text-orange-700 dark:text-orange-400">Remaining</Text>
+                <Text className="text-base font-bold text-orange-800 dark:text-orange-300">
                   ₹{formatINR(Number(installmentInfo.remaining_balance))}
                 </Text>
               </View>
               {installmentInfo.installment_deadline && (
                 <View className="flex-row justify-between">
-                  <Text className="text-xs text-orange-700 dark:text-orange-400">Due by</Text>
-                  <Text className="text-xs text-orange-700 dark:text-orange-400">
+                  <Text className="text-sm text-orange-700 dark:text-orange-400">Due by</Text>
+                  <Text className="text-sm text-orange-700 dark:text-orange-400">
                     {format(new Date(installmentInfo.installment_deadline), "d MMM yyyy")}
                   </Text>
                 </View>
               )}
               <View className="flex-row gap-2">
                 <TextInput
-                  className="flex-1 rounded-lg border border-orange-300 bg-background px-3 py-2 text-sm text-foreground"
+                  className="flex-1 rounded-lg border border-orange-300 bg-background px-3 py-2 text-base text-foreground"
                   placeholder={`Amount (max ₹${formatINR(Number(installmentInfo.remaining_balance))})`}
                   placeholderTextColor={themeColors.mutedForeground}
                   keyboardType="number-pad"
@@ -490,15 +488,15 @@ const VoucherDetail = () => {
           {/* Business Info */}
           {(voucher.company_name || voucher.phone_number || voucher.address || (voucher as any).addresses?.length > 0 || (voucher as any).city || (voucher as any).pincode || voucher.what_we_do || voucher.website || voucher.instagram || (voucher as any).facebook || (voucher as any).youtube) && (
             <View className="rounded-xl border border-border bg-card p-4 gap-3">
-              <Text className="text-sm font-semibold text-foreground">About the Business</Text>
+              <Text className="text-base font-semibold text-foreground">About the Business</Text>
               {voucher.company_name && (
                 <View className="flex-row items-center gap-2">
                   <ShieldCheck size={14} color={iconColor} />
-                  <Text className="text-sm font-medium text-foreground">{voucher.company_name}</Text>
+                  <Text className="text-base font-medium text-foreground">{voucher.company_name}</Text>
                 </View>
               )}
               {voucher.what_we_do ? (
-                <Text className="text-sm text-muted-foreground leading-5">{voucher.what_we_do}</Text>
+                <Text className="text-base text-muted-foreground leading-5">{voucher.what_we_do}</Text>
               ) : null}
               {voucher.phone_number && (
                 <Pressable
@@ -509,7 +507,7 @@ const VoucherDetail = () => {
                   }}
                 >
                   <Phone size={14} color={iconColor} />
-                  <Text className="text-sm text-primary underline">{voucher.phone_number}</Text>
+                  <Text className="text-base text-primary underline">{voucher.phone_number}</Text>
                 </Pressable>
               )}
               {/* Multiple addresses */}
@@ -558,16 +556,27 @@ const VoucherDetail = () => {
                 );
                 return (
                   <View className="gap-2">
-                    <View className="flex-row items-start gap-2">
-                      <AddressRow entry={first} />
+                    <Pressable className="flex-row items-start gap-2" onPress={() => openMap(first)}>
+                      <MapPin size={14} color={iconColor} style={{ marginTop: 2 }} />
+                      <Text className="flex-1 text-base text-muted-foreground underline">{first}</Text>
                       {rest.length > 0 && !showAllAddresses && (
-                        <Pressable onPress={() => setShowAllAddresses(true)} className="ml-1 mt-0.5">
-                          <Text className="text-xs font-semibold text-primary">+{rest.length} more</Text>
+                        <Pressable
+                          onPress={() => setShowAllAddresses(true)}
+                          className="ml-1"
+                        >
+                          <Text className="text-sm font-semibold text-primary">+{rest.length} more</Text>
                         </Pressable>
                       )}
-                    </View>
-                    {showAllAddresses && rest.map((entry, idx) => (
-                      <AddressRow key={idx} entry={entry} small indent />
+                    </Pressable>
+                    {showAllAddresses && rest.map((addr, idx) => (
+                      <Pressable
+                        key={idx}
+                        className="flex-row items-start gap-2 pl-5"
+                        onPress={() => openMap(addr)}
+                      >
+                        <MapPin size={13} color={iconColor} style={{ marginTop: 2 }} />
+                        <Text className="flex-1 text-base text-muted-foreground underline">{addr}</Text>
+                      </Pressable>
                     ))}
                   </View>
                 );
@@ -575,7 +584,7 @@ const VoucherDetail = () => {
               {((voucher as any).city || (voucher as any).pincode) && (
                 <View className="flex-row items-center gap-2">
                   <MapPin size={14} color={iconColor} />
-                  <Text className="text-sm text-muted-foreground">
+                  <Text className="text-base text-muted-foreground">
                     {(voucher as any).city}{(voucher as any).city && (voucher as any).pincode ? " - " : ""}{(voucher as any).pincode}
                   </Text>
                 </View>
@@ -590,7 +599,7 @@ const VoucherDetail = () => {
                   }}
                 >
                   <Globe size={14} color="#2463eb" />
-                  <Text className="text-sm text-primary underline">{voucher.website}</Text>
+                  <Text className="text-base text-primary underline">{voucher.website}</Text>
                 </Pressable>
               ) : null}
               {voucher.instagram ? (() => {
@@ -604,7 +613,7 @@ const VoucherDetail = () => {
                     onPress={() => { Linking.openURL(linkUrl).catch(() => {}); }}
                   >
                     <InstagramIcon size={16} />
-                    <Text className="text-sm text-primary underline">{displayText}</Text>
+                    <Text className="text-base text-primary underline">{displayText}</Text>
                   </Pressable>
                 );
               })() : null}
@@ -619,7 +628,7 @@ const VoucherDetail = () => {
                     onPress={() => { Linking.openURL(linkUrl).catch(() => {}); }}
                   >
                     <FacebookIcon size={16} />
-                    <Text className="text-sm text-primary underline">{displayText}</Text>
+                    <Text className="text-base text-primary underline">{displayText}</Text>
                   </Pressable>
                 );
               })() : null}
@@ -634,7 +643,7 @@ const VoucherDetail = () => {
                     onPress={() => { Linking.openURL(linkUrl).catch(() => {}); }}
                   >
                     <YouTubeIcon size={16} />
-                    <Text className="text-sm text-primary underline">{displayText}</Text>
+                    <Text className="text-base text-primary underline">{displayText}</Text>
                   </Pressable>
                 );
               })() : null}
@@ -645,7 +654,7 @@ const VoucherDetail = () => {
             <View className="rounded-xl border border-border bg-card p-4 gap-2">
               <View className="flex-row items-center gap-2">
                 <ShieldCheck size={16} color="#2463eb" />
-                <Text className="text-sm font-semibold text-foreground">
+                <Text className="text-base font-semibold text-foreground">
                   Terms & Conditions
                 </Text>
               </View>
@@ -665,7 +674,7 @@ const VoucherDetail = () => {
                           marginTop: 6,
                         }}
                       />
-                      <Text className="flex-1 text-xs text-muted-foreground">{line}</Text>
+                      <Text className="flex-1 text-sm text-muted-foreground">{line}</Text>
                     </View>
                   ))}
               </View>
@@ -675,33 +684,33 @@ const VoucherDetail = () => {
           {(voucher as any).marketed_by_instantlly && (
             <View className="rounded-xl border border-border bg-card p-4 gap-3">
               <View className="flex-row items-center gap-2">
-                <Text className="text-sm font-semibold text-foreground">Marketed By:</Text>
+                <Text className="text-base font-semibold text-foreground">Marketed By:</Text>
                 <Image
                   source={require("../../assets/Instantlly_Logo-removebg.png")}
                   style={{ width: 20, height: 20 }}
                   resizeMode="contain"
                 />
-                <Text className="text-sm font-semibold text-primary">Instantlly Cards</Text>
+                <Text className="text-base font-semibold text-primary">Instantlly Cards</Text>
               </View>
               <Pressable
                 className="flex-row items-center gap-2"
                 onPress={() => { Linking.openURL("https://www.instantlly.com").catch(() => {}); }}
               >
                 <Globe size={14} color="#2463eb" />
-                <Text className="text-sm text-primary underline">www.instantlly.com</Text>
+                <Text className="text-base text-primary underline">www.instantlly.com</Text>
               </Pressable>
               <Pressable
                 className="flex-row items-center gap-2"
                 onPress={() => { Linking.openURL("tel:9833752025").catch(() => {}); }}
               >
                 <Phone size={14} color={iconColor} />
-                <Text className="text-sm text-primary underline">9833752025</Text>
+                <Text className="text-base text-primary underline">9833752025</Text>
               </Pressable>
             </View>
           )}
 
           <View className="rounded-xl border border-border bg-card p-4 gap-2">
-            <Text className="text-sm font-semibold text-foreground">How to Redeem</Text>
+            <Text className="text-base font-semibold text-foreground">How to Redeem</Text>
             <View className="gap-2">
               {[
                 "Claim the voucher",
@@ -709,7 +718,7 @@ const VoucherDetail = () => {
                 "Show the QR code at the merchant",
                 "Enjoy your discount!",
               ].map((step, idx) => (
-                <Text key={step} className="text-xs text-muted-foreground">
+                <Text key={step} className="text-sm text-muted-foreground">
                   {idx + 1}. {step}
                 </Text>
               ))}
@@ -721,14 +730,11 @@ const VoucherDetail = () => {
       <View className="border-t border-border bg-card px-4 py-3">
         <Button
           className="w-full rounded-xl py-4"
-          onPress={() => !alreadyClaimed && setShowPurchase(true)}
-          disabled={isProcessing || alreadyClaimed || (expiryDays !== null && expiryDays < 0)}
-          variant={alreadyClaimed ? "outline" : "default"}
+          onPress={() => setShowPurchase(true)}
+          disabled={isProcessing || (expiryDays !== null && expiryDays < 0)}
         >
-          <Text style={{ color: alreadyClaimed ? themeColors.primary : colors.primaryForeground, fontSize: 16, fontWeight: "700" }}>
-            {alreadyClaimed
-              ? "✓ Already Claimed"
-              : expiryDays !== null && expiryDays < 0
+          <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: "700" }}>
+            {expiryDays !== null && expiryDays < 0
               ? "Voucher Expired"
               : promoApplied
                 ? voucher.allows_installment
@@ -757,11 +763,11 @@ const VoucherDetail = () => {
             <View className="gap-2">
               <View className="flex-row items-center gap-2">
                 <Tag size={14} color="#2463eb" />
-                <Text className="text-xs font-semibold text-foreground">Have a Promo Code?</Text>
+                <Text className="text-sm font-semibold text-foreground">Have a Promo Code?</Text>
               </View>
               <View className="flex-row gap-2">
                 <TextInput
-                  className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                  className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-base text-foreground"
                   placeholder="Enter promo code"
                   placeholderTextColor={themeColors.mutedForeground}
                   value={promoCode}
@@ -772,23 +778,23 @@ const VoucherDetail = () => {
                   <Text style={{ color: colors.primaryForeground, fontWeight: "600" }}>Apply</Text>
                 </Button>
               </View>
-              {promoError ? <Text className="text-xs text-destructive">{promoError}</Text> : null}
+              {promoError ? <Text className="text-sm text-destructive">{promoError}</Text> : null}
             </View>
           )}
 
           {promoApplied && (
             <View className="rounded-lg bg-green-50 dark:bg-green-950/20 px-3 py-2 flex-row items-center justify-between">
-              <Text className="text-sm text-green-600 dark:text-green-400 font-semibold">✅ {promoCode} applied!</Text>
+              <Text className="text-base text-green-600 dark:text-green-400 font-semibold">✅ {promoCode} applied!</Text>
               <Pressable onPress={() => { setPromoApplied(false); setPromoCode(""); setIntentData(null); }}>
-                <Text className="text-xs text-green-600 dark:text-green-400 underline">Remove</Text>
+                <Text className="text-sm text-green-600 dark:text-green-400 underline">Remove</Text>
               </Pressable>
             </View>
           )}
 
           <View className="rounded-xl bg-muted p-3 gap-2">
             <View className="flex-row items-center justify-between">
-              <Text className="text-sm font-medium text-foreground">Pay Now</Text>
-              <Text className="text-lg font-bold text-primary">
+              <Text className="text-base font-medium text-foreground">Pay Now</Text>
+              <Text className="text-xl font-bold text-primary">
                 ₹{formatINR(voucher.original_price)}
               </Text>
             </View>
@@ -796,21 +802,21 @@ const VoucherDetail = () => {
             {promoApplied && (
               <>
                 <View className="flex-row items-center justify-between border-t border-border pt-2">
-                  <Text className="text-xs text-green-600 dark:text-green-400 font-semibold">Promo Applied</Text>
-                  <Text className="text-xs text-green-600 dark:text-green-400 font-semibold">{promoCode}</Text>
+                  <Text className="text-sm text-green-600 dark:text-green-400 font-semibold">Promo Applied</Text>
+                  <Text className="text-sm text-green-600 dark:text-green-400 font-semibold">{promoCode}</Text>
                 </View>
 
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-xs text-green-600 dark:text-green-400 font-semibold">Discounted Price</Text>
-                  <Text className="text-sm font-bold text-green-600 dark:text-green-400">
+                  <Text className="text-sm text-green-600 dark:text-green-400 font-semibold">Discounted Price</Text>
+                  <Text className="text-base font-bold text-green-600 dark:text-green-400">
                     ₹{formatINR(applicablePrice)}
                   </Text>
                 </View>
 
                 {voucher.allows_installment && (
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-xs text-muted-foreground">Pay Upfront</Text>
-                    <Text className="text-xs font-semibold text-foreground">
+                    <Text className="text-sm text-muted-foreground">Pay Upfront</Text>
+                    <Text className="text-sm font-semibold text-foreground">
                       ₹{formatINR(Number(voucher.upfront_amount))}
                     </Text>
                   </View>
@@ -847,7 +853,7 @@ const VoucherDetail = () => {
 
                       {fullExceedsLimit && voucher.allows_installment && (
                         <View className="rounded-lg bg-amber-50 dark:bg-amber-950/20 px-3 py-2">
-                          <Text className="text-xs text-amber-700 dark:text-amber-400">
+                          <Text className="text-sm text-amber-700 dark:text-amber-400">
                             Full payment over ₹5,00,000 isn't supported online. Pay upfront now and the rest in installments.
                           </Text>
                         </View>
@@ -855,7 +861,7 @@ const VoucherDetail = () => {
 
                       {fullExceedsLimit && !voucher.allows_installment && (
                         <View className="rounded-lg bg-amber-50 dark:bg-amber-950/20 px-3 py-2">
-                          <Text className="text-xs text-amber-700 dark:text-amber-400">
+                          <Text className="text-sm text-amber-700 dark:text-amber-400">
                             This voucher's price exceeds the online payment limit of ₹5,00,000. Please contact the business directly.
                           </Text>
                         </View>
@@ -883,10 +889,10 @@ const VoucherDetail = () => {
           </DialogHeader>
           <View className="items-center py-4">
             <QRCode value={`instantly://voucher/${voucher.id}/claim/${claimReference}`} size={160} />
-            <Text className="mt-3 text-sm font-mono font-bold text-foreground">
+            <Text className="mt-3 text-base font-mono font-bold text-foreground">
               REF: {claimReference}
             </Text>
-            <Text className="mt-1 text-xs text-muted-foreground">Valid until expiry</Text>
+            <Text className="mt-1 text-sm text-muted-foreground">Valid until expiry</Text>
           </View>
           <Button
             className="w-full rounded-xl"

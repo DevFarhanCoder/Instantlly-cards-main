@@ -27,8 +27,12 @@ export const vouchersApi = baseApi.injectEndpoints({
       },
       providesTags: ['Voucher'],
     }),
-    claimVoucher: builder.mutation<any, number>({
-      query: (id) => ({ url: `/vouchers/${id}/claim`, method: 'POST' }),
+    claimVoucher: builder.mutation<any, number | { id: number; quantity?: number }>({
+      query: (arg) => {
+        const id = typeof arg === 'number' ? arg : arg.id;
+        const quantity = typeof arg === 'number' ? undefined : arg.quantity;
+        return { url: `/vouchers/${id}/claim`, method: 'POST', body: quantity ? { quantity } : undefined };
+      },
       invalidatesTags: ['Voucher'],
     }),
     transferVoucher: builder.mutation<any, { voucher_id: number; recipient_phone: string; quantity?: number }>({

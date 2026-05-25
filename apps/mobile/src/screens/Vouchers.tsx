@@ -325,12 +325,6 @@ const Vouchers = () => {
                             </Text>
                           </Badge>
                         )}
-                        <View className="ml-auto flex-row items-center gap-1">
-                          <Users size={12} color="#6a7181" />
-                          <Text className="text-[10px] text-muted-foreground">
-                            {d.claimed_count || 0} bought
-                          </Text>
-                        </View>
                       </View>
                       <Text className="text-sm font-semibold text-foreground">
                         {d.title}

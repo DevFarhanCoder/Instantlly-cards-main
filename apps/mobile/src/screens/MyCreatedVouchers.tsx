@@ -163,7 +163,7 @@ const MyCreatedVouchers = () => {
     setTransferLoading(true);
     try {
       await ownerTransfer({ id: transferVoucher.id, recipient_phone: transferPhone.trim(), quantity: qty }).unwrap();
-      toast.success(`${qty} voucher(s) gifted successfully!`);
+      toast.success(`${qty} voucher(s) transferred successfully!`);
       setTransferPhone("");
       setTransferQty("1");
       setTransferVoucher(null);
@@ -533,7 +533,7 @@ const MyCreatedVouchers = () => {
                             <View className="flex-row items-center justify-center gap-1">
                               <Gift size={14} color="#7c3aed" />
                               <Text className="text-[12px] font-semibold text-violet-600">
-                                Gift ({remaining})
+                                Transfer
                               </Text>
                             </View>
                           </Button>
@@ -675,7 +675,12 @@ const MyCreatedVouchers = () => {
                 {claims.map((c: any) => (
                   <View key={c.claim_id} className="rounded-lg border border-border bg-muted/30 p-3 gap-1">
                     <View className="flex-row items-center justify-between">
-                      <Text className="text-sm font-semibold text-foreground">{c.user_name || "Customer"}</Text>
+                      <View className="flex-1 flex-row items-center gap-2">
+                        <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{c.user_name || "Customer"}</Text>
+                        <View className="rounded-full bg-primary/10 px-2 py-0.5">
+                          <Text className="text-[10px] font-semibold text-primary">Qty: {Number(c.quantity ?? 1)}</Text>
+                        </View>
+                      </View>
                       <Text className={`text-[10px] font-semibold capitalize ${
                         c.status === "active" ? "text-green-600" :
                         c.status === "redeemed" ? "text-primary" :
@@ -796,7 +801,12 @@ const MyCreatedVouchers = () => {
                   <View key={c.claim_id} className="rounded-lg border border-border bg-muted/30 p-3 gap-1">
                     <View className="flex-row items-start justify-between gap-2">
                       <View className="flex-1">
-                        <Text className="text-sm font-semibold text-foreground">{c.user_name || "Customer"}</Text>
+                        <View className="flex-row items-center gap-2">
+                          <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{c.user_name || "Customer"}</Text>
+                          <View className="rounded-full bg-primary/10 px-2 py-0.5">
+                            <Text className="text-[10px] font-semibold text-primary">Qty: {Number(c.quantity ?? 1)}</Text>
+                          </View>
+                        </View>
                         <Text className="text-[11px] text-muted-foreground">{c.user_phone}</Text>
                       </View>
                       <View className={`rounded-full px-2 py-0.5 ${
@@ -1138,7 +1148,7 @@ const MyCreatedVouchers = () => {
       <Dialog open={!!transferVoucher} onOpenChange={(open) => { if (!open) { setTransferVoucher(null); setTransferHistoryExpanded(false); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Gift Vouchers</DialogTitle>
+            <DialogTitle>Transfer Vouchers</DialogTitle>
           </DialogHeader>
           {transferVoucher && (() => {
             const remaining = Math.max(0, transferVoucher.max_claims - (transferVoucher.claimed_count || 0));
@@ -1287,6 +1297,19 @@ const MyCreatedVouchers = () => {
                       </Text>
                     </View>
                   </View>
+                  {qty > 0 && remaining > 0 && (() => {
+                    const startNo = Number(transferVoucher.voucher_start_no) || 1;
+                    const base = startNo + (transferVoucher.claimed_count || 0);
+                    const count = Math.min(qty, remaining);
+                    const first = String(base).padStart(3, "0");
+                    const last = String(base + count - 1).padStart(3, "0");
+                    const label = count > 1 ? `${first} to ${last}` : first;
+                    return (
+                      <Text className="text-[10px] font-medium text-foreground">
+                        Serial No{count > 1 ? "s" : ""} to issue: {label}
+                      </Text>
+                    );
+                  })()}
                 </View>
 
                 {/* Actions */}
@@ -1299,7 +1322,7 @@ const MyCreatedVouchers = () => {
                     <View className="flex-row items-center gap-2">
                       <Gift size={14} color="#fff" />
                       <Text className="text-sm font-semibold text-primary-foreground">
-                        {transferLoading ? "Gifting..." : `Gift ${qty} Voucher${qty !== 1 ? "s" : ""}`}
+                        {transferLoading ? "Transferring..." : `Transfer ${qty} Voucher${qty !== 1 ? "s" : ""}`}
                       </Text>
                     </View>
                   </Button>
@@ -1470,6 +1493,19 @@ const MyCreatedVouchers = () => {
                         </Text>
                       </View>
                     </View>
+                    {qty > 0 && (remaining === null || remaining > 0) && (() => {
+                      const startNo = Number(friendVoucher.voucher_start_no) || 1;
+                      const base = startNo + (friendVoucher.claimed_count || 0);
+                      const cap = remaining !== null ? Math.min(qty, remaining) : qty;
+                      const first = String(base).padStart(3, "0");
+                      const last = String(base + cap - 1).padStart(3, "0");
+                      const label = cap > 1 ? `${first} to ${last}` : first;
+                      return (
+                        <Text className="text-[10px] font-medium text-foreground">
+                          Serial No{cap > 1 ? "s" : ""} to issue: {label}
+                        </Text>
+                      );
+                    })()}
                   </View>
 
                   {/* Summary: Allocated = Pay Now + Pay Barter (paid). Remaining = Pay Later (pending). */}
