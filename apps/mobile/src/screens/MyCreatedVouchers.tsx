@@ -54,7 +54,7 @@ const safeFormat = (d: any, fmt: string, fb = "—") => {
 const formatSerialRanges = (nums: number[]): string => {
   if (!nums || nums.length === 0) return "";
   const sorted = [...nums].sort((a, b) => a - b);
-  const pad = (n: number) => `#${String(n).padStart(3, "0")}`;
+  const pad = (n: number) => `#${n.toLocaleString("en-IN")}`;
   const parts: string[] = [];
   let start = sorted[0];
   let prev = sorted[0];
@@ -498,7 +498,7 @@ const MyCreatedVouchers = () => {
                         <View className="flex-row items-center gap-1">
                           <Users size={11} color="#6a7181" />
                           <Text className="text-[11px] text-muted-foreground">
-                            {v.claimed_count || 0}{v.max_claims ? `/${v.max_claims}` : ""} claimed
+                            {(v.claimed_count || 0).toLocaleString("en-IN")}{v.max_claims ? `/${v.max_claims.toLocaleString("en-IN")}` : ""} claimed
                           </Text>
                         </View>
                         {v.expires_at ? (
@@ -1294,10 +1294,10 @@ const MyCreatedVouchers = () => {
                   <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{transferVoucher.title}</Text>
                   <View className="flex-row items-center gap-2">
                     <View className="rounded-full bg-violet-500/10 px-2 py-0.5">
-                      <Text className="text-[10px] font-semibold text-violet-600">{remaining} available to transfer</Text>
+                      <Text className="text-[10px] font-semibold text-violet-600">{remaining.toLocaleString("en-IN")} available to transfer</Text>
                     </View>
                     <View className="rounded-full bg-muted px-2 py-0.5">
-                      <Text className="text-[10px] text-muted-foreground">{transferVoucher.claimed_count || 0}/{transferVoucher.max_claims} claimed</Text>
+                      <Text className="text-[10px] text-muted-foreground">{(transferVoucher.claimed_count || 0).toLocaleString("en-IN")}/{transferVoucher.max_claims.toLocaleString("en-IN")} claimed</Text>
                     </View>
                   </View>
                 </View>
@@ -1390,7 +1390,7 @@ const MyCreatedVouchers = () => {
 
                 {/* Quantity */}
                 <View className="gap-1.5">
-                  <Text className="text-xs font-semibold text-foreground">Quantity (max {remaining})</Text>
+                  <Text className="text-xs font-semibold text-foreground">Quantity (max {remaining.toLocaleString("en-IN")})</Text>
                   <View className="flex-row items-center gap-3">
                     <Pressable
                       onPress={() => setTransferQty((v) => String(Math.max(1, parseInt(v, 10) - 1)))}
@@ -1435,8 +1435,8 @@ const MyCreatedVouchers = () => {
                     const startNo = Number(transferVoucher.voucher_start_no) || 1;
                     const base = startNo + (transferVoucher.claimed_count || 0);
                     const count = Math.min(qty, remaining);
-                    const first = String(base).padStart(3, "0");
-                    const last = String(base + count - 1).padStart(3, "0");
+                    const first = base.toLocaleString("en-IN");
+                    const last = (base + count - 1).toLocaleString("en-IN");
                     const label = count > 1 ? `${first} to ${last}` : first;
                     return (
                       <Text className="text-[10px] font-medium text-foreground">
@@ -1631,8 +1631,8 @@ const MyCreatedVouchers = () => {
                       const startNo = Number(friendVoucher.voucher_start_no) || 1;
                       const base = startNo + (friendVoucher.claimed_count || 0);
                       const cap = remaining !== null ? Math.min(qty, remaining) : qty;
-                      const first = String(base).padStart(3, "0");
-                      const last = String(base + cap - 1).padStart(3, "0");
+                      const first = base.toLocaleString("en-IN");
+                      const last = (base + cap - 1).toLocaleString("en-IN");
                       const label = cap > 1 ? `${first} to ${last}` : first;
                       return (
                         <Text className="text-[10px] font-medium text-foreground">
