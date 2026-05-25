@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import { generateAndShareCardImage } from "../utils/cardImageGenerator";
 import ContactPickerModal from "../components/ContactPickerModal";
+import { ContactVoucherAdminModal } from "../components/ContactVoucherAdminModal";
+import { isVoucherAdmin } from "../lib/voucherAdmin";
 import {
   buildReferralPlayStoreLink,
   buildWhatsAppMessage,
@@ -85,6 +87,15 @@ const MyCards = () => {
   const plan = route.params?.plan;
   const { user } = useAuth();
   const { isBusiness } = useUserRole();
+  const canCreateVoucher = isVoucherAdmin(user);
+  const [voucherAdminGate, setVoucherAdminGate] = useState<{ open: boolean; businessName?: string }>({ open: false });
+  const handleCreateVoucherFor = (promo: any) => {
+    if (canCreateVoucher) {
+      navigation.navigate("VoucherCreate", { promotionId: promo?.id });
+    } else {
+      setVoucherAdminGate({ open: true, businessName: promo?.business_name });
+    }
+  };
   const dispatch = useAppDispatch();
   const { cards, isLoading, deleteCard, refetch: refetchCards } = useBusinessCards() as any;
   const { data: directoryCards = [], isLoading: isFetchingNetwork, refetch: refetchDirectory } = useDirectoryCards();
@@ -651,7 +662,7 @@ const MyCards = () => {
                           </DropdownMenuItem>
                         )}
                         {isBusiness && (
-                          <DropdownMenuItem onPress={() => navigation.navigate("VoucherCreate", { promotionId: promo?.id })}>
+                          <DropdownMenuItem onPress={() => handleCreateVoucherFor(promo)}>
                             <Tag size={14} color={iconColor} /> Create Voucher
                           </DropdownMenuItem>
                         )}
@@ -1144,6 +1155,13 @@ const MyCards = () => {
         onClose={() => setContactPickerCard(null)}
         cardId={contactPickerCard ? Number(contactPickerCard.id) : 0}
         cardName={contactPickerCard?.full_name ?? ""}
+      />
+
+      <ContactVoucherAdminModal
+        open={voucherAdminGate.open}
+        onOpenChange={(open) => setVoucherAdminGate((s) => ({ ...s, open }))}
+        userName={user?.name}
+        businessName={voucherAdminGate.businessName}
       />
     </View>
   );

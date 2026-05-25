@@ -574,25 +574,6 @@ const MyVouchers = () => {
                               {voucher?.title || "Voucher"}
                             </Text>
                             <View className="flex-row items-center gap-1.5">
-                              {v.quantity > 1 && (
-                                <View className={`rounded-full px-2 py-0.5 ${
-                                  v.redeemed_count >= v.quantity
-                                    ? "bg-primary/10"
-                                    : v.redeemed_count > 0
-                                    ? "bg-amber-500/10"
-                                    : "bg-muted"
-                                }`}>
-                                  <Text className={`text-[10px] font-semibold ${
-                                    v.redeemed_count >= v.quantity
-                                      ? "text-primary"
-                                      : v.redeemed_count > 0
-                                      ? "text-amber-600"
-                                      : "text-muted-foreground"
-                                  }`}>
-                                    {v.redeemed_count}/{v.quantity} used
-                                  </Text>
-                                </View>
-                              )}
                               <View
                                 testID={`voucher-status-${v.id}`}
                                 className={`flex-row items-center gap-1 rounded-full px-2 py-0.5 ${config.bg}`}
@@ -609,6 +590,27 @@ const MyVouchers = () => {
                               {voucher.subtitle}
                             </Text>
                           ) : null}
+                          {/* Used / Total badges */}
+                          {(() => {
+                            const used = v.redeemed_count || 0;
+                            const total = v.quantity || 0;
+                            const balance = Math.max(0, total - used);
+                            if (total <= 0) return null;
+                            return (
+                              <View className="flex-row items-center gap-2 mt-2 flex-wrap">
+                                <View className="rounded-md bg-blue-600 px-2.5 py-1 shadow-sm">
+                                  <Text className="text-[12px] font-bold text-white">
+                                    {used} Used
+                                  </Text>
+                                </View>
+                                <View className={`rounded-md px-2.5 py-1 shadow-sm ${balance === 0 ? "bg-red-600" : "bg-emerald-600"}`}>
+                                  <Text className="text-[12px] font-bold text-white">
+                                    {total} Total
+                                  </Text>
+                                </View>
+                              </View>
+                            );
+                          })()}
                         </View>
                       </View>
 

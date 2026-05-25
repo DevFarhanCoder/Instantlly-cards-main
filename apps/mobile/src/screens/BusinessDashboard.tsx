@@ -45,9 +45,11 @@ import ServicePricingManager from "../components/business/ServicePricingManager"
 import StaffManager from "../components/business/StaffManager";
 import { AppHeader } from "../components/ui/AppHeader";
 import { NoPromotionCTA } from "../components/business/NoPromotionCTA";
+import { ContactVoucherAdminModal } from "../components/ContactVoucherAdminModal";
 import { toast } from "../lib/toast";
 import { formatINR } from "../lib/utils";
 import { useIconColor } from "../theme/colors";
+import { isVoucherAdmin } from "../lib/voucherAdmin";
 
 const BusinessDashboard = () => {
   const iconColor = useIconColor();
@@ -56,6 +58,15 @@ const BusinessDashboard = () => {
   const { selectedPromotionId, selectedPromotion, promotions } = usePromotionContext();
   const hasAnyPromotion = (promotions?.length ?? 0) > 0;
   const businessName = selectedPromotion?.business_name || "Business";
+  const canCreateVoucher = isVoucherAdmin(user);
+  const [contactAdminOpen, setContactAdminOpen] = useState(false);
+  const handleCreateVoucher = () => {
+    if (canCreateVoucher) {
+      navigation.navigate("VoucherCreate");
+    } else {
+      setContactAdminOpen(true);
+    }
+  };
 
   const selectedCardIdNum = selectedPromotion?.business_card_id ? Number(selectedPromotion.business_card_id) : null;
   const selectedCardId = selectedCardIdNum ? String(selectedCardIdNum) : null;
@@ -470,7 +481,7 @@ const BusinessDashboard = () => {
           </TabsContent>
 
           <TabsContent value="vouchers" className="gap-3 mt-3">
-            <Button variant="outline" className="w-full gap-2 rounded-xl" onPress={() => navigation.navigate("VoucherCreate")}>
+            <Button variant="outline" className="w-full gap-2 rounded-xl" onPress={handleCreateVoucher}>
               <Tag size={16} color={iconColor} /> Create New Voucher
             </Button>
             {scopedVouchers.length === 0 ? (
@@ -800,6 +811,13 @@ const BusinessDashboard = () => {
           </Button>
         </DialogContent>
       </Dialog>
+
+      <ContactVoucherAdminModal
+        open={contactAdminOpen}
+        onOpenChange={setContactAdminOpen}
+        userName={user?.name}
+        businessName={businessName}
+      />
     </View>
   );
 };
