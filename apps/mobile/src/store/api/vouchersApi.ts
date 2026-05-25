@@ -196,6 +196,42 @@ export const vouchersApi = baseApi.injectEndpoints({
       query: (transferId) => `/vouchers/owner-transfers/${transferId}/payments`,
       providesTags: ['Voucher'],
     }),
+    getVoucherStaff: builder.query<
+      Array<{
+        id: number;
+        voucher_id: number;
+        user_id: number;
+        role: string;
+        assigned_address: string | null;
+        created_at: string;
+        user: { id: number; name: string | null; phone: string | null };
+      }>,
+      number
+    >({
+      query: (voucherId) => `/vouchers/${voucherId}/staff`,
+      providesTags: (_result, _err, voucherId) => [{ type: 'Voucher', id: `staff-${voucherId}` }],
+    }),
+    addVoucherStaff: builder.mutation<
+      { id: number },
+      { voucherId: number; phone: string; role?: string; assigned_address?: string }
+    >({
+      query: ({ voucherId, ...body }) => ({
+        url: `/vouchers/${voucherId}/staff`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _err, { voucherId }) => [{ type: 'Voucher', id: `staff-${voucherId}` }],
+    }),
+    removeVoucherStaff: builder.mutation<
+      { success: boolean },
+      { voucherId: number; staffId: number }
+    >({
+      query: ({ voucherId, staffId }) => ({
+        url: `/vouchers/${voucherId}/staff/${staffId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _err, { voucherId }) => [{ type: 'Voucher', id: `staff-${voucherId}` }],
+    }),
   }),
 });
 
@@ -229,4 +265,7 @@ export const {
   useVerifyOwnerTransferPaymentMutation,
   useGetOwnerTransferPaymentsQuery,
   useLazyGetOwnerTransferPaymentsQuery,
+  useGetVoucherStaffQuery,
+  useAddVoucherStaffMutation,
+  useRemoveVoucherStaffMutation,
 } = vouchersApi;

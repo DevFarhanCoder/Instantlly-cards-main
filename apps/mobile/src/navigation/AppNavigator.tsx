@@ -33,6 +33,7 @@ import Messaging from "../screens/Messaging";
 import MyVouchers from "../screens/MyVouchers";
 import MyCreatedVouchers from "../screens/MyCreatedVouchers";
 import VoucherScanner from "../screens/VoucherScanner";
+import VoucherStaff from "../screens/VoucherStaff";
 import Vouchers from "../screens/Vouchers";
 import VoucherDetail from "../screens/VoucherDetail";
 import PlaceholderScreen from "../screens/PlaceholderScreen";
@@ -201,6 +202,7 @@ const AdminAdDetailScreen  = (props: any) => <AdminAdDetail {...props} />;
 const GroupChatScreen      = (props: any) => <AppLayout headerOnly><GroupChat {...props} /></AppLayout>;
 const NotFoundScreen       = plainPlaceholder("Not Found");
 const ServiceSelectionScreen = (props: any) => <ServiceSelection {...props} />;
+const VoucherStaffScreen   = withLayout(VoucherStaff);
 
 // ─── Deep link config ────────────────────────────────────────────────────────
 const linking = {
@@ -725,6 +727,7 @@ const AppNavigator = () => {
         <Stack.Screen name="MyVouchers" component={MyVouchersScreen} />
         <Stack.Screen name="MyCreatedVouchers" component={MyCreatedVouchersScreen} />
         <Stack.Screen name="VoucherScanner" component={VoucherScannerScreen} />
+        <Stack.Screen name="VoucherStaff" component={VoucherStaffScreen} />
         <Stack.Screen name="AdCreate" component={AdCreateScreen} />
         <Stack.Screen name="AdDashboard" component={AdDashboardScreen} />
         <Stack.Screen name="EventDetail" component={EventDetailScreen} />

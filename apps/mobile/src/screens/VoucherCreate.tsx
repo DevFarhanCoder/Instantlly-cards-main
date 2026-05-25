@@ -80,7 +80,7 @@ const VoucherCreate = () => {
     instagram: "",
     facebook: "",
     youtube: "",
-    addresses: [""],
+    addresses: [{ address: "", instagram: "" }],
     marketed_by_instantlly: false,
     voucher_start_no: "",
     voucher_end_no: "",
@@ -144,9 +144,17 @@ const VoucherCreate = () => {
       instagram: v.instagram ?? "",
       facebook: (v as any).facebook ?? "",
       youtube: (v as any).youtube ?? "",
-      addresses: Array.isArray((v as any).addresses) && (v as any).addresses.length > 0
-        ? (v as any).addresses
-        : [(v as any).address ?? ""],
+      addresses: (() => {
+        const raw = (v as any).addresses;
+        if (Array.isArray(raw) && raw.length > 0) {
+          return raw.map((a: any) =>
+            typeof a === 'string'
+              ? { address: a, instagram: '' }
+              : { address: a.address ?? '', instagram: a.instagram ?? '' }
+          );
+        }
+        return [{ address: (v as any).address ?? '', instagram: v.instagram ?? '' }];
+      })(),
       marketed_by_instantlly: Boolean(v.marketed_by_instantlly),
       voucher_start_no: v.voucher_start_no != null ? String(v.voucher_start_no) : "",
       voucher_end_no: v.voucher_end_no != null ? String(v.voucher_end_no) : "",
@@ -376,8 +384,8 @@ const VoucherCreate = () => {
       is_popular: form.is_popular,
       company_name: form.company_name || null,
       phone_number: form.phone_number || null,
-      address: form.addresses.filter(Boolean)[0] || null,
-      addresses: form.addresses.filter(Boolean),
+      address: form.addresses.filter((a) => a.address.trim())[0]?.address || null,
+      addresses: form.addresses.filter((a) => a.address.trim()).map((a) => ({ address: a.address.trim(), instagram: a.instagram.trim() || null })),
       city: normaliseCity(form.city),
       pincode: form.pincode.trim(),
       allows_installment: form.allows_installment,
@@ -701,31 +709,42 @@ const VoucherCreate = () => {
 
         <View className="gap-2">
           <Label>Addresses (Where to Redeem)</Label>
-          {form.addresses.map((addr, idx) => (
-            <View key={idx} className="flex-row items-center gap-2">
+          {form.addresses.map((entry, idx) => (
+            <View key={idx} className="rounded-lg border border-border bg-muted/20 p-3 gap-2">
+              <View className="flex-row items-center gap-2">
+                <Input
+                  className="flex-1"
+                  placeholder={idx === 0 ? "Address or paste a Maps link" : "Address or Maps link"}
+                  value={entry.address}
+                  onChangeText={(v) => {
+                    const next = [...form.addresses];
+                    next[idx] = { ...next[idx], address: v };
+                    update("addresses", next);
+                  }}
+                />
+                {form.addresses.length > 1 && (
+                  <Pressable
+                    onPress={() => update("addresses", form.addresses.filter((_, i) => i !== idx))}
+                    className="p-1"
+                  >
+                    <X size={16} color="#ef4444" />
+                  </Pressable>
+                )}
+              </View>
               <Input
-                className="flex-1"
-                placeholder={idx === 0 ? "e.g. Shop 5, MG Road, Bengaluru" : "Additional address"}
-                value={addr}
+                placeholder="Instagram for this location (optional)"
+                value={entry.instagram}
                 onChangeText={(v) => {
                   const next = [...form.addresses];
-                  next[idx] = v;
+                  next[idx] = { ...next[idx], instagram: v };
                   update("addresses", next);
                 }}
               />
-              {form.addresses.length > 1 && (
-                <Pressable
-                  onPress={() => update("addresses", form.addresses.filter((_, i) => i !== idx))}
-                  className="p-1"
-                >
-                  <X size={16} color="#ef4444" />
-                </Pressable>
-              )}
             </View>
           ))}
           {form.addresses.length < 5 && (
             <Pressable
-              onPress={() => update("addresses", [...form.addresses, ""])}
+              onPress={() => update("addresses", [...form.addresses, { address: "", instagram: "" }])}
               className="flex-row items-center justify-center gap-2 rounded-lg border border-dashed border-border py-2.5"
             >
               <Plus size={15} color="#2463eb" />
