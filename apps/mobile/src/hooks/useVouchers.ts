@@ -395,6 +395,7 @@ export interface VoucherTransfer {
   };
   sender_name?: string;
   recipient_name?: string;
+  quantity: number;
 }
 
 export function useVoucherTransfers() {
@@ -435,6 +436,7 @@ export function useVoucherTransfers() {
           : undefined,
         sender_name: t.sender?.name,
         recipient_name: t.recipient?.name,
+        quantity: Number(t.quantity ?? 1),
       } as VoucherTransfer;
     }),
   };
