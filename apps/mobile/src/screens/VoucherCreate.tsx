@@ -19,6 +19,8 @@ import { POPULAR_INDIAN_CITIES, normaliseCity } from "../data/indianCities";
 import { useGetVoucherQuery, useUpdateVoucherMutation, useUploadVoucherImageMutation } from "../store/api/vouchersApi";
 import { toast } from "../lib/toast";
 import { useIconColor } from "../theme/colors";
+import { isVoucherAdmin } from "../lib/voucherAdmin";
+import { ContactVoucherAdminModal } from "../components/ContactVoucherAdminModal";
 
 const voucherCategories = [
   "food",
@@ -223,12 +225,12 @@ const VoucherCreate = () => {
   };
 
   const discount = useMemo(() => {
-    if (form.original_price && form.discounted_price) {
-      return Math.round(
-        (1 - parseFloat(form.discounted_price) / parseFloat(form.original_price)) * 100
-      );
-    }
-    return 0;
+    const original = parseFloat(form.original_price);
+    const discounted = parseFloat(form.discounted_price);
+    // Empty or 0 in 'Discounted Price' means "no discount" — customer pays original price.
+    if (!form.original_price || Number.isNaN(original) || original <= 0) return 0;
+    if (!form.discounted_price || Number.isNaN(discounted) || discounted <= 0) return 0;
+    return Math.round((1 - discounted / original) * 100);
   }, [form.original_price, form.discounted_price]);
 
   const validateForm = () => {
@@ -246,8 +248,10 @@ const VoucherCreate = () => {
     const original = Number(form.original_price);
     const discounted = Number(form.discounted_price);
     if (!form.original_price || Number.isNaN(original) || original <= 0) nextErrors.original_price = "Original price is required";
-    if (!form.discounted_price || Number.isNaN(discounted) || discounted < 0) nextErrors.discounted_price = "Discounted price is required";
-    if (!Number.isNaN(original) && !Number.isNaN(discounted) && discounted > original) {
+    // Discounted Price is optional. Leaving it blank or 0 means "no discount" — customer pays original price.
+    if (form.discounted_price && (Number.isNaN(discounted) || discounted < 0)) {
+      nextErrors.discounted_price = "Discounted price must be 0 or more";
+    } else if (!Number.isNaN(original) && !Number.isNaN(discounted) && discounted > original) {
       nextErrors.discounted_price = "Discounted price cannot exceed original price";
     }
 
@@ -287,9 +291,15 @@ const VoucherCreate = () => {
 
     if (form.allows_installment) {
       const upfront = Number(form.upfront_amount);
+      // Effective price = discounted if > 0, else original.
+      const discountedNum = Number(form.discounted_price);
+      const effectivePrice =
+        form.discounted_price && !Number.isNaN(discountedNum) && discountedNum > 0
+          ? discountedNum
+          : Number(form.original_price);
       if (!form.upfront_amount || Number.isNaN(upfront) || upfront <= 0) {
         nextErrors.upfront_amount = "Upfront amount is required when installment is enabled";
-      } else if (upfront >= Number(form.discounted_price || form.original_price)) {
+      } else if (upfront >= effectivePrice) {
         nextErrors.upfront_amount = "Upfront amount must be less than the voucher price";
       }
     }
@@ -305,16 +315,18 @@ const VoucherCreate = () => {
     const endNo = Number(form.voucher_end_no);
     const minClaim = Number(form.min_claim);
     const maxClaimsNum = Number(form.max_claims);
+    // Discounted Price is optional; only invalid if entered AND (NaN, negative, or > original).
+    const discountedOk =
+      !form.discounted_price ||
+      (!Number.isNaN(discounted) && discounted >= 0 && discounted <= original);
     return Boolean(
       resolvedPromotionId &&
       form.title.trim().length >= 3 &&
       form.city.trim().length > 0 &&
       form.pincode.trim().length > 0 &&
       !Number.isNaN(original) &&
-      !Number.isNaN(discounted) &&
       original > 0 &&
-      discounted >= 0 &&
-      discounted <= original &&
+      discountedOk &&
       String(form.min_claim).trim().length > 0 &&
       !Number.isNaN(minClaim) &&
       minClaim >= 1 &&
@@ -354,10 +366,17 @@ const VoucherCreate = () => {
       return;
     }
     const original = Number(form.original_price);
-    const discounted = Number(form.discounted_price);
+    const discountedRaw = Number(form.discounted_price);
+    // Empty or 0 in 'Discounted Price' means "no discount" — customer pays original price.
+    const noDiscount =
+      !form.discounted_price ||
+      Number.isNaN(discountedRaw) ||
+      discountedRaw <= 0 ||
+      discountedRaw >= original;
+    const discounted = noDiscount ? original : discountedRaw;
     let discountType = "flat";
     let discountValue = 0;
-    if (original > 0 && discounted >= 0 && discounted <= original) {
+    if (!noDiscount && original > 0 && discounted >= 0 && discounted <= original) {
       discountType = "percent";
       discountValue = Math.round(((original - discounted) / original) * 100);
     } else {
@@ -418,6 +437,40 @@ const VoucherCreate = () => {
   };
 
   // Vouchers are available on every active promotion (free or paid).
+
+  // Voucher creation is restricted to the admin account (Rajesh Modi).
+  // Edit mode is still allowed for existing voucher owners.
+  const canCreateVoucher = isVoucherAdmin(user);
+  const [adminGateOpen, setAdminGateOpen] = useState(true);
+  if (!isEditMode && !canCreateVoucher) {
+    return (
+      <View className="flex-1 bg-background">
+        <View className="border-b border-border bg-card px-4 py-4 flex-row items-center gap-3">
+          <Pressable onPress={() => navigation.goBack()}>
+            <ArrowLeft size={20} color={iconColor} />
+          </Pressable>
+          <Text className="text-lg font-bold text-foreground">Create Voucher</Text>
+        </View>
+        <View className="flex-1 items-center justify-center px-6">
+          <Text className="text-center text-sm text-muted-foreground">
+            Voucher creation is handled by our team. Tap below to contact us.
+          </Text>
+          <Button className="mt-4 rounded-xl" onPress={() => setAdminGateOpen(true)}>
+            Contact Us
+          </Button>
+        </View>
+        <ContactVoucherAdminModal
+          open={adminGateOpen}
+          onOpenChange={(open) => {
+            setAdminGateOpen(open);
+            if (!open) navigation.goBack();
+          }}
+          userName={user?.name}
+          businessName={(selectedPromotion as any)?.business_name}
+        />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -495,13 +548,16 @@ const VoucherCreate = () => {
             {errors.original_price ? <Text className="text-xs text-destructive">{errors.original_price}</Text> : null}
           </View>
           <View className="flex-1 gap-2">
-            <Label>Discounted Price (₹) *</Label>
+            <Label>Discounted Price (₹)</Label>
             <Input
-              placeholder="2500"
+              placeholder="Leave blank for no discount"
               keyboardType="number-pad"
               value={form.discounted_price}
               onChangeText={(v) => update("discounted_price", v)}
             />
+            <Text className="text-[10px] text-muted-foreground">
+              Leave blank or 0 if there is no discount — customer will pay the original price.
+            </Text>
             {errors.discounted_price ? <Text className="text-xs text-destructive">{errors.discounted_price}</Text> : null}
           </View>
         </View>

@@ -24,6 +24,7 @@ import {
 import { Button } from "../components/ui/button";
 import { Skeleton } from "../components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { ContactVoucherAdminModal } from "../components/ContactVoucherAdminModal";
 import { useAuth } from "../hooks/useAuth";
 import { format, isValid } from "date-fns";
 import { useIconColor, useColors } from "../theme/colors";
@@ -46,6 +47,28 @@ const safeFormat = (d: any, fmt: string, fb = "—") => {
   if (!d) return fb;
   const date = new Date(d);
   return isValid(date) ? format(date, fmt) : fb;
+};
+
+/** Compresses a sorted list of serial numbers into a readable ranges string.
+ *  e.g. [1,2,3,5,7,8,9] -> "#001–#003, #005, #007–#009". */
+const formatSerialRanges = (nums: number[]): string => {
+  if (!nums || nums.length === 0) return "";
+  const sorted = [...nums].sort((a, b) => a - b);
+  const pad = (n: number) => `#${String(n).padStart(3, "0")}`;
+  const parts: string[] = [];
+  let start = sorted[0];
+  let prev = sorted[0];
+  for (let i = 1; i <= sorted.length; i++) {
+    const cur = sorted[i];
+    if (i < sorted.length && cur === prev + 1) {
+      prev = cur;
+      continue;
+    }
+    parts.push(start === prev ? pad(start) : `${pad(start)}–${pad(prev)}`);
+    start = cur;
+    prev = cur;
+  }
+  return parts.join(", ");
 };
 
 /** Renders the Razorpay payment history for one barter (owner-transfer). */
@@ -114,6 +137,15 @@ const MyCreatedVouchers = () => {
   const [friendLoading, setFriendLoading] = useState(false);
   // Pending owner-transfers modal (Rajesh Modi only — sender view)
   const [pendingTransfersOpen, setPendingTransfersOpen] = useState(false);
+  // Contact-admin modal shown when a non-admin user taps "Create Voucher"
+  const [contactAdminOpen, setContactAdminOpen] = useState(false);
+  const handleCreateVoucher = useCallback(() => {
+    if (isRajeshModi) {
+      navigation.navigate("VoucherCreate");
+    } else {
+      setContactAdminOpen(true);
+    }
+  }, [isRajeshModi, navigation]);
   const { data: sentTransfers = [], refetch: refetchSentTransfers, isFetching: sentTransfersFetching } =
     useGetSentOwnerTransfersQuery(undefined, { skip: !user });
   const [settleOwnerTransfer] = useSettleOwnerTransferMutation();
@@ -123,6 +155,15 @@ const MyCreatedVouchers = () => {
   const [ledgerVoucherId, setLedgerVoucherId] = useState<number | null>(null);
   const [ledgerTab, setLedgerTab] = useState<"installments" | "barter">("installments");
   const [expandedBarterTransfer, setExpandedBarterTransfer] = useState<Set<number>>(new Set());
+  const [expandedSerials, setExpandedSerials] = useState<Set<number>>(new Set());
+  const toggleSerials = useCallback((claimId: number) => {
+    setExpandedSerials((prev) => {
+      const next = new Set(prev);
+      if (next.has(claimId)) next.delete(claimId);
+      else next.add(claimId);
+      return next;
+    });
+  }, []);
   const [historyClaim, setHistoryClaim] = useState<any | null>(null);
   const [transferHistoryExpanded, setTransferHistoryExpanded] = useState(false);
   // Global claims modal: null = closed, "active" | "redeemed" | "expired" = open with filter
@@ -315,7 +356,7 @@ const MyCreatedVouchers = () => {
         </Text>
         <View className="flex-row items-center gap-2">
           <Pressable
-            onPress={() => navigation.navigate("VoucherCreate")}
+            onPress={handleCreateVoucher}
             className="flex-row items-center gap-1 rounded-lg bg-primary px-3 py-1.5 active:opacity-80"
           >
             <Plus size={14} color="#fff" />
@@ -411,7 +452,7 @@ const MyCreatedVouchers = () => {
             <View className="items-center py-16">
               <Ticket size={48} color="#6a7181" />
               <Text className="mt-3 text-sm text-muted-foreground">No vouchers created yet</Text>
-              <Button className="mt-4 rounded-xl" onPress={() => navigation.navigate("VoucherCreate")}>
+              <Button className="mt-4 rounded-xl" onPress={handleCreateVoucher}>
                 Create Voucher
               </Button>
             </View>
@@ -660,8 +701,10 @@ const MyCreatedVouchers = () => {
               <View className="flex-row gap-2 pb-2">
                 {[
                   { label: "Total", count: claims.length, color: "#6b7280" },
-                  { label: "Active", count: claims.filter((c: any) => c.status === "active").length, color: "#f97316" },
-                  { label: "Redeemed", count: claims.filter((c: any) => c.status === "redeemed").length, color: "#2463eb" },
+                  // Active = claims with NO redemptions yet
+                  { label: "Active", count: claims.filter((c: any) => c.status === "active" && (Number(c.redeemed_count) || 0) === 0).length, color: "#f97316" },
+                  // Redeemed = claims with at least 1 unit redeemed (fully OR partially)
+                  { label: "Redeemed", count: claims.filter((c: any) => c.status === "redeemed" || (Number(c.redeemed_count) || 0) > 0).length, color: "#2463eb" },
                   { label: "Expired", count: claims.filter((c: any) => c.status === "expired").length, color: "#9ca3af" },
                 ].map(({ label, count, color }) => (
                   <View key={label} className="flex-1 rounded-lg bg-muted/50 p-2 items-center">
@@ -672,24 +715,68 @@ const MyCreatedVouchers = () => {
               </View>
             <ScrollView className="max-h-96" showsVerticalScrollIndicator={false}>
               <View className="gap-2 py-2">
-                {claims.map((c: any) => (
+                {claims.map((c: any) => {
+                  const qty = Number(c.quantity ?? 1);
+                  const redeemed = Number(c.redeemed_count ?? 0);
+                  const isPartial = redeemed > 0 && redeemed < qty;
+                  const isFullyRedeemed = c.status === "redeemed" || (qty > 0 && redeemed >= qty);
+                  const displayStatus = isFullyRedeemed
+                    ? "redeemed"
+                    : isPartial
+                    ? "partial"
+                    : c.status;
+                  const serials: number[] = Array.isArray(c.serial_nos) ? c.serial_nos : [];
+                  const redeemedSerials = redeemed > 0 ? serials.slice(0, redeemed) : [];
+                  const isSerialsExpanded = expandedSerials.has(c.claim_id);
+                  const serialsFull = formatSerialRanges(redeemedSerials);
+                  const hasManySerials = redeemedSerials.length > 2;
+                  const serialsLabel = !hasManySerials
+                    ? serialsFull || null
+                    : isSerialsExpanded
+                    ? serialsFull
+                    : `${redeemedSerials.length} serials`;
+                  return (
                   <View key={c.claim_id} className="rounded-lg border border-border bg-muted/30 p-3 gap-1">
                     <View className="flex-row items-center justify-between">
-                      <View className="flex-1 flex-row items-center gap-2">
+                      <View className="flex-1 flex-row items-center gap-2 flex-wrap">
                         <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{c.user_name || "Customer"}</Text>
+                        {serialsLabel ? (
+                          hasManySerials ? (
+                            <Pressable
+                              onPress={() => toggleSerials(c.claim_id)}
+                              className="rounded-md bg-violet-600 px-2 py-0.5 max-w-full flex-row items-center gap-1"
+                            >
+                              <Text className="text-[10px] font-bold text-white" style={{ flexWrap: "wrap" }}>{serialsLabel}</Text>
+                              {isSerialsExpanded
+                                ? <ChevronUp size={11} color="#fff" />
+                                : <ChevronDown size={11} color="#fff" />}
+                            </Pressable>
+                          ) : (
+                            <View className="rounded-md bg-violet-600 px-2 py-0.5 max-w-full">
+                              <Text className="text-[10px] font-bold text-white" style={{ flexWrap: "wrap" }}>{serialsLabel}</Text>
+                            </View>
+                          )
+                        ) : null}
                         <View className="rounded-full bg-primary/10 px-2 py-0.5">
-                          <Text className="text-[10px] font-semibold text-primary">Qty: {Number(c.quantity ?? 1)}</Text>
+                          <Text className="text-[10px] font-semibold text-primary">Qty: {qty}</Text>
                         </View>
+                        {redeemed > 0 ? (
+                          <View className={`rounded-full px-2 py-0.5 ${isFullyRedeemed ? "bg-primary/10" : "bg-amber-500/10"}`}>
+                            <Text className={`text-[10px] font-semibold ${isFullyRedeemed ? "text-primary" : "text-amber-700"}`}>
+                              {redeemed}/{qty} used
+                            </Text>
+                          </View>
+                        ) : null}
                       </View>
                       <Text className={`text-[10px] font-semibold capitalize ${
-                        c.status === "active" ? "text-green-600" :
-                        c.status === "redeemed" ? "text-primary" :
-                        c.status === "expired" ? "text-muted-foreground" : "text-foreground"
+                        displayStatus === "active" ? "text-green-600" :
+                        displayStatus === "redeemed" ? "text-primary" :
+                        displayStatus === "partial" ? "text-amber-700" :
+                        displayStatus === "expired" ? "text-muted-foreground" : "text-foreground"
                       }`}>
-                        {c.status}
+                        {displayStatus}
                       </Text>
                     </View>
-                    <Text className="text-[11px] text-muted-foreground">{c.user_phone}</Text>
                     <View className="flex-row items-center gap-3 mt-1">
                       <Text className="text-[10px] text-muted-foreground">
                         Claimed: {safeFormat(c.claimed_at, "d MMM yyyy")}
@@ -714,7 +801,8 @@ const MyCreatedVouchers = () => {
                       </View>
                     )}
                   </View>
-                ))}
+                  );
+                })}
               </View>
             </ScrollView>
             </>
@@ -797,24 +885,69 @@ const MyCreatedVouchers = () => {
           ) : (
             <ScrollView className="max-h-[70vh]" showsVerticalScrollIndicator={false}>
               <View className="gap-2 py-2">
-                {globalClaims.map((c: any) => (
+                {globalClaims.map((c: any) => {
+                  const qty = Number(c.quantity ?? 1);
+                  const redeemed = Number(c.redeemed_count ?? 0);
+                  const isFullyRedeemed = c.status === "redeemed" || (qty > 0 && redeemed >= qty);
+                  const isPartial = redeemed > 0 && redeemed < qty;
+                  const displayStatus = isFullyRedeemed
+                    ? "redeemed"
+                    : isPartial
+                    ? "partial"
+                    : c.status;
+                  const serials: number[] = Array.isArray(c.serial_nos) ? c.serial_nos : [];
+                  const redeemedSerials = redeemed > 0 ? serials.slice(0, redeemed) : [];
+                  const isSerialsExpanded = expandedSerials.has(c.claim_id);
+                  const serialsFull = formatSerialRanges(redeemedSerials);
+                  const hasManySerials = redeemedSerials.length > 2;
+                  const serialsLabel = !hasManySerials
+                    ? serialsFull || null
+                    : isSerialsExpanded
+                    ? serialsFull
+                    : `${redeemedSerials.length} serials`;
+                  return (
                   <View key={c.claim_id} className="rounded-lg border border-border bg-muted/30 p-3 gap-1">
                     <View className="flex-row items-start justify-between gap-2">
                       <View className="flex-1">
-                        <View className="flex-row items-center gap-2">
+                        <View className="flex-row items-center gap-2 flex-wrap">
                           <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{c.user_name || "Customer"}</Text>
+                          {serialsLabel ? (
+                            hasManySerials ? (
+                              <Pressable
+                                onPress={() => toggleSerials(c.claim_id)}
+                                className="rounded-md bg-violet-600 px-2 py-0.5 max-w-full flex-row items-center gap-1"
+                              >
+                                <Text className="text-[10px] font-bold text-white" style={{ flexWrap: "wrap" }}>{serialsLabel}</Text>
+                                {isSerialsExpanded
+                                  ? <ChevronUp size={11} color="#fff" />
+                                  : <ChevronDown size={11} color="#fff" />}
+                              </Pressable>
+                            ) : (
+                              <View className="rounded-md bg-violet-600 px-2 py-0.5 max-w-full">
+                                <Text className="text-[10px] font-bold text-white" style={{ flexWrap: "wrap" }}>{serialsLabel}</Text>
+                              </View>
+                            )
+                          ) : null}
                           <View className="rounded-full bg-primary/10 px-2 py-0.5">
-                            <Text className="text-[10px] font-semibold text-primary">Qty: {Number(c.quantity ?? 1)}</Text>
+                            <Text className="text-[10px] font-semibold text-primary">Qty: {qty}</Text>
                           </View>
+                          {redeemed > 0 ? (
+                            <View className={`rounded-full px-2 py-0.5 ${isFullyRedeemed ? "bg-primary/10" : "bg-amber-500/10"}`}>
+                              <Text className={`text-[10px] font-semibold ${isFullyRedeemed ? "text-primary" : "text-amber-700"}`}>
+                                {redeemed}/{qty} used
+                              </Text>
+                            </View>
+                          ) : null}
                         </View>
-                        <Text className="text-[11px] text-muted-foreground">{c.user_phone}</Text>
                       </View>
                       <View className={`rounded-full px-2 py-0.5 ${
-                        c.status === "redeemed" ? "bg-primary/10" : "bg-orange-500/10"
+                        displayStatus === "redeemed" ? "bg-primary/10" :
+                        displayStatus === "partial" ? "bg-amber-500/10" : "bg-orange-500/10"
                       }`}>
                         <Text className={`text-[10px] font-semibold capitalize ${
-                          c.status === "redeemed" ? "text-primary" : "text-orange-600"
-                        }`}>{c.status}</Text>
+                          displayStatus === "redeemed" ? "text-primary" :
+                          displayStatus === "partial" ? "text-amber-700" : "text-orange-600"
+                        }`}>{displayStatus}</Text>
                       </View>
                     </View>
                     <View className="mt-1 rounded-md bg-card border border-border px-2 py-1">
@@ -833,7 +966,8 @@ const MyCreatedVouchers = () => {
                       )}
                     </View>
                   </View>
-                ))}
+                  );
+                })}
               </View>
             </ScrollView>
           )}
@@ -1658,6 +1792,12 @@ const MyCreatedVouchers = () => {
           </ScrollView>
         </DialogContent>
       </Dialog>
+
+      <ContactVoucherAdminModal
+        open={contactAdminOpen}
+        onOpenChange={setContactAdminOpen}
+        userName={user?.name}
+      />
     </View>
   );
 };
