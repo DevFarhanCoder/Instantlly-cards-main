@@ -12,7 +12,7 @@ export type RootStackParamList = {
   Vouchers: undefined;
   VoucherDetail: { id: string; claimId?: number; installmentInfo?: any } | undefined;
   MyVouchers: undefined;
-  MyCreatedVouchers: undefined;
+  MyCreatedVouchers: { openTransferForVoucherId?: number; openBarterForVoucherId?: number } | undefined;
   VoucherScanner: { voucherId?: number } | undefined;
   Ads: undefined;
   AdCreate: { cardId?: string } | undefined;

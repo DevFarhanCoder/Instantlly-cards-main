@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Modal, Platform, Pressable, Image, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from "react-native";
+import { Dimensions, Modal, Platform, Pressable, Image, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ChevronDown, ChevronRight, Clock, Filter, MapPin, Search, Ticket, Users, X } from "lucide-react-native";
 import { Badge } from "../components/ui/badge";
@@ -7,6 +7,7 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Skeleton } from "../components/ui/skeleton";
+import { PinchZoomImage } from "../components/PinchZoomImage";
 import { voucherCategories } from "../data/categories";
 import { useVouchers, type Voucher } from "../hooks/useVouchers";
 import { useAppLocation } from "../contexts/LocationContext";
@@ -43,10 +44,10 @@ const Vouchers = () => {
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [tab, setTab] = useState<"near" | "all">("near");
   const { city: userCity, state: userState, isLoading: locationLoading, isManual, permissionDenied } = useAppLocation();
   const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const { data: vouchers = [], isLoading, isFetching, refetch: refetchVouchers } = useVouchers({ nearMe: tab === "near" });
+  // Always fetch all vouchers; we partition into nearby + others below.
+  const { data: vouchers = [], isLoading, isFetching, refetch: refetchVouchers } = useVouchers({ nearMe: false });
   const [bannerVoucher, setBannerVoucher] = useState<Voucher | null>(null);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -69,6 +70,20 @@ const Vouchers = () => {
   );
 
   const featuredVouchers = filteredVouchers.filter((v) => v.is_popular);
+
+  // Split into vouchers near the selected city and others (rest of country).
+  const { nearbyVouchers, otherVouchers } = useMemo(() => {
+    if (!userCity) return { nearbyVouchers: [] as typeof filteredVouchers, otherVouchers: filteredVouchers };
+    const target = userCity.trim().toLowerCase();
+    const nearby: typeof filteredVouchers = [];
+    const others: typeof filteredVouchers = [];
+    for (const v of filteredVouchers) {
+      const vc = ((v as any).city || "").toString().trim().toLowerCase();
+      if (vc && vc === target) nearby.push(v);
+      else others.push(v);
+    }
+    return { nearbyVouchers: nearby, otherVouchers: others };
+  }, [filteredVouchers, userCity]);
 
   const [selectedVoucher, setSelectedVoucher] = useState<(typeof filteredVouchers)[0] | null>(null);
 
@@ -113,59 +128,6 @@ const Vouchers = () => {
         </Button>
       </Pressable>
       <LocationPickerModal visible={showLocationPicker} onClose={() => setShowLocationPicker(false)} />
-
-      {/* Near Me / All tabs */}
-      <View
-        style={{
-          flexDirection: "row",
-          backgroundColor: "#ffffff",
-          borderBottomWidth: 1,
-          borderBottomColor: "#e5e7eb",
-        }}
-      >
-        <Pressable
-          onPress={() => setTab("near")}
-          style={{
-            flex: 1,
-            alignItems: "center",
-            justifyContent: "center",
-            paddingVertical: 12,
-            borderBottomWidth: tab === "near" ? 2 : 0,
-            borderBottomColor: "#2563eb",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 14,
-              fontWeight: "600",
-              color: tab === "near" ? "#2563eb" : "#6b7280",
-            }}
-          >
-            Near Me{userCity ? ` (${userCity})` : ""}
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setTab("all")}
-          style={{
-            flex: 1,
-            alignItems: "center",
-            justifyContent: "center",
-            paddingVertical: 12,
-            borderBottomWidth: tab === "all" ? 2 : 0,
-            borderBottomColor: "#2563eb",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 14,
-              fontWeight: "600",
-              color: tab === "all" ? "#2563eb" : "#6b7280",
-            }}
-          >
-            All
-          </Text>
-        </Pressable>
-      </View>
 
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 16 }} refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2463eb"]} tintColor="#2463eb" />
@@ -277,75 +239,95 @@ const Vouchers = () => {
             </View>
           )}
 
-          <View>
-            <Text className="mb-3 text-lg font-semibold text-foreground">
-              {(isLoading || isFetching)
-                ? "Loading..."
-                : filteredVouchers.length === 0
-                ? "No vouchers found"
-                : "Trending Deals 🔥"}
-            </Text>
-            {(isLoading || isFetching) ? (
-              <View className="gap-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-24 w-full rounded-xl" />
-                ))}
-              </View>
-            ) : filteredVouchers.length === 0 ? (
-              <View className="items-center py-16">
-                <Text className="text-5xl mb-3">📭</Text>
-                <Text className="text-sm text-muted-foreground">
-                  No vouchers available yet
-                </Text>
-              </View>
-            ) : (
-              <View className="gap-3">
-                {filteredVouchers.map((d) => (
-                  <Pressable
-                    key={d.id}
-                    className="relative flex-row gap-3 overflow-hidden rounded-xl bg-card shadow-sm"
-                    onPress={() => setSelectedVoucher(d)}
-                  >
-                    <View className="h-24 w-24 items-center justify-center bg-muted overflow-hidden rounded-l-xl">
-                      {/* show logo (image_url) on the card; banner shows in the preview modal */}
-                      {(d as any).image_url ? (
-                        <Image source={{ uri: (d as any).image_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-                      ) : (d as any).banner_url ? (
-                        <Image source={{ uri: (d as any).banner_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-                      ) : (
-                        <Text className="text-4xl">{emojiImages[d.category] || "🎁"}</Text>
-                      )}
-                    </View>
-                    <View className="flex-1 py-3 pr-4">
-                      <View className="mb-1 flex-row items-center gap-1.5">
-                        {d.discount_label && (
-                          <Badge className="bg-primary/10 text-primary border-none text-[10px]">
-                            <Text className="text-[10px] font-semibold text-primary" numberOfLines={1}>
-                              {d.discount_label} with code
-                            </Text>
-                          </Badge>
-                        )}
-                      </View>
-                      <Text className="text-sm font-semibold text-foreground">
-                        {d.title}
-                      </Text>
-                      <View className="mt-1 flex-row items-center gap-2">
-                        <Text className="text-sm font-bold text-primary">
-                          ₹{formatINR(d.original_price)}
+          {(() => {
+            const renderVoucherCard = (d: (typeof filteredVouchers)[0]) => (
+              <Pressable
+                key={d.id}
+                className="relative flex-row gap-3 overflow-hidden rounded-xl bg-card shadow-sm"
+                onPress={() => setSelectedVoucher(d)}
+              >
+                <View className="h-24 w-24 items-center justify-center bg-muted overflow-hidden rounded-l-xl">
+                  {(d as any).image_url ? (
+                    <Image source={{ uri: (d as any).image_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                  ) : (d as any).banner_url ? (
+                    <Image source={{ uri: (d as any).banner_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                  ) : (
+                    <Text className="text-4xl">{emojiImages[d.category] || "🎁"}</Text>
+                  )}
+                </View>
+                <View className="flex-1 py-3 pr-4">
+                  <View className="mb-1 flex-row items-center gap-1.5">
+                    {d.discount_label && (
+                      <Badge className="bg-primary/10 text-primary border-none text-[10px]">
+                        <Text className="text-[10px] font-semibold text-primary" numberOfLines={1}>
+                          {d.discount_label} with code
                         </Text>
-                      </View>
+                      </Badge>
+                    )}
+                  </View>
+                  <Text className="text-sm font-semibold text-foreground">{d.title}</Text>
+                  <View className="mt-1 flex-row items-center gap-2">
+                    <Text className="text-sm font-bold text-primary">₹{formatINR(d.original_price)}</Text>
+                  </View>
+                </View>
+                <View className="absolute bottom-2 right-2 flex-row items-center gap-1">
+                  <Clock size={12} color="#6a7181" />
+                  <Text className="text-[10px] text-muted-foreground">{getExpiryLabel(d.expires_at)}</Text>
+                </View>
+              </Pressable>
+            );
+
+            if (isLoading || isFetching) {
+              return (
+                <View>
+                  <Text className="mb-3 text-lg font-semibold text-foreground">Loading...</Text>
+                  <View className="gap-3">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-24 w-full rounded-xl" />
+                    ))}
+                  </View>
+                </View>
+              );
+            }
+
+            if (filteredVouchers.length === 0) {
+              return (
+                <View>
+                  <Text className="mb-3 text-lg font-semibold text-foreground">No vouchers found</Text>
+                  <View className="items-center py-16">
+                    <Text className="text-5xl mb-3">📭</Text>
+                    <Text className="text-sm text-muted-foreground">No vouchers available yet</Text>
+                  </View>
+                </View>
+              );
+            }
+
+            return (
+              <View className="gap-5">
+                {userCity && nearbyVouchers.length > 0 && (
+                  <View>
+                    <Text className="mb-3 text-lg font-semibold text-foreground">
+                      Near you in {userCity} 📍
+                    </Text>
+                    <View className="gap-3">
+                      {nearbyVouchers.map(renderVoucherCard)}
                     </View>
-                    <View className="absolute bottom-2 right-2 flex-row items-center gap-1">
-                      <Clock size={12} color="#6a7181" />
-                      <Text className="text-[10px] text-muted-foreground">
-                        {getExpiryLabel(d.expires_at)}
-                      </Text>
+                  </View>
+                )}
+
+                {otherVouchers.length > 0 && (
+                  <View>
+                    <Text className="mb-3 text-lg font-semibold text-foreground">
+                      {userCity && nearbyVouchers.length > 0 ? "More vouchers" : "Trending Deals 🔥"}
+                    </Text>
+                    <View className="gap-3">
+                      {otherVouchers.map(renderVoucherCard)}
                     </View>
-                  </Pressable>
-                ))}
+                  </View>
+                )}
               </View>
-            )}
-          </View>
+            );
+          })()}
         </View>
       </ScrollView>
 
@@ -362,10 +344,8 @@ const Vouchers = () => {
             {/* Image area (top half — flexible) */}
             <View style={{ flex: 1, backgroundColor: "#000", paddingTop: Platform.OS === "android" ? StatusBar.currentHeight ?? 0 : 0 }}>
               {(selectedVoucher as any).banner_url || (selectedVoucher as any).image_url ? (
-                <Image
+                <PinchZoomImage
                   source={{ uri: (selectedVoucher as any).banner_url || (selectedVoucher as any).image_url }}
-                  style={{ width: "100%", height: "100%" }}
-                  resizeMode="contain"
                 />
               ) : (
                 <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
