@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState } from "react";
-import { Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { Dimensions, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { ArrowLeft, AtSign, Clock, Globe, MapPin, Phone, Share2, ShieldCheck, Tag, X } from "lucide-react-native";
 import Svg, { Rect, Circle, Path } from "react-native-svg";
+import { PinchZoomImage } from "../components/PinchZoomImage";
 
 const InstagramIcon = ({ size = 16 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#E1306C" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -31,6 +32,7 @@ import { ContactVoucherAdminModal } from "../components/ContactVoucherAdminModal
 import { useAuth } from "../hooks/useAuth";
 import { useClaimVoucher, useVoucher } from "../hooks/useVouchers";
 import { formatINR } from "../lib/utils";
+import { isVoucherAdmin } from "../lib/voucherAdmin";
 import {
   useCreateVoucherPaymentIntentMutation,
   useVerifyVoucherPaymentMutation,
@@ -101,6 +103,7 @@ const VoucherDetail = () => {
   const [installmentAmount, setInstallmentAmount] = useState("");
   const [installmentInfo, setInstallmentInfo] = useState<any>(null);
   const [showBannerPreview, setShowBannerPreview] = useState(false);
+  const [bannerZoom, setBannerZoom] = useState(1);
   const [showAllAddresses, setShowAllAddresses] = useState(false);
 
   const isProcessing = claimVoucher.isPending || intentState.isLoading || verifyState.isLoading ||
@@ -732,21 +735,55 @@ const VoucherDetail = () => {
       </ScrollView>
 
       <View className="border-t border-border bg-card px-4 py-3">
-        <Button
-          className="w-full rounded-xl py-4"
-          onPress={() => setShowClaimContact(true)}
-          disabled={isProcessing || (expiryDays !== null && expiryDays < 0)}
-        >
-          <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: "700" }}>
-            {expiryDays !== null && expiryDays < 0
-              ? "Voucher Expired"
-              : promoApplied
-                ? voucher.allows_installment
-                  ? `Claim Now — ₹${formatINR(applicablePrice)} (Pay ₹${formatINR(Number(voucher.upfront_amount))} Upfront)`
-                  : `Claim Voucher — ₹${formatINR(applicablePrice)}`
-                : "Claim Voucher"}
-          </Text>
-        </Button>
+        {isVoucherAdmin(user as any) ? (
+          // Rajesh Modi (voucher admin) doesn't claim vouchers via WhatsApp.
+          // Instead, surface the two owner actions: Transfer and Barter Transfer.
+          <View className="flex-row gap-2">
+            <Button
+              className="flex-1 rounded-xl py-4"
+              variant="outline"
+              onPress={() =>
+                navigation.navigate("MyCreatedVouchers", {
+                  openTransferForVoucherId: Number(voucher.id),
+                })
+              }
+              disabled={expiryDays !== null && expiryDays < 0}
+            >
+              <Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "700" }}>
+                Transfer
+              </Text>
+            </Button>
+            <Button
+              className="flex-1 rounded-xl py-4"
+              onPress={() =>
+                navigation.navigate("MyCreatedVouchers", {
+                  openBarterForVoucherId: Number(voucher.id),
+                })
+              }
+              disabled={expiryDays !== null && expiryDays < 0}
+            >
+              <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: "700" }}>
+                Barter Transfer
+              </Text>
+            </Button>
+          </View>
+        ) : (
+          <Button
+            className="w-full rounded-xl py-4"
+            onPress={() => setShowClaimContact(true)}
+            disabled={isProcessing || (expiryDays !== null && expiryDays < 0)}
+          >
+            <Text style={{ color: colors.primaryForeground, fontSize: 18, fontWeight: "700" }}>
+              {expiryDays !== null && expiryDays < 0
+                ? "Voucher Expired"
+                : promoApplied
+                  ? voucher.allows_installment
+                    ? `Claim Now — ₹${formatINR(applicablePrice)} (Pay ₹${formatINR(Number(voucher.upfront_amount))} Upfront)`
+                    : `Claim Voucher — ₹${formatINR(applicablePrice)}`
+                  : "Claim Voucher"}
+            </Text>
+          </Button>
+        )}
       </View>
 
       <Dialog open={showPurchase} onOpenChange={setShowPurchase}>
@@ -923,23 +960,28 @@ const VoucherDetail = () => {
         visible={showBannerPreview}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowBannerPreview(false)}
+        onRequestClose={() => {
+          setBannerZoom(1);
+          setShowBannerPreview(false);
+        }}
       >
         <View className="flex-1 bg-black">
           {voucher.voucher_banner || voucher.voucher_image ? (
-            <Image
+            <PinchZoomImage
               source={{ uri: (voucher.voucher_banner || voucher.voucher_image) as string }}
-              style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%" }}
-              resizeMode="contain"
             />
           ) : (
             <View className="flex-1 items-center justify-center">
               <Image source={require("../../assets/Instantlly_Logo-removebg.png")} style={{ width: 200, height: 200 }} resizeMode="contain" />
             </View>
           )}
+
           <Pressable
             className="absolute top-14 right-4 rounded-full bg-black/50 p-2"
-            onPress={() => setShowBannerPreview(false)}
+            onPress={() => {
+              setBannerZoom(1);
+              setShowBannerPreview(false);
+            }}
           >
             <X size={20} color="white" />
           </Pressable>

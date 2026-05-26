@@ -1,6 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Image, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useRoute } from "@react-navigation/native";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -30,6 +31,7 @@ import { format, isValid } from "date-fns";
 import { useIconColor, useColors } from "../theme/colors";
 import { toast } from "../lib/toast";
 import { formatINR } from "../lib/utils";
+import { FEATURES } from "../lib/featureFlags";
 import {
   useGetMyCreatedVouchersQuery,
   useOwnerTransferVoucherMutation,
@@ -108,6 +110,7 @@ const MyCreatedVouchers = () => {
   const iconColor = useIconColor();
   const colors = useColors();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { user } = useAuth();
 
   const { data: vouchers = [], isLoading, refetch } = useGetMyCreatedVouchersQuery(undefined, { skip: !user });
@@ -166,6 +169,41 @@ const MyCreatedVouchers = () => {
   }, []);
   const [historyClaim, setHistoryClaim] = useState<any | null>(null);
   const [transferHistoryExpanded, setTransferHistoryExpanded] = useState(false);
+
+  // When navigated here from VoucherDetail with a request to open the
+  // Transfer / Barter Transfer dialog for a specific voucher (Rajesh Modi flow),
+  // auto-open the matching dialog as soon as the voucher list is available.
+  const handledTransferParamRef = useRef<number | null>(null);
+  const handledBarterParamRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isRajeshModi) return;
+    const openTransferId = route?.params?.openTransferForVoucherId;
+    const openBarterId = route?.params?.openBarterForVoucherId;
+    if (openTransferId && handledTransferParamRef.current !== openTransferId) {
+      const v = vouchers.find((vv: any) => Number(vv.id) === Number(openTransferId));
+      if (v) {
+        handledTransferParamRef.current = Number(openTransferId);
+        setTransferVoucher(v);
+        setTransferPhone("");
+        setTransferQty("1");
+        navigation.setParams({ openTransferForVoucherId: undefined } as any);
+      }
+    }
+    if (openBarterId && handledBarterParamRef.current !== openBarterId) {
+      const v = vouchers.find((vv: any) => Number(vv.id) === Number(openBarterId));
+      if (v) {
+        handledBarterParamRef.current = Number(openBarterId);
+        setFriendVoucher(v);
+        setFriendPhone("");
+        setFriendQty("1");
+        setFriendPayNow("");
+        setFriendPayLater("");
+        setFriendPayBarter("");
+        navigation.setParams({ openBarterForVoucherId: undefined } as any);
+      }
+    }
+  }, [isRajeshModi, route?.params?.openTransferForVoucherId, route?.params?.openBarterForVoucherId, vouchers, navigation]);
+
   // Global claims modal: null = closed, "active" | "redeemed" | "expired" = open with filter
   const [globalClaimsFilter, setGlobalClaimsFilter] = useState<string | null>(null);
   const [showActiveVouchers, setShowActiveVouchers] = useState(false);
@@ -287,12 +325,26 @@ const MyCreatedVouchers = () => {
 
   const toggleStatus = async (id: number, current: string) => {
     const next = current === "active" ? "inactive" : "active";
-    try {
-      await updateStatus({ id, status: next }).unwrap();
-      toast.success(next === "active" ? "Voucher activated" : "Voucher deactivated");
-    } catch (e: any) {
-      toast.error(e?.data?.error || "Failed to update voucher");
+    const performToggle = async () => {
+      try {
+        await updateStatus({ id, status: next }).unwrap();
+        toast.success(next === "active" ? "Voucher activated" : "Voucher deactivated");
+      } catch (e: any) {
+        toast.error(e?.data?.error || "Failed to update voucher");
+      }
+    };
+    if (next === "inactive") {
+      Alert.alert(
+        "Deactivate Voucher?",
+        "Are you sure you want to deactivate this voucher?",
+        [
+          { text: "No", style: "cancel" },
+          { text: "Yes", style: "destructive", onPress: performToggle },
+        ],
+      );
+      return;
     }
+    await performToggle();
   };
 
   const handleEdit = (id: number) => {
@@ -414,7 +466,7 @@ const MyCreatedVouchers = () => {
           </View>
 
           {/* Pending Transfers banner (Rajesh Modi only) */}
-          {isRajeshModi && pendingTransfers.length > 0 && (
+          {FEATURES.PENDING_TRANSFERS_VIEW && isRajeshModi && pendingTransfers.length > 0 && (
             <Pressable
               onPress={() => setPendingTransfersOpen(true)}
               className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 active:opacity-80"
@@ -460,7 +512,10 @@ const MyCreatedVouchers = () => {
             <View className="gap-3">
               {vouchers.map((v: any) => (
                 <View key={v.id} className="rounded-xl border border-border bg-card overflow-hidden">
-                  <View className="flex-row gap-3 p-3">
+                  <Pressable
+                    onPress={() => navigation.navigate("VoucherDetail", { id: String(v.id) })}
+                    className="flex-row gap-3 p-3"
+                  >
                     <View className="h-16 w-16 items-center justify-center rounded-lg bg-muted overflow-hidden">
                       {v.voucher_image ? (
                         <Image source={{ uri: v.voucher_image }} className="w-full h-full" resizeMode="contain" />
@@ -505,7 +560,7 @@ const MyCreatedVouchers = () => {
                           <View className="flex-row items-center gap-1">
                             <Clock size={11} color="#6a7181" />
                             <Text className="text-[11px] text-muted-foreground">
-                              till {safeFormat(v.expires_at, "d MMM")}
+                              till {safeFormat(v.expires_at, "d MMM yyyy")}
                             </Text>
                           </View>
                         ) : null}
@@ -531,7 +586,7 @@ const MyCreatedVouchers = () => {
                         )}
                       </View>
                     </View>
-                  </View>
+                  </Pressable>
 
                   <View className="flex-row gap-2 border-t border-border bg-muted/30 px-3 py-2">
                     <Button
