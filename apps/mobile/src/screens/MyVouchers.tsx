@@ -23,6 +23,7 @@ import {
   useGetOwnerTransferPaymentsQuery,
 } from "../store/api/vouchersApi";
 import { isNativeRazorpayAvailable, openRazorpayCheckout, type RazorpayCheckoutOptions } from "../lib/payments/razorpayCheckout";
+import { useGetUserByPhoneQuery } from "../store/api/usersApi";
 import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
 import { toast } from "../lib/toast";
 import { formatINR } from "../lib/utils";
@@ -322,6 +323,11 @@ const MyVouchers = () => {
   const [qrVoucher, setQrVoucher] = useState<ClaimedVoucher | null>(null);
   const [transferVoucherTarget, setTransferVoucherTarget] = useState<ClaimedVoucher | null>(null);
   const [transferPhone, setTransferPhone] = useState("");
+  const transferPhoneDigits = transferPhone.replace(/\D/g, "");
+  const { data: transferRecipientUser, isError: transferNotFound } = useGetUserByPhoneQuery(
+    transferPhoneDigits,
+    { skip: transferPhoneDigits.length < 9 }
+  );
   const [transferQty, setTransferQty] = useState(1);
   const [transferHistoryExpanded, setTransferHistoryExpanded] = useState(false);
   const [expandedInstallments, setExpandedInstallments] = useState<Set<string>>(new Set());
@@ -1211,6 +1217,11 @@ const MyVouchers = () => {
                     className="rounded-lg"
                     maxLength={10}
                   />
+                  {transferPhoneDigits.length >= 10 && (
+                    <Text className={`text-xs mt-1 ${transferRecipientUser ? "text-green-600 font-semibold" : transferNotFound ? "text-destructive" : "text-muted-foreground"}`}>
+                      {transferRecipientUser ? `✓ ${transferRecipientUser.name}` : transferNotFound ? "User not found" : "Looking up..."}
+                    </Text>
+                  )}
                 </View>
                 <Button
                   className="w-full rounded-xl"
