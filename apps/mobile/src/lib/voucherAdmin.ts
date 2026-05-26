@@ -33,3 +33,15 @@ export function buildVoucherRequestMessage(userName?: string | null, businessNam
   const biz = businessName ? ` My business: ${businessName}.` : "";
   return `Hi ${VOUCHER_ADMIN_NAME},${who} I'd like to create a voucher for my business on Instantlly Cards.${biz} Please help me set it up.`;
 }
+
+/** Pre-filled WhatsApp message users send when they want to claim a voucher. */
+export function buildVoucherClaimMessage(
+  userName?: string | null,
+  voucherTitle?: string | null,
+  price?: number | string | null,
+): string {
+  const who = userName ? ` I'm ${userName}.` : "";
+  const title = voucherTitle ? ` "${voucherTitle}"` : "";
+  const amount = price != null && String(price).trim() !== "" ? ` (₹${price})` : "";
+  return `Hi ${VOUCHER_ADMIN_NAME},${who} I'd like to claim the voucher${title}${amount} on Instantlly Cards. Please help me complete the claim.`;
+}
