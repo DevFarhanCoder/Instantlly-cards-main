@@ -156,7 +156,8 @@ const MyVouchers = () => {
               const voucher = v.voucher;
               return (
                 <motion.div key={v.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  className="rounded-xl border border-border bg-card overflow-hidden">
+                  className="rounded-xl border border-border bg-card overflow-hidden cursor-pointer"
+                  onClick={() => navigate(`/vouchers/${v.voucher_id}`)}>
                   <div className="p-4">
                     <div className="flex items-start gap-3">
                       <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-2xl shrink-0">
@@ -180,13 +181,13 @@ const MyVouchers = () => {
                           <p className="text-sm font-mono font-bold text-foreground">{v.code}</p>
                         </div>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline" className="text-xs rounded-lg" onClick={() => setQrVoucher(v)}>
+                          <Button size="sm" variant="outline" className="text-xs rounded-lg" onClick={(e) => { e.stopPropagation(); setQrVoucher(v); }}>
                             <QrCode className="h-3.5 w-3.5 mr-1" /> QR
                           </Button>
-                          <Button size="sm" variant="outline" className="text-xs rounded-lg" onClick={() => { navigator.clipboard.writeText(v.code); toast.success("Code copied!"); }}>
+                          <Button size="sm" variant="outline" className="text-xs rounded-lg" onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(v.code); toast.success("Code copied!"); }}>
                             Copy
                           </Button>
-                          <Button size="sm" variant="outline" className="text-xs rounded-lg" onClick={() => { setTransferVoucherTarget(v); setTransferPhone(""); }}>
+                          <Button size="sm" variant="outline" className="text-xs rounded-lg" onClick={(e) => { e.stopPropagation(); setTransferVoucherTarget(v); setTransferPhone(""); }}>
                             <Send className="h-3.5 w-3.5 mr-1" /> Transfer
                           </Button>
                         </div>

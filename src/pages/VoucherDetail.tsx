@@ -3,7 +3,7 @@ import { ArrowLeft, Clock, Share2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useVoucher, useClaimVoucher } from "@/hooks/useVouchers";
+import { useVoucher, useClaimVoucher, useMyVouchers } from "@/hooks/useVouchers";
 import { useAuth } from "@/hooks/useAuth";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ const VoucherDetail = () => {
   const { user } = useAuth();
   const { data: voucher, isLoading } = useVoucher(id || "");
   const claimVoucher = useClaimVoucher();
+  const { data: myVouchers = [] } = useMyVouchers();
   const [showPurchase, setShowPurchase] = useState(false);
   const [showRedemption, setShowRedemption] = useState(false);
   const [claimedCode, setClaimedCode] = useState("");
@@ -47,6 +48,7 @@ const VoucherDetail = () => {
     );
   }
 
+  const alreadyClaimed = myVouchers.some((cv) => cv.voucher_id === voucher.id);
   const savings = voucher.original_price - voucher.discounted_price;
   const expiryDays = voucher.expires_at ? differenceInDays(new Date(voucher.expires_at), new Date()) : null;
   const expiryLabel = expiryDays === null ? "No expiry" : expiryDays < 0 ? "Expired" : expiryDays === 0 ? "Expires today" : `${expiryDays} days left`;
@@ -167,8 +169,17 @@ const VoucherDetail = () => {
       </div>
 
       <div className="fixed bottom-20 left-0 right-0 border-t border-border bg-card px-4 py-3">
-        <Button className="w-full gap-2 rounded-xl py-6 text-base" onClick={() => setShowPurchase(true)} disabled={claimVoucher.isPending || (expiryDays !== null && expiryDays < 0)}>
-          {expiryDays !== null && expiryDays < 0 ? "Voucher Expired" : `Buy Now — ₹${voucher.discounted_price.toLocaleString()}`}
+        <Button
+          className="w-full gap-2 rounded-xl py-6 text-base"
+          onClick={() => !alreadyClaimed && setShowPurchase(true)}
+          disabled={claimVoucher.isPending || alreadyClaimed || (expiryDays !== null && expiryDays < 0)}
+          variant={alreadyClaimed ? "outline" : "default"}
+        >
+          {alreadyClaimed
+            ? "✓ Already Claimed"
+            : expiryDays !== null && expiryDays < 0
+            ? "Voucher Expired"
+            : `Buy Now — ₹${voucher.discounted_price.toLocaleString()}`}
         </Button>
       </div>
 
