@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Image, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Image, Linking, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useRoute } from "@react-navigation/native";
 import {
@@ -39,6 +39,7 @@ import {
   useUpdateVoucherStatusMutation,
   useDeleteVoucherMutation,
   useGetVoucherClaimsQuery,
+  useGetVoucherTransferChainQuery,
   useGetVoucherInstallmentLedgerQuery,
   useGetAllMyClaimsQuery,
   useGetSentOwnerTransfersQuery,
@@ -54,10 +55,20 @@ const safeFormat = (d: any, fmt: string, fb = "—") => {
 
 /** Compresses a sorted list of serial numbers into a readable ranges string.
  *  e.g. [1,2,3,5,7,8,9] -> "#001–#003, #005, #007–#009". */
-const formatSerialRanges = (nums: number[]): string => {
+const formatSerialRanges = (nums: number[], opts?: { prefix?: string; padWidth?: number }): string => {
   if (!nums || nums.length === 0) return "";
+  const prefix = opts?.prefix ?? "#";
+  // padWidth acts as a MINIMUM width. Numbers shorter than padWidth get zero-padded;
+  // larger numbers display as-is (no thousands separators).
+  const padWidth = opts?.padWidth ?? 0;
   const sorted = [...nums].sort((a, b) => a - b);
-  const pad = (n: number) => `#${n.toLocaleString("en-IN")}`;
+  const pad = (n: number) => {
+    // Zero-pad up to padWidth (minimum width), then add Indian thousands separators.
+    let s = String(n);
+    if (padWidth > 0 && s.length < padWidth) s = s.padStart(padWidth, "0");
+    if (n >= 1000) s = n.toLocaleString("en-IN");
+    return `${prefix}${s}`;
+  };
   const parts: string[] = [];
   let start = sorted[0];
   let prev = sorted[0];
@@ -73,6 +84,11 @@ const formatSerialRanges = (nums: number[]): string => {
   }
   return parts.join(", ");
 };
+
+/** Minimum padding width for serial display (e.g. 1 -> "001"). Larger numbers show as-is. */
+const computeSerialPadWidth = (
+  _voucher: { voucher_start_no?: number | null; max_claims?: number | null } | null | undefined,
+): number => 3;
 
 /** Renders the Razorpay payment history for one barter (owner-transfer). */
 const BarterTransferPayments = ({ transferId }: { transferId: number }) => {
@@ -180,6 +196,7 @@ const MyCreatedVouchers = () => {
   }, []);
   const [historyClaim, setHistoryClaim] = useState<any | null>(null);
   const [transferHistoryExpanded, setTransferHistoryExpanded] = useState(false);
+  const [transferChainExpanded, setTransferChainExpanded] = useState(false);
 
   // When navigated here from VoucherDetail with a request to open the
   // Transfer / Barter Transfer dialog for a specific voucher (Rajesh Modi flow),
@@ -221,6 +238,10 @@ const MyCreatedVouchers = () => {
   const [claimsFromActive, setClaimsFromActive] = useState(false);
 
   const { data: claims = [], isFetching: claimsFetching } = useGetVoucherClaimsQuery(
+    claimsVoucherId ?? 0,
+    { skip: !claimsVoucherId }
+  );
+  const { data: transferChain = [] } = useGetVoucherTransferChainQuery(
     claimsVoucherId ?? 0,
     { skip: !claimsVoucherId }
   );
@@ -779,9 +800,151 @@ const MyCreatedVouchers = () => {
                   </View>
                 ))}
               </View>
+              {/* Transfer Chain — shows downstream peer-to-peer transfers so the owner
+                  can see how the voucher moved (e.g. Owner → Shalini → Jatin).
+                  Tap a row to call the recipient. Transfers to the same recipient
+                  on the same date are combined into a single row (qty summed). */}
+              {transferChain.length > 0 && (() => {
+                // Group transfers by sender + recipient + date.
+                const groupMap = new Map<string, any>();
+                const order: string[] = [];
+                for (const t of transferChain) {
+                  const dateKey = t.transferred_at
+                    ? new Date(t.transferred_at).toISOString().slice(0, 10)
+                    : "unknown";
+                  const senderKey = t.is_owner_transfer
+                    ? "OWNER"
+                    : String(t.sender_user_id ?? t.sender_phone ?? t.sender_name ?? "");
+                  const recipientKey = String(
+                    t.recipient_user_id ?? t.recipient_phone ?? t.recipient_name ?? "",
+                  );
+                  const key = `${senderKey}|${recipientKey}|${dateKey}`;
+                  const existing = groupMap.get(key);
+                  if (existing) {
+                    existing.quantity = Number(existing.quantity || 0) + Number(t.quantity || 0);
+                    existing.ids.push(t.id);
+                    existing.count += 1;
+                  } else {
+                    groupMap.set(key, {
+                      ...t,
+                      quantity: Number(t.quantity || 0),
+                      ids: [t.id],
+                      count: 1,
+                    });
+                    order.push(key);
+                  }
+                }
+                const groupedChain = order.map((k) => groupMap.get(k));
+                return (
+                <View className="rounded-lg border border-violet-200 bg-violet-50 p-2 gap-1.5 mb-1">
+                  <Pressable
+                    onPress={() => setTransferChainExpanded((v) => !v)}
+                    android_ripple={{ color: "#ddd6fe" }}
+                    className="flex-row items-center justify-between"
+                  >
+                    <View className="flex-row items-center gap-1">
+                      <Text className="text-[11px] font-bold text-violet-800">Transfer Chain</Text>
+                      <View className="rounded-full bg-violet-600 px-1.5 py-0.5">
+                        <Text className="text-[9px] font-bold text-white">{groupedChain.length}</Text>
+                      </View>
+                    </View>
+                    <View className="flex-row items-center gap-1">
+                      {transferChainExpanded ? (
+                        <Text className="text-[9px] text-violet-500">Tap to call</Text>
+                      ) : null}
+                      {transferChainExpanded
+                        ? <ChevronUp size={14} color="#7c3aed" />
+                        : <ChevronDown size={14} color="#7c3aed" />}
+                    </View>
+                  </Pressable>
+                  {transferChainExpanded && groupedChain.map((t: any) => {
+                    const senderName = t.is_owner_transfer ? "You" : (t.sender_name || "User");
+                    const senderPhone = t.is_owner_transfer ? "" : (t.sender_phone || "");
+                    const recipientName = t.recipient_name || "User";
+                    const recipientPhone = t.recipient_phone || "";
+                    const callPhone = recipientPhone || senderPhone;
+                    const onPress = () => {
+                      if (!callPhone) return;
+                      Linking.openURL(`tel:${callPhone}`).catch(() => {
+                        toast("Unable to start call");
+                      });
+                    };
+                    return (
+                      <Pressable
+                        key={t.id}
+                        onPress={onPress}
+                        disabled={!callPhone}
+                        android_ripple={{ color: "#ddd6fe" }}
+                        className="flex-row items-center gap-1.5 rounded-md bg-white/70 px-2 py-1.5 border border-violet-100"
+                      >
+                        {/* Sender */}
+                        <View className="flex-1 min-w-0">
+                          <Text className="text-[11px] font-semibold text-violet-900" numberOfLines={1}>
+                            {senderName}
+                          </Text>
+                          {senderPhone ? (
+                            <Text className="text-[9px] text-violet-600" numberOfLines={1}>{senderPhone}</Text>
+                          ) : null}
+                        </View>
+
+                        {/* Arrow */}
+                        <ChevronRight size={14} color="#7c3aed" />
+
+                        {/* Recipient */}
+                        <View className="flex-1 min-w-0">
+                          <Text className="text-[11px] font-semibold text-violet-900" numberOfLines={1}>
+                            {recipientName}
+                          </Text>
+                          {recipientPhone ? (
+                            <Text className="text-[9px] text-violet-600" numberOfLines={1}>{recipientPhone}</Text>
+                          ) : null}
+                        </View>
+
+                        {/* Qty + Date */}
+                        <View className="items-end">
+                          <View className="rounded-full bg-violet-600 px-1.5 py-0.5 flex-row items-center gap-1">
+                            <Text className="text-[9px] font-bold text-white">
+                              qty {Number(t.quantity).toLocaleString("en-IN")}
+                            </Text>
+                            {t.count > 1 ? (
+                              <Text className="text-[9px] font-bold text-violet-200">×{t.count}</Text>
+                            ) : null}
+                          </View>
+                          <Text className="text-[9px] text-violet-500 mt-0.5">
+                            {safeFormat(t.transferred_at, "d MMM yyyy")}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                );
+              })()}
             <ScrollView className="max-h-96" showsVerticalScrollIndicator={false}>
               <View className="gap-2 py-2">
-                {claims.map((c: any) => {
+                {(() => {
+                  const claimsVoucher = vouchers.find((v: any) => v.id === claimsVoucherId) as any;
+                  const claimsPadWidth = computeSerialPadWidth(claimsVoucher);
+                  const voucherStartNo = Number(claimsVoucher?.voucher_start_no) || 1;
+                  // Compute derived serial range per claim by walking chronologically
+                  // (needed for owner-transfer claims where backend doesn't store serial_nos).
+                  const sortedClaims = [...claims].sort((a: any, b: any) => {
+                    const ta = a.claimed_at ? new Date(a.claimed_at).getTime() : 0;
+                    const tb = b.claimed_at ? new Date(b.claimed_at).getTime() : 0;
+                    return ta - tb;
+                  });
+                  const derivedRange: Record<string, { min: number; max: number }> = {};
+                  let cursor = voucherStartNo;
+                  for (const sc of sortedClaims) {
+                    const q = Number(sc.quantity ?? 1) || 1;
+                    derivedRange[sc.claim_id] = { min: cursor, max: cursor + q - 1 };
+                    cursor += q;
+                  }
+                  const padSerialClaim = (n: number) => {
+                    if (n >= 1000) return n.toLocaleString("en-IN");
+                    return claimsPadWidth > 0 ? String(n).padStart(claimsPadWidth, "0") : String(n);
+                  };
+                  return claims.map((c: any) => {
                   const qty = Number(c.quantity ?? 1);
                   const redeemed = Number(c.redeemed_count ?? 0);
                   const isPartial = redeemed > 0 && redeemed < qty;
@@ -801,11 +964,25 @@ const MyCreatedVouchers = () => {
                     : isSerialsExpanded
                     ? serialsFull
                     : `${redeemedSerials.length} serials`;
+                  const issuedSerialsLabel = serials.length > 0
+                    ? formatSerialRanges(serials, { prefix: "", padWidth: claimsPadWidth })
+                    : (() => {
+                        const r = derivedRange[c.claim_id];
+                        if (!r) return null;
+                        return r.min === r.max
+                          ? padSerialClaim(r.min)
+                          : `${padSerialClaim(r.min)} – ${padSerialClaim(r.max)}`;
+                      })();
                   return (
                   <View key={c.claim_id} className="rounded-lg border border-border bg-muted/30 p-3 gap-1">
                     <View className="flex-row items-center justify-between">
                       <View className="flex-1 flex-row items-center gap-2 flex-wrap">
-                        <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{c.user_name || "Customer"}</Text>
+                        <View className="flex-shrink">
+                          <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{c.user_name || "Customer"}</Text>
+                          {c.user_phone ? (
+                            <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>{c.user_phone}</Text>
+                          ) : null}
+                        </View>
                         {serialsLabel ? (
                           hasManySerials ? (
                             <Pressable
@@ -843,6 +1020,11 @@ const MyCreatedVouchers = () => {
                         {displayStatus}
                       </Text>
                     </View>
+                    {issuedSerialsLabel && (
+                      <Text className="text-[10px] font-semibold text-violet-700 mt-0.5" numberOfLines={2}>
+                        Serial No: {issuedSerialsLabel}
+                      </Text>
+                    )}
                     <View className="flex-row items-center gap-3 mt-1">
                       <Text className="text-[10px] text-muted-foreground">
                         Claimed: {safeFormat(c.claimed_at, "d MMM yyyy")}
@@ -868,7 +1050,8 @@ const MyCreatedVouchers = () => {
                     )}
                   </View>
                   );
-                })}
+                });
+                })()}
               </View>
             </ScrollView>
             </>
@@ -971,12 +1154,20 @@ const MyCreatedVouchers = () => {
                     : isSerialsExpanded
                     ? serialsFull
                     : `${redeemedSerials.length} serials`;
+                  const issuedSerialsLabel = serials.length > 0
+                    ? formatSerialRanges(serials, { prefix: "", padWidth: 3 })
+                    : null;
                   return (
                   <View key={c.claim_id} className="rounded-lg border border-border bg-muted/30 p-3 gap-1">
                     <View className="flex-row items-start justify-between gap-2">
                       <View className="flex-1">
                         <View className="flex-row items-center gap-2 flex-wrap">
-                          <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{c.user_name || "Customer"}</Text>
+                          <View className="flex-shrink">
+                            <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>{c.user_name || "Customer"}</Text>
+                            {c.user_phone ? (
+                              <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>{c.user_phone}</Text>
+                            ) : null}
+                          </View>
                           {serialsLabel ? (
                             hasManySerials ? (
                               <Pressable
@@ -1021,6 +1212,11 @@ const MyCreatedVouchers = () => {
                         🎁 {c.voucher_title}
                       </Text>
                     </View>
+                    {issuedSerialsLabel && (
+                      <Text className="text-[10px] font-semibold text-violet-700 mt-0.5" numberOfLines={2}>
+                        Serial No: {issuedSerialsLabel}
+                      </Text>
+                    )}
                     <View className="flex-row items-center gap-3 mt-0.5">
                       <Text className="text-[10px] text-muted-foreground">
                         Claimed: {safeFormat(c.claimed_at, "d MMM yyyy")}
@@ -1373,6 +1569,25 @@ const MyCreatedVouchers = () => {
                   const voucherTransfers = sentTransfers.filter((t: any) => t.voucher_id === transferVoucher.id);
                   if (!voucherTransfers.length) return null;
                   const totalQty = voucherTransfers.reduce((s: number, t: any) => s + (t.quantity || 1), 0);
+                  // Compute per-transfer serial range from chronological order
+                  const voucherStartNo = Number(transferVoucher.voucher_start_no) || 1;
+                  const serialPadWidth = computeSerialPadWidth(transferVoucher);
+                  const padSerial = (n: number) => {
+                    if (n >= 1000) return n.toLocaleString("en-IN");
+                    return serialPadWidth > 0 ? String(n).padStart(serialPadWidth, "0") : String(n);
+                  };
+                  const sortedAsc = [...voucherTransfers].sort((a: any, b: any) => {
+                    const ta = a.transferred_at ? new Date(a.transferred_at).getTime() : 0;
+                    const tb = b.transferred_at ? new Date(b.transferred_at).getTime() : 0;
+                    return ta - tb;
+                  });
+                  const serialMap = new Map<number, { start: number; end: number }>();
+                  let cursor = voucherStartNo;
+                  for (const t of sortedAsc) {
+                    const q = Number(t.quantity) || 1;
+                    serialMap.set(t.id, { start: cursor, end: cursor + q - 1 });
+                    cursor += q;
+                  }
                   return (
                     <View className="gap-1.5">
                       <Pressable
@@ -1382,7 +1597,7 @@ const MyCreatedVouchers = () => {
                         <View className="flex-row items-center gap-1.5">
                           <Send size={12} color="#f97316" />
                           <Text className="text-xs font-semibold text-orange-600">
-                            Transferred · {totalQty} total
+                            Transferred · {totalQty.toLocaleString("en-IN")} total
                           </Text>
                         </View>
                         {transferHistoryExpanded
@@ -1393,22 +1608,39 @@ const MyCreatedVouchers = () => {
                       {transferHistoryExpanded && <View className="overflow-hidden rounded-xl border border-orange-200 bg-orange-500/5">
                         {(() => {
                           // Group by recipient (by id if available, else by phone)
-                          const grouped = new Map<string, { name: string; totalQty: number; latestDate: string | null }>();
+                          const grouped = new Map<string, { name: string; totalQty: number; latestDate: string | null; serialMin: number | null; serialMax: number | null }>();
                           for (const t of voucherTransfers) {
                             const key = String(t.recipient?.id ?? t.recipient_phone ?? "unknown");
                             const name = t.recipient?.name || t.recipient_phone || "Unknown";
                             const existing = grouped.get(key);
                             const date = t.transferred_at ?? null;
+                            const range = serialMap.get(t.id) ?? null;
                             if (existing) {
                               existing.totalQty += t.quantity || 1;
                               if (date && (!existing.latestDate || date > existing.latestDate)) {
                                 existing.latestDate = date;
                               }
+                              if (range) {
+                                existing.serialMin = existing.serialMin == null ? range.start : Math.min(existing.serialMin, range.start);
+                                existing.serialMax = existing.serialMax == null ? range.end : Math.max(existing.serialMax, range.end);
+                              }
                             } else {
-                              grouped.set(key, { name, totalQty: t.quantity || 1, latestDate: date });
+                              grouped.set(key, {
+                                name,
+                                totalQty: t.quantity || 1,
+                                latestDate: date,
+                                serialMin: range ? range.start : null,
+                                serialMax: range ? range.end : null,
+                              });
                             }
                           }
-                          return Array.from(grouped.entries()).map(([key, g], idx) => (
+                          return Array.from(grouped.entries()).map(([key, g], idx) => {
+                            const serialLabel = g.serialMin != null && g.serialMax != null
+                              ? (g.serialMin === g.serialMax
+                                  ? padSerial(g.serialMin)
+                                  : `${padSerial(g.serialMin)} – ${padSerial(g.serialMax)}`)
+                              : null;
+                            return (
                             <View
                               key={key}
                               className={`flex-row items-center justify-between px-3 py-2${idx > 0 ? " border-t border-orange-200/60" : ""}`}
@@ -1420,12 +1652,18 @@ const MyCreatedVouchers = () => {
                                 <Text className="text-[10px] text-muted-foreground">
                                   {g.latestDate ? safeFormat(g.latestDate, "dd MMM yyyy") : "—"}
                                 </Text>
+                                {serialLabel && (
+                                  <Text className="text-[10px] font-semibold text-orange-700 mt-0.5" numberOfLines={1}>
+                                    Serial No: {serialLabel}
+                                  </Text>
+                                )}
                               </View>
                               <View className="rounded-full bg-orange-100 px-2 py-0.5">
-                                <Text className="text-[11px] font-bold text-orange-700">×{g.totalQty}</Text>
+                                <Text className="text-[11px] font-bold text-orange-700">×{g.totalQty.toLocaleString("en-IN")}</Text>
                               </View>
                             </View>
-                          ));
+                            );
+                          });
                         })()}
                       </View>}
                     </View>
@@ -1721,7 +1959,7 @@ const MyCreatedVouchers = () => {
                   {/* Summary: Allocated = Pay Now + Pay Barter (paid). Remaining = Pay Later (pending). */}
                   <View className="rounded-xl border border-border bg-muted/30 px-3 py-2.5 gap-1">
                     <View className="flex-row items-center justify-between">
-                      <Text className="text-[12px] text-muted-foreground">Voucher Total</Text>
+                      <Text className="text-[12px] text-muted-foreground">Voucher Value</Text>
                       <Text className="text-[13px] font-semibold text-foreground">{formatINR(voucherTotal)}</Text>
                     </View>
                     <View className="h-px bg-border my-1" />
