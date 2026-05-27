@@ -583,8 +583,9 @@ const CardCreate = () => {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      // Allow editing but no fixed aspect ratio so wide / tall logos (e.g.
+      // "mid-day" style banner logos) can be fully selected by the user.
       allowsEditing: true,
-      aspect: [1, 1],
       quality: 0.8,
     });
     if (!result.canceled && result.assets[0]) {
@@ -961,6 +962,7 @@ const CardCreate = () => {
                   <Image
                     source={{ uri: profilePhotoUri }}
                     style={{ height: "100%", width: "100%" }}
+                    resizeMode="contain"
                   />
                 ) : (
                   <Text className="text-lg">{"\u{1F3E2}"}</Text>
@@ -1009,7 +1011,7 @@ const CardCreate = () => {
             <View className="flex-row items-center gap-4">
               <View className="h-20 w-20 rounded-full bg-muted/50 items-center justify-center overflow-hidden border border-border">
                 {profilePhotoUri ? (
-                  <Image source={{ uri: profilePhotoUri }} style={{ width: 80, height: 80, borderRadius: 40 }} resizeMode="cover" />
+                  <Image source={{ uri: profilePhotoUri }} style={{ width: 80, height: 80, borderRadius: 40 }} resizeMode="contain" />
                 ) : (
                   <User size={32} color="#9ca3af" />
                 )}
