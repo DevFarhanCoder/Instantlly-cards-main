@@ -550,14 +550,10 @@ const VoucherCreate = () => {
           <View className="flex-1 gap-2">
             <Label>Discounted Price (₹)</Label>
             <Input
-              placeholder="Leave blank for no discount"
               keyboardType="number-pad"
               value={form.discounted_price}
               onChangeText={(v) => update("discounted_price", v)}
             />
-            <Text className="text-[10px] text-muted-foreground">
-              Leave blank or 0 if there is no discount — customer will pay the original price.
-            </Text>
             {errors.discounted_price ? <Text className="text-xs text-destructive">{errors.discounted_price}</Text> : null}
           </View>
         </View>

@@ -27,6 +27,7 @@ import { useGetUserByPhoneQuery } from "../store/api/usersApi";
 import { RazorpayWebView } from "../lib/payments/RazorpayWebView";
 import { toast } from "../lib/toast";
 import { formatINR } from "../lib/utils";
+import { FEATURES } from "../lib/featureFlags";
 import QRCode from "react-native-qrcode-svg";
 import { format, isValid } from "date-fns";
 import * as Clipboard from "expo-clipboard";
@@ -914,7 +915,7 @@ const MyVouchers = () => {
                     </View>
 
                     {/* Installment payment history */}
-                    {(() => {
+                    {FEATURES.VOUCHER_INSTALLMENT_STATUS && (() => {
                       const inst = installmentMap.get(String(v.id));
                       if (!inst) return null;
                       const isExpanded = expandedInstallments.has(String(v.id));
@@ -1033,7 +1034,7 @@ const MyVouchers = () => {
                       );
                     })()}
 
-                    {v.status === "active" && voucher && (
+                    {FEATURES.VOUCHER_SAVINGS_BANNER && v.status === "active" && voucher && (
                       <View className="border-t border-dashed border-border bg-primary/5 px-4 py-2.5">
                         <Text className="text-center text-xs font-medium text-primary">
                           You saved ₹{formatINR(voucher.original_price - voucher.discounted_price)}!
