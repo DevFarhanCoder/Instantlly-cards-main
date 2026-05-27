@@ -45,6 +45,8 @@ export interface Voucher {
   facebook: string | null;
   youtube: string | null;
   marketed_by_instantlly: boolean;
+  gst_type: "including_gst" | "extra_gst" | null;
+  booking_email: string | null;
   voucher_start_no: number | null;
   voucher_end_no: number | null;
   status: string;
@@ -151,6 +153,8 @@ const mapVoucher = (v: any): Voucher => {
     facebook: v.facebook ?? null,
     youtube: v.youtube ?? null,
     marketed_by_instantlly: Boolean(v.marketed_by_instantlly),
+    gst_type: v.gst_type === "including_gst" || v.gst_type === "extra_gst" ? v.gst_type : null,
+    booking_email: v.booking_email ?? null,
     voucher_start_no: v.voucher_start_no != null ? Number(v.voucher_start_no) : null,
     voucher_end_no: v.voucher_end_no != null ? Number(v.voucher_end_no) : null,
     status: v.status ?? "active",

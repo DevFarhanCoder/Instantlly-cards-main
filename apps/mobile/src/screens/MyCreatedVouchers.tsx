@@ -655,7 +655,7 @@ const MyCreatedVouchers = () => {
                             <View className="flex-row items-center justify-center gap-1">
                               <Gift size={14} color="#7c3aed" />
                               <Text className="text-[12px] font-semibold text-violet-600">
-                                Transfer
+                                Barter Transfer
                               </Text>
                             </View>
                           </Button>
@@ -708,6 +708,7 @@ const MyCreatedVouchers = () => {
                       </View>
                     </Button>
                   </View>
+
                   <View className="flex-row gap-2 border-t border-border bg-muted/20 px-3 py-2">
                     <Button
                       size="sm"
@@ -807,7 +808,7 @@ const MyCreatedVouchers = () => {
                           )
                         ) : null}
                         <View className="rounded-full bg-primary/10 px-2 py-0.5">
-                          <Text className="text-[10px] font-semibold text-primary">Qty: {qty}</Text>
+                          <Text className="text-[10px] font-semibold text-primary">Qty: {Number(qty).toLocaleString("en-IN")}</Text>
                         </View>
                         {redeemed > 0 ? (
                           <View className={`rounded-full px-2 py-0.5 ${isFullyRedeemed ? "bg-primary/10" : "bg-amber-500/10"}`}>
@@ -978,7 +979,7 @@ const MyCreatedVouchers = () => {
                             )
                           ) : null}
                           <View className="rounded-full bg-primary/10 px-2 py-0.5">
-                            <Text className="text-[10px] font-semibold text-primary">Qty: {qty}</Text>
+                            <Text className="text-[10px] font-semibold text-primary">Qty: {Number(qty).toLocaleString("en-IN")}</Text>
                           </View>
                           {redeemed > 0 ? (
                             <View className={`rounded-full px-2 py-0.5 ${isFullyRedeemed ? "bg-primary/10" : "bg-amber-500/10"}`}>
@@ -1331,7 +1332,7 @@ const MyCreatedVouchers = () => {
       <Dialog open={!!transferVoucher} onOpenChange={(open) => { if (!open) { setTransferVoucher(null); setTransferHistoryExpanded(false); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Transfer Vouchers</DialogTitle>
+            <DialogTitle>Barter Transfer Vouchers</DialogTitle>
           </DialogHeader>
           {transferVoucher && (() => {
             const remaining = Math.max(0, transferVoucher.max_claims - (transferVoucher.claimed_count || 0));
@@ -1528,7 +1529,7 @@ const MyCreatedVouchers = () => {
       <Dialog open={!!friendVoucher} onOpenChange={(open) => { if (!open) setFriendVoucher(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Barter Transfer</DialogTitle>
+            <DialogTitle>Transfer</DialogTitle>
           </DialogHeader>
           {friendVoucher && (() => {
             const remaining = friendVoucher.max_claims != null
@@ -1571,7 +1572,7 @@ const MyCreatedVouchers = () => {
                     {remaining !== null && (
                       <View className="flex-row items-center gap-2">
                         <View className="rounded-full bg-emerald-500/10 px-2 py-0.5">
-                          <Text className="text-[10px] font-semibold text-emerald-600">{remaining} available</Text>
+                          <Text className="text-[10px] font-semibold text-emerald-600">{remaining.toLocaleString("en-IN")} available</Text>
                         </View>
                       </View>
                     )}
@@ -1596,9 +1597,9 @@ const MyCreatedVouchers = () => {
                     )}
                   </View>
 
-                  {/* Pay Now */}
+                  {/* Pay Cash */}
                   <View className="gap-1.5">
-                    <Text className="text-xs font-semibold text-foreground">Pay Now</Text>
+                    <Text className="text-xs font-semibold text-foreground">Pay Cash Now</Text>
                     <TextInput
                       style={inputStyle}
                       placeholder="0"
@@ -1638,7 +1639,7 @@ const MyCreatedVouchers = () => {
                   {/* Quantity */}
                   <View className="gap-1.5">
                     <Text className="text-xs font-semibold text-foreground">
-                      Quantity{remaining !== null ? ` (max ${remaining})` : ""}
+                      Quantity{remaining !== null ? ` (max ${remaining.toLocaleString("en-IN")})` : ""}
                     </Text>
                     <View className="flex-row items-center gap-3">
                       <Pressable
@@ -1709,7 +1710,7 @@ const MyCreatedVouchers = () => {
                     </View>
                     <View className="h-px bg-border my-1" />
                     <View className="flex-row items-center justify-between">
-                      <Text className="text-[12px] text-muted-foreground">Pay Now</Text>
+                      <Text className="text-[12px] text-muted-foreground">Pay Cash Now</Text>
                       <Text className="text-[12px] text-foreground">{formatINR(payNowNum)}</Text>
                     </View>
                     <View className="flex-row items-center justify-between">
