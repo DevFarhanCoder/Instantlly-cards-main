@@ -189,11 +189,12 @@ const VoucherCreate = () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") { toast.error("Gallery permission required"); return; }
+      // Do NOT force allowsEditing/aspect — we want the full image preserved
+      // (no forced 1:1 crop) for both the voucher logo and banner.
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
-        allowsEditing: field !== "voucher_banner",
+        allowsEditing: false,
         quality: 0.8,
-        ...(field !== "voucher_banner" ? { aspect: [1, 1] as [number, number] } : {}),
       });
       if (result.canceled || !result.assets[0]) return;
 
