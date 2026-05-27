@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { Dimensions, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { ArrowLeft, AtSign, Clock, Globe, MapPin, Phone, Share2, ShieldCheck, Tag, X } from "lucide-react-native";
+import { ArrowLeft, AtSign, Clock, Globe, Mail, MapPin, Phone, Share2, ShieldCheck, Tag, X } from "lucide-react-native";
 import Svg, { Rect, Circle, Path } from "react-native-svg";
 import { PinchZoomImage } from "../components/PinchZoomImage";
 
@@ -429,9 +429,14 @@ const VoucherDetail = () => {
           <View>
             <Text className="text-2xl font-bold text-foreground">{voucher.title}</Text>
             {voucher.subtitle ? <Text className="mt-1 text-base text-muted-foreground">{voucher.subtitle}</Text> : null}
-            <View className="mt-3 flex-row items-center gap-3">
-              <Text className="text-3xl font-bold text-primary">
-                ₹{formatINR(applicablePrice)}
+            <View className="mt-3 flex-row flex-wrap items-center gap-3">
+              <Text className="text-lg font-bold text-primary" numberOfLines={1} adjustsFontSizeToFit>
+                Complimentary Voucher worth ₹{formatINR(applicablePrice)}
+                {(voucher as any).gst_type === "including_gst" ? (
+                  <Text style={{ color: "#000" }}> (Including GST)</Text>
+                ) : (voucher as any).gst_type === "extra_gst" ? (
+                  <Text style={{ color: "#000" }}> (Extra GST)</Text>
+                ) : null}
               </Text>
               {promoApplied && applicablePrice < voucher.original_price && (
                 <>
@@ -490,8 +495,49 @@ const VoucherDetail = () => {
             </View>
           )}
 
+          {voucher.terms && (
+            <View className="rounded-xl border border-border bg-card p-4 gap-2">
+              <View className="flex-row items-center gap-2">
+                <ShieldCheck size={16} color="#2463eb" />
+                <Text className="text-base font-semibold text-foreground">
+                  Terms & Conditions
+                </Text>
+              </View>
+              <View className="gap-2">
+                {voucher.terms
+                  .split(/(?:\r?\n)+|(?<=[.!?])\s+(?=[A-Z₹])/)
+                  .map((s) => s.trim())
+                  .filter((s) => s.length > 0)
+                  .map((line, idx) => (
+                    <View key={idx} className="flex-row items-start gap-2">
+                      <View
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor: "#111827",
+                          marginTop: 7,
+                        }}
+                      />
+                      <Text
+                        className="flex-1"
+                        style={{
+                          fontSize: 14,
+                          lineHeight: 20,
+                          color: "#111827",
+                          fontWeight: "500",
+                        }}
+                      >
+                        {line}
+                      </Text>
+                    </View>
+                  ))}
+              </View>
+            </View>
+          )}
+
           {/* Business Info */}
-          {(voucher.company_name || voucher.phone_number || voucher.address || (voucher as any).addresses?.length > 0 || (voucher as any).city || (voucher as any).pincode || voucher.what_we_do || voucher.website || voucher.instagram || (voucher as any).facebook || (voucher as any).youtube) && (
+          {(voucher.company_name || voucher.phone_number || (voucher as any).booking_email || voucher.address || (voucher as any).addresses?.length > 0 || (voucher as any).city || (voucher as any).pincode || voucher.what_we_do || voucher.website || voucher.instagram || (voucher as any).facebook || (voucher as any).youtube) && (
             <View className="rounded-xl border border-border bg-card p-4 gap-3">
               <Text className="text-base font-semibold text-foreground">About the Business</Text>
               {voucher.company_name && (
@@ -512,7 +558,29 @@ const VoucherDetail = () => {
                   }}
                 >
                   <Phone size={14} color={iconColor} />
-                  <Text className="text-base text-primary underline">{voucher.phone_number}</Text>
+                  <Text className="text-base text-foreground">
+                    Booking Phone No. : <Text className="text-primary underline">{voucher.phone_number}</Text>
+                  </Text>
+                </Pressable>
+              )}
+              {(voucher as any).booking_email && (
+                <Pressable
+                  className="flex-row items-center gap-2"
+                  onPress={async () => {
+                    const email = String((voucher as any).booking_email).trim();
+                    if (!email) return;
+                    // Try Gmail app first, fall back to system mail picker.
+                    try {
+                      await Linking.openURL(`googlegmail://co?to=${encodeURIComponent(email)}`);
+                    } catch {
+                      Linking.openURL(`mailto:${email}`).catch(() => {});
+                    }
+                  }}
+                >
+                  <Mail size={14} color={iconColor} />
+                  <Text className="text-base text-foreground">
+                    Booking Email ID : <Text className="text-primary underline">{(voucher as any).booking_email}</Text>
+                  </Text>
                 </Pressable>
               )}
               {/* Multiple addresses */}
@@ -547,8 +615,8 @@ const VoucherDetail = () => {
                 const AddressRow = ({ entry, small, indent }: { entry: AddrEntry; small?: boolean; indent?: boolean }) => (
                   <View className={`flex-row items-start gap-2${indent ? ' pl-5' : ''}`}>
                     <Pressable className="flex-row items-start gap-2 flex-1" onPress={() => openMap(entry)}>
-                      <MapPin size={small ? 13 : 14} color={iconColor} style={{ marginTop: 2 }} />
-                      <Text className="flex-1 text-sm text-muted-foreground underline">
+                      <MapPin size={small ? 13 : 14} color="#2463eb" style={{ marginTop: 2 }} />
+                      <Text className="flex-1 text-sm text-primary underline">
                         {isUrl(entry.address) ? 'View on Maps' : entry.address}
                       </Text>
                     </Pressable>
@@ -563,8 +631,8 @@ const VoucherDetail = () => {
                   <View className="gap-2">
                     <View className="flex-row items-start gap-2">
                       <Pressable className="flex-row items-start gap-2 flex-1" onPress={() => openMap(first)}>
-                        <MapPin size={14} color={iconColor} style={{ marginTop: 2 }} />
-                        <Text className="flex-1 text-base text-muted-foreground underline">
+                        <MapPin size={14} color="#2463eb" style={{ marginTop: 2 }} />
+                        <Text className="flex-1 text-base text-primary underline">
                           {isUrl(first.address) ? 'View on Maps' : first.address}
                         </Text>
                       </Pressable>
@@ -657,37 +725,6 @@ const VoucherDetail = () => {
             </View>
           )}
 
-          {voucher.terms && (
-            <View className="rounded-xl border border-border bg-card p-4 gap-2">
-              <View className="flex-row items-center gap-2">
-                <ShieldCheck size={16} color="#2463eb" />
-                <Text className="text-base font-semibold text-foreground">
-                  Terms & Conditions
-                </Text>
-              </View>
-              <View className="gap-1.5">
-                {voucher.terms
-                  .split(/(?:\r?\n)+|(?<=[.!?])\s+(?=[A-Z₹])/)
-                  .map((s) => s.trim())
-                  .filter((s) => s.length > 0)
-                  .map((line, idx) => (
-                    <View key={idx} className="flex-row items-start gap-2">
-                      <View
-                        style={{
-                          width: 4,
-                          height: 4,
-                          borderRadius: 2,
-                          backgroundColor: "#6b7280",
-                          marginTop: 6,
-                        }}
-                      />
-                      <Text className="flex-1 text-sm text-muted-foreground">{line}</Text>
-                    </View>
-                  ))}
-              </View>
-            </View>
-          )}
-
           {(voucher as any).marketed_by_instantlly && (
             <View className="rounded-xl border border-border bg-card p-4 gap-3">
               <View className="flex-row items-center gap-2">
@@ -750,7 +787,7 @@ const VoucherDetail = () => {
               disabled={expiryDays !== null && expiryDays < 0}
             >
               <Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "700" }}>
-                Transfer
+                Barter Transfer
               </Text>
             </Button>
             <Button
@@ -763,7 +800,7 @@ const VoucherDetail = () => {
               disabled={expiryDays !== null && expiryDays < 0}
             >
               <Text style={{ color: colors.primaryForeground, fontSize: 16, fontWeight: "700" }}>
-                Barter Transfer
+                Transfer
               </Text>
             </Button>
           </View>

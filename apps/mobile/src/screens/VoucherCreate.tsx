@@ -72,6 +72,7 @@ const VoucherCreate = () => {
     is_popular: false,
     company_name: "",
     phone_number: "",
+    booking_email: "",
     address: "",
     city: "",
     pincode: "",
@@ -84,6 +85,7 @@ const VoucherCreate = () => {
     youtube: "",
     addresses: [{ address: "", instagram: "" }],
     marketed_by_instantlly: false,
+    gst_type: "" as "" | "including_gst" | "extra_gst",
     voucher_start_no: "",
     voucher_end_no: "",
     voucher_image: "",
@@ -136,6 +138,7 @@ const VoucherCreate = () => {
       is_popular: Boolean(v.is_published),
       company_name: v.company_name ?? "",
       phone_number: v.phone_number ?? "",
+      booking_email: (v as any).booking_email ?? "",
       address: v.address ?? "",
       city: normaliseCity(v.city ?? ""),
       pincode: v.pincode ?? "",
@@ -158,6 +161,7 @@ const VoucherCreate = () => {
         return [{ address: (v as any).address ?? '', instagram: v.instagram ?? '' }];
       })(),
       marketed_by_instantlly: Boolean(v.marketed_by_instantlly),
+      gst_type: (v as any).gst_type === "including_gst" || (v as any).gst_type === "extra_gst" ? (v as any).gst_type : "",
       voucher_start_no: v.voucher_start_no != null ? String(v.voucher_start_no) : "",
       voucher_end_no: v.voucher_end_no != null ? String(v.voucher_end_no) : "",
       voucher_image: v.voucher_image ?? "",
@@ -403,6 +407,7 @@ const VoucherCreate = () => {
       is_popular: form.is_popular,
       company_name: form.company_name || null,
       phone_number: form.phone_number || null,
+      booking_email: form.booking_email.trim() || null,
       address: form.addresses.filter((a) => a.address.trim())[0]?.address || null,
       addresses: form.addresses.filter((a) => a.address.trim()).map((a) => ({ address: a.address.trim(), instagram: a.instagram.trim() || null })),
       city: normaliseCity(form.city),
@@ -415,6 +420,7 @@ const VoucherCreate = () => {
       facebook: form.facebook || null,
       youtube: form.youtube || null,
       marketed_by_instantlly: form.marketed_by_instantlly,
+      gst_type: form.gst_type || null,
       voucher_start_no: form.voucher_start_no ? parseInt(form.voucher_start_no, 10) : null,
       voucher_end_no: form.voucher_end_no ? parseInt(form.voucher_end_no, 10) : null,
       voucher_image: form.voucher_image || null,
@@ -566,6 +572,29 @@ const VoucherCreate = () => {
             </Text>
           </View>
         )}
+
+        <View className="gap-2">
+          <Label>GST</Label>
+          <View className="flex-row gap-2">
+            {([
+              { key: "including_gst", label: "Including GST" },
+              { key: "extra_gst", label: "Extra GST" },
+            ] as const).map((opt) => {
+              const active = form.gst_type === opt.key;
+              return (
+                <Pressable
+                  key={opt.key}
+                  onPress={() => update("gst_type", active ? "" : opt.key)}
+                  className={`rounded-full px-4 py-2 border ${active ? "bg-primary border-primary" : "bg-background border-input"}`}
+                >
+                  <Text className={`text-sm font-semibold ${active ? "text-primary-foreground" : "text-foreground"}`}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
 
         <View className="gap-2">
           <Label>Discount Label</Label>
@@ -750,12 +779,23 @@ const VoucherCreate = () => {
         </View>
 
         <View className="gap-2">
-          <Label>Phone Number</Label>
+          <Label>Booking Phone No.</Label>
           <Input
             placeholder="e.g. 9876543210"
             keyboardType="phone-pad"
             value={form.phone_number}
             onChangeText={(v) => update("phone_number", v)}
+          />
+        </View>
+
+        <View className="gap-2">
+          <Label>Booking Email ID</Label>
+          <Input
+            placeholder="e.g. bookings@business.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={form.booking_email}
+            onChangeText={(v) => update("booking_email", v)}
           />
         </View>
 
