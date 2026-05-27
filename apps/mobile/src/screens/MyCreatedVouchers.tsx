@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Image, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Image, Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useRoute } from "@react-navigation/native";
 import {
   ArrowLeft,
+  Handshake,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -11,6 +12,7 @@ import {
   Clock,
   CreditCard,
   Gift,
+  MoreVertical,
   Pencil,
   Plus,
   QrCode,
@@ -362,6 +364,10 @@ const MyCreatedVouchers = () => {
     navigation.navigate("VoucherCreate", { voucherId: id });
   };
 
+  const [menuVoucher, setMenuVoucher] = useState<any>(null);
+
+  const showVoucherMenu = (v: any) => setMenuVoucher(v);
+
   const handleDelete = (v: any) => {
     const hasClaims = (v.claimed_count || 0) > 0;
     Alert.alert(
@@ -444,36 +450,40 @@ const MyCreatedVouchers = () => {
       >
         <View className="px-4 py-4 gap-4">
           {/* Stats */}
-          <View className="flex-row gap-3">
-            <View className="flex-1 rounded-xl border border-border bg-card p-3 items-center">
-              <Tag size={18} color="#2463eb" />
-              <Text className="mt-1 text-xl font-bold text-foreground">{vouchers.length}</Text>
-              <Text className="text-[10px] text-muted-foreground">Total</Text>
+          <View className="gap-3">
+            <View className="flex-row gap-3">
+              <View className="flex-1 rounded-xl border border-border bg-card p-3 items-center">
+                <Tag size={18} color="#2463eb" />
+                <Text className="mt-1 text-xl font-bold text-foreground">{vouchers.length.toLocaleString("en-IN")}</Text>
+                <Text className="text-[10px] text-muted-foreground">Total</Text>
+              </View>
+              <Pressable
+                className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
+                onPress={() => setShowActiveVouchers(true)}
+              >
+                <CheckCircle2 size={18} color="#16a34a" />
+                <Text className="mt-1 text-xl font-bold text-foreground">{activeVouchers.toLocaleString("en-IN")}</Text>
+                <Text className="text-[10px] text-green-600 font-medium">Active ›</Text>
+              </Pressable>
             </View>
-            <Pressable
-              className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
-              onPress={() => setShowActiveVouchers(true)}
-            >
-              <CheckCircle2 size={18} color="#16a34a" />
-              <Text className="mt-1 text-xl font-bold text-foreground">{activeVouchers}</Text>
-              <Text className="text-[10px] text-green-600 font-medium">Active ›</Text>
-            </Pressable>
-            <Pressable
-              className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
-              onPress={() => setGlobalClaimsFilter("active")}
-            >
-              <Users size={18} color="#f97316" />
-              <Text className="mt-1 text-xl font-bold text-foreground">{totalClaims}</Text>
-              <Text className="text-[10px] text-orange-500 font-medium">Claimed ›</Text>
-            </Pressable>
-            <Pressable
-              className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
-              onPress={() => setGlobalClaimsFilter("redeemed")}
-            >
-              <ShieldCheck size={18} color="#2463eb" />
-              <Text className="mt-1 text-xl font-bold text-foreground">{totalRedeemed}</Text>
-              <Text className="text-[10px] text-primary font-medium">Redeemed ›</Text>
-            </Pressable>
+            <View className="flex-row gap-3">
+              <Pressable
+                className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
+                onPress={() => setGlobalClaimsFilter("active")}
+              >
+                <Users size={18} color="#f97316" />
+                <Text className="mt-1 text-xl font-bold text-foreground">{totalClaims.toLocaleString("en-IN")}</Text>
+                <Text className="text-[10px] text-orange-500 font-medium">Claimed ›</Text>
+              </Pressable>
+              <Pressable
+                className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
+                onPress={() => setGlobalClaimsFilter("redeemed")}
+              >
+                <ShieldCheck size={18} color="#2463eb" />
+                <Text className="mt-1 text-xl font-bold text-foreground">{totalRedeemed.toLocaleString("en-IN")}</Text>
+                <Text className="text-[10px] text-primary font-medium">Redeemed ›</Text>
+              </Pressable>
+            </View>
           </View>
 
           {/* Pending Transfers banner (Rajesh Modi only) */}
@@ -539,14 +549,19 @@ const MyCreatedVouchers = () => {
                         <Text className="flex-1 text-sm font-semibold text-foreground" numberOfLines={1}>
                           {v.title}
                         </Text>
-                        <View className={`rounded-full px-2 py-0.5 ${
-                          v.status === "active" ? "bg-green-500/10" : "bg-muted"
-                        }`}>
-                          <Text className={`text-[10px] font-semibold ${
-                            v.status === "active" ? "text-green-600" : "text-muted-foreground"
+                        <View className="flex-row items-center gap-1">
+                          <View className={`rounded-full px-2 py-0.5 ${
+                            v.status === "active" ? "bg-green-500/10" : "bg-muted"
                           }`}>
-                            {v.status}
-                          </Text>
+                            <Text className={`text-[10px] font-semibold ${
+                              v.status === "active" ? "text-green-600" : "text-muted-foreground"
+                            }`}>
+                              {v.status}
+                            </Text>
+                          </View>
+                          <Pressable onPress={() => showVoucherMenu(v)} hitSlop={8}>
+                            <MoreVertical size={16} color="#6a7181" />
+                          </Pressable>
                         </View>
                       </View>
                       <View className="flex-row items-center gap-2">
@@ -651,21 +666,26 @@ const MyCreatedVouchers = () => {
                         );
                       })()
                     )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className={`flex-1 rounded-lg px-1 ${v.status === "active" ? "border-destructive/40" : "border-primary/40"}`}
-                      textClassName="text-[11px]"
-                      onPress={() => toggleStatus(v.id, v.status)}
-                    >
-                      <Text
-                        className={`text-[11px] font-semibold ${v.status === "active" ? "text-destructive" : "text-primary"}`}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
+                    {isRajeshModi && (
+                      <Button
+                        size="sm"
+                        className="flex-1 rounded-lg bg-emerald-600"
+                        textClassName="text-[12px]"
+                        onPress={() => {
+                          setFriendVoucher(v);
+                          setFriendPhone("");
+                          setFriendQty("1");
+                          setFriendPayNow("");
+                          setFriendPayLater("");
+                          setFriendPayBarter("");
+                        }}
                       >
-                        {v.status === "active" ? "Deactivate" : "Activate"}
-                      </Text>
-                    </Button>
+                        <View className="flex-row items-center justify-center gap-1.5">
+                          <Handshake size={13} color="#fff" />
+                          <Text className="text-[12px] font-semibold text-white">Barter</Text>
+                        </View>
+                      </Button>
+                    )}
                   </View>
                   {/* Team / Staff management */}
                   <View className="flex-row gap-2 border-t border-border bg-blue-500/5 px-3 py-2">
@@ -688,30 +708,7 @@ const MyCreatedVouchers = () => {
                       </View>
                     </Button>
                   </View>
-                  {isRajeshModi && (
-                    <View className="flex-row gap-2 border-t border-border bg-emerald-500/5 px-3 py-2">
-                      <Button
-                        size="sm"
-                        className="flex-1 rounded-lg bg-emerald-600"
-                        textClassName="text-[12px]"
-                        onPress={() => {
-                          setFriendVoucher(v);
-                          setFriendPhone("");
-                          setFriendQty("1");
-                          setFriendPayNow("");
-                          setFriendPayLater("");
-                          setFriendPayBarter("");
-                        }}
-                      >
-                        <View className="flex-row items-center justify-center gap-1.5">
-                          <Gift size={14} color="#fff" />
-                          <Text className="text-[12px] font-semibold text-white">
-                            Transfer
-                          </Text>
-                        </View>
-                      </Button>
-                    </View>
-                  )}
+
                   <View className="flex-row gap-2 border-t border-border bg-muted/20 px-3 py-2">
                     <Button
                       size="sm"
@@ -723,19 +720,6 @@ const MyCreatedVouchers = () => {
                       <View className="flex-row items-center justify-center gap-1">
                         <Pencil size={12} color={iconColor} />
                         <Text className="text-[11px] font-medium text-foreground">Edit</Text>
-                      </View>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 rounded-lg border-destructive/40"
-                      textClassName="text-[11px]"
-                      onPress={() => handleDelete(v)}
-                      disabled={isDeleting}
-                    >
-                      <View className="flex-row items-center justify-center gap-1">
-                        <Trash2 size={12} color="#ef4444" />
-                        <Text className="text-[11px] font-semibold text-destructive">Delete</Text>
                       </View>
                     </Button>
                   </View>
@@ -1874,6 +1858,66 @@ const MyCreatedVouchers = () => {
         onOpenChange={setContactAdminOpen}
         userName={user?.name}
       />
+
+      {/* Voucher options bottom sheet */}
+      <Modal
+        visible={!!menuVoucher}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMenuVoucher(null)}
+      >
+        <Pressable
+          className="flex-1 items-center justify-center bg-black/40 px-8"
+          onPress={() => setMenuVoucher(null)}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()} className="w-full">
+            <View className="bg-card rounded-2xl overflow-hidden">
+              <View className="items-center px-4 pt-5 pb-3 gap-2">
+                <View className="h-14 w-14 items-center justify-center rounded-xl bg-muted overflow-hidden">
+                  {menuVoucher?.voucher_image ? (
+                    <Image source={{ uri: menuVoucher.voucher_image }} className="w-full h-full" resizeMode="contain" />
+                  ) : (
+                    <Text className="text-3xl">🎁</Text>
+                  )}
+                </View>
+                <Text className="text-sm font-semibold text-foreground text-center" numberOfLines={2}>
+                  {menuVoucher?.title}
+                </Text>
+              </View>
+              <Pressable
+                className="py-4 px-6 border-t border-border"
+                onPress={() => {
+                  const v = menuVoucher;
+                  setMenuVoucher(null);
+                  toggleStatus(v.id, v.status);
+                }}
+              >
+                <Text className={`text-base text-center ${
+                  menuVoucher?.status === "active" ? "text-destructive" : "text-primary"
+                }`}>
+                  {menuVoucher?.status === "active" ? "Deactivate" : "Activate"}
+                </Text>
+              </Pressable>
+              <Pressable
+                className="py-4 px-6 border-t border-border"
+                onPress={() => {
+                  const v = menuVoucher;
+                  setMenuVoucher(null);
+                  handleDelete(v);
+                }}
+              >
+                <Text className="text-base text-center text-destructive font-semibold">Delete</Text>
+              </Pressable>
+              <Pressable
+                className="py-4 px-6 border-t border-border"
+                onPress={() => setMenuVoucher(null)}
+              >
+                <Text className="text-base text-center text-foreground font-semibold">Cancel</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
