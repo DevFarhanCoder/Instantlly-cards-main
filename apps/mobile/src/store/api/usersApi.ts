@@ -34,6 +34,9 @@ export const usersApi = baseApi.injectEndpoints({
     matchContacts: builder.mutation<AppUser[], { phones: string[] }>({
       query: (body) => ({ url: '/users/match-contacts', method: 'POST', body }),
     }),
+    getUserByPhone: builder.query<{ id: number; name: string }, string>({
+      query: (phone) => `/users/by-phone/${encodeURIComponent(phone)}`,
+    }),
   }),
 });
 
@@ -44,4 +47,5 @@ export const {
   useDeleteAccountMutation,
   useGetUserByIdQuery,
   useMatchContactsMutation,
+  useGetUserByPhoneQuery,
 } = usersApi;

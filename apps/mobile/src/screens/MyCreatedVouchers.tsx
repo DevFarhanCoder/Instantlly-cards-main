@@ -30,6 +30,7 @@ import { useAuth } from "../hooks/useAuth";
 import { format, isValid } from "date-fns";
 import { useIconColor, useColors } from "../theme/colors";
 import { toast } from "../lib/toast";
+import { useGetUserByPhoneQuery } from "../store/api/usersApi";
 import { formatINR } from "../lib/utils";
 import { FEATURES } from "../lib/featureFlags";
 import {
@@ -124,6 +125,11 @@ const MyCreatedVouchers = () => {
   // Owner transfer state
   const [transferVoucher, setTransferVoucher] = useState<any | null>(null);
   const [transferPhone, setTransferPhone] = useState("");
+  const transferPhoneDigits = transferPhone.replace(/\D/g, "");
+  const { data: transferRecipientUser, isError: transferNotFound } = useGetUserByPhoneQuery(
+    transferPhoneDigits,
+    { skip: transferPhoneDigits.length < 9 }
+  );
   const [transferQty, setTransferQty] = useState("1");
   const [transferLoading, setTransferLoading] = useState(false);
 
@@ -133,6 +139,11 @@ const MyCreatedVouchers = () => {
   const isRajeshModi = normalizedUserPhone.endsWith(RAJESH_MODI_PHONE);
   const [friendVoucher, setFriendVoucher] = useState<any | null>(null);
   const [friendPhone, setFriendPhone] = useState("");
+  const friendPhoneDigits = friendPhone.replace(/\D/g, "");
+  const { data: friendRecipientUser, isError: friendNotFound } = useGetUserByPhoneQuery(
+    friendPhoneDigits,
+    { skip: friendPhoneDigits.length < 9 }
+  );
   const [friendQty, setFriendQty] = useState("1");
   const [friendPayNow, setFriendPayNow] = useState("");
   const [friendPayLater, setFriendPayLater] = useState("");
@@ -1441,6 +1452,11 @@ const MyCreatedVouchers = () => {
                     onChangeText={setTransferPhone}
                     autoFocus
                   />
+                  {transferPhoneDigits.length >= 10 && (
+                    <Text className={`text-xs mt-1 ${transferRecipientUser ? "text-green-600 font-semibold" : transferNotFound ? "text-destructive" : "text-muted-foreground"}`}>
+                      {transferRecipientUser ? `✓ ${transferRecipientUser.name}` : transferNotFound ? "User not found" : "Looking up..."}
+                    </Text>
+                  )}
                 </View>
 
                 {/* Quantity */}
@@ -1590,6 +1606,11 @@ const MyCreatedVouchers = () => {
                       onChangeText={setFriendPhone}
                       autoFocus
                     />
+                    {friendPhoneDigits.length >= 10 && (
+                      <Text className={`text-xs mt-1 ${friendRecipientUser ? "text-green-600 font-semibold" : friendNotFound ? "text-destructive" : "text-muted-foreground"}`}>
+                        {friendRecipientUser ? `✓ ${friendRecipientUser.name}` : friendNotFound ? "User not found" : "Looking up..."}
+                      </Text>
+                    )}
                   </View>
 
                   {/* Pay Cash */}
