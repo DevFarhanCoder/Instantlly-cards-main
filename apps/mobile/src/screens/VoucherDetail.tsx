@@ -598,6 +598,15 @@ const VoucherDetail = () => {
                 const first = entries[0];
                 const rest = entries.slice(1);
                 const isUrl = (s: string) => s.startsWith('http://') || s.startsWith('https://');
+                // Splits "Label : https://..." into { label, url } for mixed entries
+                const extractUrl = (s: string): { label: string; url: string } | null => {
+                  if (isUrl(s)) return null; // pure URL handled separately
+                  const m = s.match(/(https?:\/\/\S+)/);
+                  if (!m) return null;
+                  const url = m[0];
+                  const label = s.slice(0, m.index).replace(/[\s:]+$/, '').trim();
+                  return { label, url };
+                };
                 const openMap = (entry: AddrEntry) => {
                   const url = isUrl(entry.address)
                     ? entry.address
@@ -612,14 +621,36 @@ const VoucherDetail = () => {
                   }
                   Linking.openURL(url).catch(() => {});
                 };
-                const AddressRow = ({ entry, small, indent }: { entry: AddrEntry; small?: boolean; indent?: boolean }) => (
-                  <View className={`flex-row items-start gap-2${indent ? ' pl-5' : ''}`}>
-                    <Pressable className="flex-row items-start gap-2 flex-1" onPress={() => openMap(entry)}>
-                      <MapPin size={small ? 13 : 14} color="#2463eb" style={{ marginTop: 2 }} />
-                      <Text className="flex-1 text-sm text-primary underline">
+                const AddrContent = ({ entry, size }: { entry: AddrEntry; size: 'sm' | 'base' }) => {
+                  const mixed = extractUrl(entry.address);
+                  const cls = size === 'base' ? 'text-base' : 'text-sm';
+                  if (mixed) {
+                    return (
+                      <View className="flex-1 flex-row flex-wrap items-center gap-x-2 gap-y-1">
+                        {mixed.label ? <Text className={`${cls} text-muted-foreground`}>{mixed.label}</Text> : null}
+                        <Pressable
+                          onPress={() => Linking.openURL(mixed.url).catch(() => {})}
+                          className="flex-row items-center gap-1 rounded-md px-2 py-0.5"
+                          style={{ backgroundColor: '#E8F5E9', borderWidth: 1, borderColor: '#A5D6A7' }}
+                        >
+                          <MapPin size={11} color="#2E7D32" />
+                          <Text className="text-xs font-semibold" style={{ color: '#2E7D32' }}>View on Google Maps</Text>
+                        </Pressable>
+                      </View>
+                    );
+                  }
+                  return (
+                    <Pressable className="flex-1" onPress={() => openMap(entry)}>
+                      <Text className={`${cls} text-muted-foreground underline`}>
                         {isUrl(entry.address) ? 'View on Maps' : entry.address}
                       </Text>
                     </Pressable>
+                  );
+                };
+                const AddressRow = ({ entry, small, indent }: { entry: AddrEntry; small?: boolean; indent?: boolean }) => (
+                  <View className={`flex-row items-start gap-2${indent ? ' pl-5' : ''}`}>
+                    <MapPin size={small ? 13 : 14} color={iconColor} style={{ marginTop: 2 }} />
+                    <AddrContent entry={entry} size="sm" />
                     {entry.instagram ? (
                       <Pressable onPress={() => openInsta(entry.instagram!)} className="mt-0.5 px-1">
                         <AtSign size={13} color="#e1306c" />
@@ -630,12 +661,8 @@ const VoucherDetail = () => {
                 return (
                   <View className="gap-2">
                     <View className="flex-row items-start gap-2">
-                      <Pressable className="flex-row items-start gap-2 flex-1" onPress={() => openMap(first)}>
-                        <MapPin size={14} color="#2463eb" style={{ marginTop: 2 }} />
-                        <Text className="flex-1 text-base text-primary underline">
-                          {isUrl(first.address) ? 'View on Maps' : first.address}
-                        </Text>
-                      </Pressable>
+                      <MapPin size={14} color={iconColor} style={{ marginTop: 2 }} />
+                      <AddrContent entry={first} size="base" />
                       {first.instagram ? (
                         <Pressable onPress={() => openInsta(first.instagram!)} className="mt-0.5 px-1">
                           <AtSign size={14} color="#e1306c" />
