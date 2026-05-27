@@ -653,9 +653,9 @@ const MyCreatedVouchers = () => {
                             onPress={() => { setTransferVoucher(v); setTransferPhone(""); setTransferQty("1"); }}
                           >
                             <View className="flex-row items-center justify-center gap-1">
-                              <Gift size={14} color="#7c3aed" />
+                              <Handshake size={13} color="#7c3aed" />
                               <Text className="text-[12px] font-semibold text-violet-600">
-                                Barter Transfer
+                                Barter
                               </Text>
                             </View>
                           </Button>
@@ -681,8 +681,8 @@ const MyCreatedVouchers = () => {
                         }}
                       >
                         <View className="flex-row items-center justify-center gap-1.5">
-                          <Handshake size={13} color="#fff" />
-                          <Text className="text-[12px] font-semibold text-white">Barter</Text>
+                          <Gift size={14} color="#fff" />
+                          <Text className="text-[12px] font-semibold text-white">Transfer</Text>
                         </View>
                       </Button>
                     )}
