@@ -812,7 +812,7 @@ const VoucherDetail = () => {
               }
               disabled={expiryDays !== null && expiryDays < 0}
             >
-              <Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "700" }}>
+              <Text style={{ color: themeColors.foreground, fontSize: 16, fontWeight: "700" }}>
                 Barter Transfer
               </Text>
             </Button>

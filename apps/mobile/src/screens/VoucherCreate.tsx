@@ -40,13 +40,15 @@ const VoucherCreate = () => {
   const route = useRoute<any>();
   const routePromotionId = route?.params?.promotionId ? Number(route.params.promotionId) : null;
   const editVoucherId: number | null = route?.params?.voucherId ? Number(route.params.voucherId) : null;
+  const duplicateVoucherId: number | null = route?.params?.duplicateVoucherId ? Number(route.params.duplicateVoucherId) : null;
   const isEditMode = Boolean(editVoucherId);
+  const sourceVoucherId = editVoucherId ?? duplicateVoucherId;
   const { user } = useAuth();
   const { selectedPromotion, selectedPromotionId } = usePromotionContext();
   const createVoucher = useCreateVoucher();
   const [updateVoucher, { isLoading: isUpdating }] = useUpdateVoucherMutation();
   const [uploadVoucherImage] = useUploadVoucherImageMutation();
-  const { data: editingVoucher } = useGetVoucherQuery(editVoucherId ?? 0, { skip: !editVoucherId });
+  const { data: editingVoucher } = useGetVoucherQuery(sourceVoucherId ?? 0, { skip: !sourceVoucherId });
 
   const editingPromotionId = (editingVoucher as any)?.business_promotion_id ?? (editingVoucher as any)?.business_promotion?.id ?? null;
   const resolvedPromotionId = routePromotionId || editingPromotionId || selectedPromotionId;
@@ -123,8 +125,9 @@ const VoucherCreate = () => {
   useEffect(() => {
     if (!editingVoucher) return;
     const v: any = editingVoucher;
+    const isDuplicate = !isEditMode && Boolean(duplicateVoucherId);
     setForm({
-      title: v.title ?? "",
+      title: isDuplicate ? `Copy of ${v.title ?? ""}`.trim() : (v.title ?? ""),
       subtitle: v.subtitle ?? "",
       category: v.category && voucherCategories.includes(v.category) ? v.category : "general",
       original_price: v.original_price != null ? String(v.original_price) : v.mrp != null ? String(v.mrp) : "",
@@ -167,7 +170,7 @@ const VoucherCreate = () => {
       voucher_image: v.voucher_image ?? "",
       voucher_banner: v.voucher_banner ?? "",
     });
-  }, [editingVoucher]);
+  }, [editingVoucher, isEditMode, duplicateVoucherId]);
 
   const formatDateForInput = (date: Date) => {
     const y = date.getFullYear();
@@ -489,7 +492,7 @@ const VoucherCreate = () => {
         <Pressable onPress={() => navigation.goBack()}>
           <ArrowLeft size={20} color={iconColor} />
         </Pressable>
-        <Text className="text-lg font-bold text-foreground">{isEditMode ? "Edit Voucher" : "Create Voucher"}</Text>
+        <Text className="text-lg font-bold text-foreground">{isEditMode ? "Edit Voucher" : duplicateVoucherId ? "Duplicate Voucher" : "Create Voucher"}</Text>
       </View>
 
       <ScrollView
