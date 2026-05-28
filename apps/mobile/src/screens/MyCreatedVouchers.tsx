@@ -753,6 +753,15 @@ const MyCreatedVouchers = () => {
                         </Text>
                         <View className="flex-row items-center gap-1">
                           <View className={`rounded-full px-2 py-0.5 ${
+                            isOwnerViewer ? "bg-blue-500/10" : isCoOwner ? "bg-purple-500/10" : "bg-amber-500/10"
+                          }`}>
+                            <Text className={`text-[10px] font-semibold ${
+                              isOwnerViewer ? "text-blue-600" : isCoOwner ? "text-purple-600" : "text-amber-600"
+                            }`}>
+                              {isOwnerViewer ? "Owner" : isCoOwner ? "Co-Owner" : "Scanner"}
+                            </Text>
+                          </View>
+                          <View className={`rounded-full px-2 py-0.5 ${
                             v.status === "active" ? "bg-green-500/10" : "bg-muted"
                           }`}>
                             <Text className={`text-[10px] font-semibold ${
@@ -2405,6 +2414,16 @@ const MyCreatedVouchers = () => {
                 }`}>
                   {menuVoucher?.status === "active" ? "Deactivate" : "Activate"}
                 </Text>
+              </Pressable>
+              <Pressable
+                className="py-4 px-6 border-t border-border"
+                onPress={() => {
+                  const v = menuVoucher;
+                  setMenuVoucher(null);
+                  if (v) navigation.navigate("VoucherCreate", { duplicateVoucherId: v.id });
+                }}
+              >
+                <Text className="text-base text-center text-primary font-semibold">Duplicate</Text>
               </Pressable>
               <Pressable
                 className="py-4 px-6 border-t border-border"
