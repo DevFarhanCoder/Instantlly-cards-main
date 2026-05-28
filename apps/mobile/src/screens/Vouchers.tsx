@@ -12,7 +12,7 @@ import { voucherCategories } from "../data/categories";
 import { useVouchers, type Voucher } from "../hooks/useVouchers";
 import { useAppLocation } from "../contexts/LocationContext";
 import { cn, formatINR } from "../lib/utils";
-import { colors } from "../theme/colors";
+import { colors as staticColors, useColors } from "../theme/colors";
 import { differenceInDays, isValid } from "date-fns";
 import { useIconColor } from "../theme/colors";
 import { LocationPickerModal } from "../components/ui/LocationPickerModal";
@@ -41,6 +41,7 @@ const getExpiryLabel = (expiresAt: string | null) => {
 
 const Vouchers = () => {
   const iconColor = useIconColor();
+  const colors = useColors();
   const navigation = useNavigation<any>();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -124,7 +125,7 @@ const Vouchers = () => {
         ) : null}
         <Button size="sm" variant="outline" className="gap-1" onPress={() => navigation.navigate("MyVouchers")}>
           <Ticket size={14} color={iconColor} />
-          <Text style={{ fontSize: 12, fontWeight: "600" }}>My Vouchers</Text>
+          <Text style={{ fontSize: 12, fontWeight: "600", color: colors.foreground }}>My Vouchers</Text>
         </Button>
       </Pressable>
       <LocationPickerModal visible={showLocationPicker} onClose={() => setShowLocationPicker(false)} />
