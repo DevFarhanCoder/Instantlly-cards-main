@@ -515,16 +515,15 @@ const VoucherDetail = () => {
                           width: 6,
                           height: 6,
                           borderRadius: 3,
-                          backgroundColor: "#111827",
+                          backgroundColor: iconColor,
                           marginTop: 7,
                         }}
                       />
                       <Text
-                        className="flex-1"
+                        className="flex-1 text-foreground"
                         style={{
                           fontSize: 14,
                           lineHeight: 20,
-                          color: "#111827",
                           fontWeight: "500",
                         }}
                       >
@@ -641,7 +640,7 @@ const VoucherDetail = () => {
                   }
                   return (
                     <Pressable className="flex-1" onPress={() => openMap(entry)}>
-                      <Text className={`${cls} text-muted-foreground underline`}>
+                      <Text className={`${cls} text-primary underline`}>
                         {isUrl(entry.address) ? 'View on Maps' : entry.address}
                       </Text>
                     </Pressable>
