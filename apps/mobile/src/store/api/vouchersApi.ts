@@ -236,6 +236,34 @@ export const vouchersApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, _err, { voucherId }) => [{ type: 'Voucher', id: `staff-${voucherId}` }],
     }),
+    getMyScans: builder.query<
+      Array<{
+        redemption_id: number;
+        voucher_id: number;
+        voucher_title: string;
+        voucher_image: string | null;
+        user_name: string | null;
+        user_phone: string | null;
+        used_at: string;
+      }>,
+      void
+    >({
+      query: () => `/vouchers/staff/my-scans`,
+      providesTags: ['Voucher'],
+    }),
+    getMyTeams: builder.query<
+      Array<{
+        voucher_id: number;
+        title: string;
+        voucher_image: string | null;
+        team_count: number;
+        members: Array<{ user_id: number; name: string | null; phone: string | null; role: string }>;
+      }>,
+      void
+    >({
+      query: () => `/vouchers/staff/my-team`,
+      providesTags: ['Voucher'],
+    }),
   }),
 });
 
@@ -273,4 +301,6 @@ export const {
   useGetVoucherStaffQuery,
   useAddVoucherStaffMutation,
   useRemoveVoucherStaffMutation,
+  useGetMyScansQuery,
+  useGetMyTeamsQuery,
 } = vouchersApi;

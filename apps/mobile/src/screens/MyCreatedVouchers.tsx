@@ -47,6 +47,8 @@ import {
   useGetSentOwnerTransfersQuery,
   useSettleOwnerTransferMutation,
   useGetOwnerTransferPaymentsQuery,
+  useGetMyScansQuery,
+  useGetMyTeamsQuery,
 } from "../store/api/vouchersApi";
 
 const safeFormat = (d: any, fmt: string, fb = "—") => {
@@ -125,6 +127,75 @@ const BarterTransferPayments = ({ transferId }: { transferId: number }) => {
   );
 };
 
+// Renders redeemed claims for a single voucher (co-owner view).
+const VoucherRedeemedRows: React.FC<{ voucherId: number; title: string; voucherImage: string | null }> = ({
+  voucherId,
+  title,
+  voucherImage,
+}) => {
+  const { data: claims = [] } = useGetVoucherClaimsQuery(voucherId);
+  const redeemed = (claims as any[]).filter((c) => Number(c.redeemed_count ?? 0) > 0);
+  if (redeemed.length === 0) return null;
+  return (
+    <View>
+      <View className="flex-row items-center gap-2 mt-3 mb-1">
+        {voucherImage ? (
+          <Image source={{ uri: voucherImage }} className="w-6 h-6 rounded" />
+        ) : (
+          <View className="w-6 h-6 rounded bg-muted" />
+        )}
+        <Text className="text-xs font-semibold text-muted-foreground uppercase" numberOfLines={1}>
+          {title}
+        </Text>
+      </View>
+      {redeemed.map((c: any) => (
+        <View key={c.id} className="flex-row items-center gap-3 py-2 border-b border-border">
+          <View className="w-9 h-9 rounded-full bg-muted items-center justify-center">
+            <ShieldCheck size={16} color="#2463eb" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
+              {c.user?.name ?? "Unknown"}
+            </Text>
+            <Text className="text-xs text-muted-foreground">{c.user?.phone ?? "—"}</Text>
+          </View>
+          <Text className="text-xs font-semibold text-primary">x{c.redeemed_count}</Text>
+        </View>
+      ))}
+    </View>
+  );
+};
+
+const StaffRedeemedDialog: React.FC<{
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  vouchers: any[];
+}> = ({ open, onOpenChange, vouchers }) => {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Redeemed</DialogTitle>
+        </DialogHeader>
+        <ScrollView className="max-h-96 mt-2" showsVerticalScrollIndicator={false}>
+          {vouchers.length === 0 ? (
+            <Text className="text-center text-sm text-muted-foreground py-6">No vouchers</Text>
+          ) : (
+            vouchers.map((v: any) => (
+              <VoucherRedeemedRows
+                key={v.id}
+                voucherId={v.id}
+                title={v.title}
+                voucherImage={v.voucher_image ?? null}
+              />
+            ))
+          )}
+        </ScrollView>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const MyCreatedVouchers = () => {
   const iconColor = useIconColor();
   const colors = useColors();
@@ -137,8 +208,24 @@ const MyCreatedVouchers = () => {
   const [deleteVoucher, { isLoading: isDeleting }] = useDeleteVoucherMutation();
   const [ownerTransfer] = useOwnerTransferVoucherMutation();
 
+  // Role-aware queries — only fired when we actually need them.
+  const ownsAny = vouchers.some((v: any) => (v.viewer_role ?? "owner") === "owner");
+  const isCoOwnerAny = vouchers.some((v: any) => v.viewer_role === "co-owner");
+  const isScannerAny = vouchers.some((v: any) => v.viewer_role === "scanner");
+  const isStaffOnly = !ownsAny && (isCoOwnerAny || isScannerAny);
+  const { data: myScans = [] } = useGetMyScansQuery(undefined, { skip: !user || !isStaffOnly });
+  const { data: myTeams = [] } = useGetMyTeamsQuery(undefined, {
+    skip: !user || ownsAny || (!isCoOwnerAny && !isScannerAny),
+  });
+
   const [refreshing, setRefreshing] = useState(false);
   const [claimsVoucherId, setClaimsVoucherId] = useState<number | null>(null);
+  // Staff-role stat modals
+  const [staffAvailableOpen, setStaffAvailableOpen] = useState(false);
+  const [staffTeamsOpen, setStaffTeamsOpen] = useState(false);
+  const [staffTeamDetailId, setStaffTeamDetailId] = useState<number | null>(null);
+  const [staffScansOpen, setStaffScansOpen] = useState(false);
+  const [staffRedeemedOpen, setStaffRedeemedOpen] = useState(false);
 
   // Owner transfer state
   const [transferVoucher, setTransferVoucher] = useState<any | null>(null);
@@ -470,42 +557,128 @@ const MyCreatedVouchers = () => {
         }
       >
         <View className="px-4 py-4 gap-4">
-          {/* Stats */}
-          <View className="gap-3">
-            <View className="flex-row gap-3">
-              <View className="flex-1 rounded-xl border border-border bg-card p-3 items-center">
-                <Tag size={18} color="#2463eb" />
-                <Text className="mt-1 text-xl font-bold text-foreground">{vouchers.length.toLocaleString("en-IN")}</Text>
-                <Text className="text-[10px] text-muted-foreground">Total</Text>
+          {/* Stats — role-aware */}
+          {isStaffOnly ? (
+            (() => {
+              // Vouchers grouped by the viewer's role on each.
+              const coOwnerVouchers = vouchers.filter((v: any) => v.viewer_role === "co-owner");
+              const scannerVouchers = vouchers.filter((v: any) => v.viewer_role === "scanner");
+              // Stat 1: combined count of vouchers where I'm staff.
+              const staffTotal = coOwnerVouchers.length + scannerVouchers.length;
+              // Stat 2 (co-owner): remaining quantity across ALL staff vouchers; (scanner): scans I made.
+              const staffVouchers = [...coOwnerVouchers, ...scannerVouchers];
+              const totalAvailable = staffVouchers.reduce(
+                (s: number, v: any) =>
+                  s + Math.max(0, Number(v.max_claims ?? 0) - Number(v.claimed_count ?? 0)),
+                0
+              );
+              const totalScans = myScans.length;
+              // Stat 3 (co-owner only): team members across all co-owned vouchers.
+              const totalTeamMembers = myTeams.reduce((s: number, t: any) => s + (t.team_count || 0), 0);
+              // Stat 4 (co-owner only): redeemed claims across co-owned vouchers.
+              const totalRedeemedStaff = coOwnerVouchers.reduce(
+                (s: number, v: any) => s + Number(v.redeemed_claims ?? 0),
+                0
+              );
+
+              return (
+                <View className="gap-3">
+                  <View className="flex-row gap-3">
+                    <View className="flex-1 rounded-xl border border-border bg-card p-3 items-center">
+                      <Tag size={18} color="#2463eb" />
+                      <Text className="mt-1 text-xl font-bold text-foreground">
+                        {staffTotal.toLocaleString("en-IN")}
+                      </Text>
+                      <Text className="text-[10px] text-muted-foreground">Total Vouchers</Text>
+                    </View>
+                    {isCoOwnerAny ? (
+                      <Pressable
+                        className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
+                        onPress={() => setStaffAvailableOpen(true)}
+                      >
+                        <CheckCircle2 size={18} color="#16a34a" />
+                        <Text className="mt-1 text-xl font-bold text-foreground">
+                          {totalAvailable.toLocaleString("en-IN")}
+                        </Text>
+                        <Text className="text-[10px] text-green-600 font-medium">Vouchers Available ›</Text>
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
+                        onPress={() => setStaffScansOpen(true)}
+                      >
+                        <ShieldCheck size={18} color="#2463eb" />
+                        <Text className="mt-1 text-xl font-bold text-foreground">
+                          {totalScans.toLocaleString("en-IN")}
+                        </Text>
+                        <Text className="text-[10px] text-primary font-medium">Scans Made ›</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                  {isCoOwnerAny && (
+                    <View className="flex-row gap-3">
+                      <Pressable
+                        className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
+                        onPress={() => setStaffTeamsOpen(true)}
+                      >
+                        <Users size={18} color="#f97316" />
+                        <Text className="mt-1 text-xl font-bold text-foreground">
+                          {totalTeamMembers.toLocaleString("en-IN")}
+                        </Text>
+                        <Text className="text-[10px] text-orange-500 font-medium">Team Members ›</Text>
+                      </Pressable>
+                      <Pressable
+                        className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
+                        onPress={() => setStaffRedeemedOpen(true)}
+                      >
+                        <ShieldCheck size={18} color="#2463eb" />
+                        <Text className="mt-1 text-xl font-bold text-foreground">
+                          {totalRedeemedStaff.toLocaleString("en-IN")}
+                        </Text>
+                        <Text className="text-[10px] text-primary font-medium">Redeemed ›</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
+              );
+            })()
+          ) : (
+            <View className="gap-3">
+              <View className="flex-row gap-3">
+                <View className="flex-1 rounded-xl border border-border bg-card p-3 items-center">
+                  <Tag size={18} color="#2463eb" />
+                  <Text className="mt-1 text-xl font-bold text-foreground">{vouchers.length.toLocaleString("en-IN")}</Text>
+                  <Text className="text-[10px] text-muted-foreground">Total</Text>
+                </View>
+                <Pressable
+                  className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
+                  onPress={() => setShowActiveVouchers(true)}
+                >
+                  <CheckCircle2 size={18} color="#16a34a" />
+                  <Text className="mt-1 text-xl font-bold text-foreground">{activeVouchers.toLocaleString("en-IN")}</Text>
+                  <Text className="text-[10px] text-green-600 font-medium">Active ›</Text>
+                </Pressable>
               </View>
-              <Pressable
-                className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
-                onPress={() => setShowActiveVouchers(true)}
-              >
-                <CheckCircle2 size={18} color="#16a34a" />
-                <Text className="mt-1 text-xl font-bold text-foreground">{activeVouchers.toLocaleString("en-IN")}</Text>
-                <Text className="text-[10px] text-green-600 font-medium">Active ›</Text>
-              </Pressable>
+              <View className="flex-row gap-3">
+                <Pressable
+                  className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
+                  onPress={() => setGlobalClaimsFilter("active")}
+                >
+                  <Users size={18} color="#f97316" />
+                  <Text className="mt-1 text-xl font-bold text-foreground">{totalClaims.toLocaleString("en-IN")}</Text>
+                  <Text className="text-[10px] text-orange-500 font-medium">Claimed ›</Text>
+                </Pressable>
+                <Pressable
+                  className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
+                  onPress={() => setGlobalClaimsFilter("redeemed")}
+                >
+                  <ShieldCheck size={18} color="#2463eb" />
+                  <Text className="mt-1 text-xl font-bold text-foreground">{totalRedeemed.toLocaleString("en-IN")}</Text>
+                  <Text className="text-[10px] text-primary font-medium">Redeemed ›</Text>
+                </Pressable>
+              </View>
             </View>
-            <View className="flex-row gap-3">
-              <Pressable
-                className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
-                onPress={() => setGlobalClaimsFilter("active")}
-              >
-                <Users size={18} color="#f97316" />
-                <Text className="mt-1 text-xl font-bold text-foreground">{totalClaims.toLocaleString("en-IN")}</Text>
-                <Text className="text-[10px] text-orange-500 font-medium">Claimed ›</Text>
-              </Pressable>
-              <Pressable
-                className="flex-1 rounded-xl border border-border bg-card p-3 items-center active:opacity-70"
-                onPress={() => setGlobalClaimsFilter("redeemed")}
-              >
-                <ShieldCheck size={18} color="#2463eb" />
-                <Text className="mt-1 text-xl font-bold text-foreground">{totalRedeemed.toLocaleString("en-IN")}</Text>
-                <Text className="text-[10px] text-primary font-medium">Redeemed ›</Text>
-              </Pressable>
-            </View>
-          </View>
+          )}
 
           {/* Pending Transfers banner (Rajesh Modi only) */}
           {FEATURES.PENDING_TRANSFERS_VIEW && isRajeshModi && pendingTransfers.length > 0 && (
@@ -552,7 +725,15 @@ const MyCreatedVouchers = () => {
             </View>
           ) : (
             <View className="gap-3">
-              {vouchers.map((v: any) => (
+              {vouchers.map((v: any) => {
+                // Role-based gating. Owner sees everything; co-owner sees a
+                // compact 2-per-row action set (no Edit/Claims/3-dots); scanner
+                // sees ONLY the Scan button.
+                const viewerRole = v.viewer_role ?? "owner";
+                const isOwnerViewer = viewerRole === "owner";
+                const isCoOwner = viewerRole === "co-owner";
+                const isScanner = viewerRole === "scanner";
+                return (
                 <View key={v.id} className="rounded-xl border border-border bg-card overflow-hidden">
                   <Pressable
                     onPress={() => navigation.navigate("VoucherDetail", { id: String(v.id) })}
@@ -580,9 +761,11 @@ const MyCreatedVouchers = () => {
                               {v.status}
                             </Text>
                           </View>
-                          <Pressable onPress={() => showVoucherMenu(v)} hitSlop={8}>
-                            <MoreVertical size={16} color="#6a7181" />
-                          </Pressable>
+                          {isOwnerViewer && (
+                            <Pressable onPress={() => showVoucherMenu(v)} hitSlop={8}>
+                              <MoreVertical size={16} color="#6a7181" />
+                            </Pressable>
+                          )}
                         </View>
                       </View>
                       <View className="flex-row items-center gap-2">
@@ -635,117 +818,204 @@ const MyCreatedVouchers = () => {
                     </View>
                   </Pressable>
 
-                  <View className="flex-row gap-2 border-t border-border bg-muted/30 px-3 py-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 rounded-lg"
-                      textClassName="text-[12px]"
-                      onPress={() => setClaimsVoucherId(v.id)}
-                    >
-                      <View className="flex-row items-center justify-center gap-1">
-                        <Users size={14} color={iconColor} />
-                        <Text className="text-[12px] font-medium text-foreground">Claims</Text>
-                      </View>
-                    </Button>
-                    {v.allows_installment && (
+                  {/* Scanner: only the Scan button */}
+                  {isScanner ? (
+                    <View className="flex-row gap-2 border-t border-border bg-primary/5 px-3 py-2">
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1 rounded-lg"
+                        className="flex-1 rounded-lg border-primary/40"
                         textClassName="text-[12px]"
-                        onPress={() => setLedgerVoucherId(v.id)}
+                        onPress={() => navigation.navigate("VoucherScanner")}
                       >
                         <View className="flex-row items-center justify-center gap-1">
-                          <CreditCard size={14} color={iconColor} />
-                          <Text className="text-[12px] font-medium text-foreground">Ledger</Text>
+                          <QrCode size={14} color="#2463eb" />
+                          <Text className="text-[12px] font-semibold text-primary">Scan</Text>
                         </View>
                       </Button>
-                    )}
-                    {v.max_claims != null && (
-                      (() => {
-                        const remaining = Math.max(0, v.max_claims - (v.claimed_count || 0));
-                        return remaining > 0 ? (
+                    </View>
+                  ) : isCoOwner ? (
+                    /* Co-owner: 2 buttons per row — Barter + Team (+ Ledger if installment) */
+                    <View className="flex-row flex-wrap gap-2 border-t border-border bg-muted/20 px-3 py-2">
+                      {v.max_claims != null && (
+                        (() => {
+                          const remaining = Math.max(0, v.max_claims - (v.claimed_count || 0));
+                          return remaining > 0 ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-lg border-violet-400/60"
+                              style={{ width: "48%" }}
+                              textClassName="text-[12px]"
+                              onPress={() => { setTransferVoucher(v); setTransferPhone(""); setTransferQty("1"); }}
+                            >
+                              <View className="flex-row items-center justify-center gap-1">
+                                <Handshake size={13} color="#7c3aed" />
+                                <Text className="text-[12px] font-semibold text-violet-600">Barter</Text>
+                              </View>
+                            </Button>
+                          ) : (
+                            <View
+                              className="rounded-lg border border-border bg-muted/50 px-2 py-1.5 items-center justify-center"
+                              style={{ width: "48%" }}
+                            >
+                              <Text className="text-[11px] font-semibold text-muted-foreground">Sold Out</Text>
+                            </View>
+                          );
+                        })()
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-lg border-blue-400/60"
+                        style={{ width: "48%" }}
+                        textClassName="text-[12px]"
+                        onPress={() =>
+                          navigation.navigate("VoucherStaff", {
+                            voucherId: v.id,
+                            voucherTitle: v.title,
+                            addresses: v.addresses ?? [],
+                          })
+                        }
+                      >
+                        <View className="flex-row items-center justify-center gap-1">
+                          <Users size={14} color="#2563eb" />
+                          <Text className="text-[12px] font-semibold text-blue-600">Team</Text>
+                        </View>
+                      </Button>
+                      {v.allows_installment && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-lg"
+                          style={{ width: "48%" }}
+                          textClassName="text-[12px]"
+                          onPress={() => setLedgerVoucherId(v.id)}
+                        >
+                          <View className="flex-row items-center justify-center gap-1">
+                            <CreditCard size={14} color={iconColor} />
+                            <Text className="text-[12px] font-medium text-foreground">Ledger</Text>
+                          </View>
+                        </Button>
+                      )}
+                    </View>
+                  ) : (
+                    /* Owner: full action set */
+                    <>
+                      <View className="flex-row gap-2 border-t border-border bg-muted/30 px-3 py-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 rounded-lg"
+                          textClassName="text-[12px]"
+                          onPress={() => setClaimsVoucherId(v.id)}
+                        >
+                          <View className="flex-row items-center justify-center gap-1">
+                            <Users size={14} color={iconColor} />
+                            <Text className="text-[12px] font-medium text-foreground">Claims</Text>
+                          </View>
+                        </Button>
+                        {v.allows_installment && (
                           <Button
                             size="sm"
                             variant="outline"
-                            className="flex-1 rounded-lg border-violet-400/60"
+                            className="flex-1 rounded-lg"
                             textClassName="text-[12px]"
-                            onPress={() => { setTransferVoucher(v); setTransferPhone(""); setTransferQty("1"); }}
+                            onPress={() => setLedgerVoucherId(v.id)}
                           >
                             <View className="flex-row items-center justify-center gap-1">
-                              <Handshake size={13} color="#7c3aed" />
-                              <Text className="text-[12px] font-semibold text-violet-600">
-                                Barter
-                              </Text>
+                              <CreditCard size={14} color={iconColor} />
+                              <Text className="text-[12px] font-medium text-foreground">Ledger</Text>
                             </View>
                           </Button>
-                        ) : (
-                          <View className="flex-1 rounded-lg border border-border bg-muted/50 px-2 py-1.5 items-center justify-center">
-                            <Text className="text-[11px] font-semibold text-muted-foreground">Sold Out</Text>
+                        )}
+                        {v.max_claims != null && (
+                          (() => {
+                            const remaining = Math.max(0, v.max_claims - (v.claimed_count || 0));
+                            return remaining > 0 ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 rounded-lg border-violet-400/60"
+                                textClassName="text-[12px]"
+                                onPress={() => { setTransferVoucher(v); setTransferPhone(""); setTransferQty("1"); }}
+                              >
+                                <View className="flex-row items-center justify-center gap-1">
+                                  <Handshake size={13} color="#7c3aed" />
+                                  <Text className="text-[12px] font-semibold text-violet-600">
+                                    Barter
+                                  </Text>
+                                </View>
+                              </Button>
+                            ) : (
+                              <View className="flex-1 rounded-lg border border-border bg-muted/50 px-2 py-1.5 items-center justify-center">
+                                <Text className="text-[11px] font-semibold text-muted-foreground">Sold Out</Text>
+                              </View>
+                            );
+                          })()
+                        )}
+                        {isRajeshModi && (
+                          <Button
+                            size="sm"
+                            className="flex-1 rounded-lg bg-emerald-600"
+                            textClassName="text-[12px]"
+                            onPress={() => {
+                              setFriendVoucher(v);
+                              setFriendPhone("");
+                              setFriendQty("1");
+                              setFriendPayNow("");
+                              setFriendPayLater("");
+                              setFriendPayBarter("");
+                            }}
+                          >
+                            <View className="flex-row items-center justify-center gap-1.5">
+                              <Gift size={14} color="#fff" />
+                              <Text className="text-[12px] font-semibold text-white">Transfer</Text>
+                            </View>
+                          </Button>
+                        )}
+                      </View>
+                      {/* Team / Staff management */}
+                      <View className="flex-row gap-2 border-t border-border bg-blue-500/5 px-3 py-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 rounded-lg border-blue-400/60"
+                          textClassName="text-[12px]"
+                          onPress={() =>
+                            navigation.navigate("VoucherStaff", {
+                              voucherId: v.id,
+                              voucherTitle: v.title,
+                              addresses: v.addresses ?? [],
+                            })
+                          }
+                        >
+                          <View className="flex-row items-center justify-center gap-1">
+                            <Users size={14} color="#2563eb" />
+                            <Text className="text-[12px] font-semibold text-blue-600">Team</Text>
                           </View>
-                        );
-                      })()
-                    )}
-                    {isRajeshModi && (
-                      <Button
-                        size="sm"
-                        className="flex-1 rounded-lg bg-emerald-600"
-                        textClassName="text-[12px]"
-                        onPress={() => {
-                          setFriendVoucher(v);
-                          setFriendPhone("");
-                          setFriendQty("1");
-                          setFriendPayNow("");
-                          setFriendPayLater("");
-                          setFriendPayBarter("");
-                        }}
-                      >
-                        <View className="flex-row items-center justify-center gap-1.5">
-                          <Gift size={14} color="#fff" />
-                          <Text className="text-[12px] font-semibold text-white">Transfer</Text>
-                        </View>
-                      </Button>
-                    )}
-                  </View>
-                  {/* Team / Staff management */}
-                  <View className="flex-row gap-2 border-t border-border bg-blue-500/5 px-3 py-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 rounded-lg border-blue-400/60"
-                      textClassName="text-[12px]"
-                      onPress={() =>
-                        navigation.navigate("VoucherStaff", {
-                          voucherId: v.id,
-                          voucherTitle: v.title,
-                          addresses: v.addresses ?? [],
-                        })
-                      }
-                    >
-                      <View className="flex-row items-center justify-center gap-1">
-                        <Users size={14} color="#2563eb" />
-                        <Text className="text-[12px] font-semibold text-blue-600">Team</Text>
+                        </Button>
                       </View>
-                    </Button>
-                  </View>
 
-                  <View className="flex-row gap-2 border-t border-border bg-muted/20 px-3 py-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 rounded-lg"
-                      textClassName="text-[11px]"
-                      onPress={() => handleEdit(v.id)}
-                    >
-                      <View className="flex-row items-center justify-center gap-1">
-                        <Pencil size={12} color={iconColor} />
-                        <Text className="text-[11px] font-medium text-foreground">Edit</Text>
+                      <View className="flex-row gap-2 border-t border-border bg-muted/20 px-3 py-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 rounded-lg"
+                          textClassName="text-[11px]"
+                          onPress={() => handleEdit(v.id)}
+                        >
+                          <View className="flex-row items-center justify-center gap-1">
+                            <Pencil size={12} color={iconColor} />
+                            <Text className="text-[11px] font-medium text-foreground">Edit</Text>
+                          </View>
+                        </Button>
                       </View>
-                    </Button>
-                  </View>
+                    </>
+                  )}
                 </View>
-              ))}
+                );
+              })}
             </View>
           )}
         </View>
@@ -2156,6 +2426,164 @@ const MyCreatedVouchers = () => {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Staff role: Vouchers Available — includes co-owner + scanner vouchers */}
+      <Dialog open={staffAvailableOpen} onOpenChange={setStaffAvailableOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Vouchers Available</DialogTitle>
+          </DialogHeader>
+          <ScrollView className="max-h-96 mt-2" showsVerticalScrollIndicator={false}>
+            {vouchers
+              .filter((v: any) => v.viewer_role === "co-owner" || v.viewer_role === "scanner")
+              .map((v: any) => {
+                const remaining = Math.max(0, Number(v.max_claims ?? 0) - Number(v.claimed_count ?? 0));
+                return (
+                  <View key={v.id} className="flex-row items-center gap-3 py-3 border-b border-border">
+                    {v.voucher_image ? (
+                      <Image source={{ uri: v.voucher_image }} className="w-10 h-10 rounded-md" />
+                    ) : (
+                      <View className="w-10 h-10 rounded-md bg-muted items-center justify-center">
+                        <Tag size={16} color="#2463eb" />
+                      </View>
+                    )}
+                    <View className="flex-1">
+                      <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
+                        {v.title}
+                      </Text>
+                      <Text className="text-[10px] uppercase text-muted-foreground font-semibold">
+                        {v.viewer_role === "co-owner" ? "Co-Owner" : "Scanner"}
+                      </Text>
+                    </View>
+                    <Text className="text-sm font-bold text-green-600">
+                      {remaining.toLocaleString("en-IN")}
+                    </Text>
+                  </View>
+                );
+              })}
+            {vouchers.filter((v: any) => v.viewer_role === "co-owner" || v.viewer_role === "scanner").length === 0 && (
+              <Text className="text-center text-sm text-muted-foreground py-6">No vouchers</Text>
+            )}
+          </ScrollView>
+        </DialogContent>
+      </Dialog>
+
+      {/* Staff role: Team Members list of vouchers */}
+      <Dialog
+        open={staffTeamsOpen}
+        onOpenChange={(o) => {
+          setStaffTeamsOpen(o);
+          if (!o) setStaffTeamDetailId(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Team Members</DialogTitle>
+          </DialogHeader>
+          <ScrollView className="max-h-96 mt-2" showsVerticalScrollIndicator={false}>
+            {myTeams.map((t: any) => (
+              <View key={t.voucher_id} className="flex-row items-center gap-3 py-3 border-b border-border">
+                {t.voucher_image ? (
+                  <Image source={{ uri: t.voucher_image }} className="w-10 h-10 rounded-md" />
+                ) : (
+                  <View className="w-10 h-10 rounded-md bg-muted items-center justify-center">
+                    <Tag size={16} color="#2463eb" />
+                  </View>
+                )}
+                <Text className="flex-1 text-sm font-medium text-foreground" numberOfLines={1}>
+                  {t.title}
+                </Text>
+                <Pressable
+                  className="flex-row items-center gap-1 px-3 py-1.5 rounded-md bg-primary active:opacity-80"
+                  onPress={() => setStaffTeamDetailId(t.voucher_id)}
+                >
+                  <Users size={14} color="#fff" />
+                  <Text className="text-xs font-semibold text-primary-foreground">Team ({t.team_count})</Text>
+                </Pressable>
+              </View>
+            ))}
+            {myTeams.length === 0 && (
+              <Text className="text-center text-sm text-muted-foreground py-6">No team members</Text>
+            )}
+          </ScrollView>
+        </DialogContent>
+      </Dialog>
+
+      {/* Staff role: Team detail (members for one voucher) */}
+      <Dialog
+        open={staffTeamDetailId !== null}
+        onOpenChange={(o) => {
+          if (!o) setStaffTeamDetailId(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {myTeams.find((t: any) => t.voucher_id === staffTeamDetailId)?.title ?? "Members"}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollView className="max-h-96 mt-2" showsVerticalScrollIndicator={false}>
+            {(myTeams.find((t: any) => t.voucher_id === staffTeamDetailId)?.members ?? []).map((m: any) => (
+              <View key={m.user_id} className="flex-row items-center gap-3 py-3 border-b border-border">
+                <View className="w-9 h-9 rounded-full bg-muted items-center justify-center">
+                  <Users size={16} color="#2463eb" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
+                    {m.name ?? "Unknown"}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">{m.phone ?? "—"}</Text>
+                </View>
+                <Text className="text-[10px] uppercase font-semibold text-primary">{m.role}</Text>
+              </View>
+            ))}
+            {(myTeams.find((t: any) => t.voucher_id === staffTeamDetailId)?.members?.length ?? 0) === 0 && (
+              <Text className="text-center text-sm text-muted-foreground py-6">No members</Text>
+            )}
+          </ScrollView>
+        </DialogContent>
+      </Dialog>
+
+      {/* Scanner role: Scans Made */}
+      <Dialog open={staffScansOpen} onOpenChange={setStaffScansOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Scans Made</DialogTitle>
+          </DialogHeader>
+          <ScrollView className="max-h-96 mt-2" showsVerticalScrollIndicator={false}>
+            {myScans.map((s: any) => (
+              <View key={s.redemption_id} className="flex-row items-center gap-3 py-3 border-b border-border">
+                {s.voucher_image ? (
+                  <Image source={{ uri: s.voucher_image }} className="w-10 h-10 rounded-md" />
+                ) : (
+                  <View className="w-10 h-10 rounded-md bg-muted items-center justify-center">
+                    <Tag size={16} color="#2463eb" />
+                  </View>
+                )}
+                <View className="flex-1">
+                  <Text className="text-xs text-muted-foreground" numberOfLines={1}>
+                    {s.voucher_title}
+                  </Text>
+                  <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
+                    {s.user_name ?? "Unknown"}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">{s.user_phone ?? "—"}</Text>
+                </View>
+              </View>
+            ))}
+            {myScans.length === 0 && (
+              <Text className="text-center text-sm text-muted-foreground py-6">No scans yet</Text>
+            )}
+          </ScrollView>
+        </DialogContent>
+      </Dialog>
+
+      {/* Co-owner role: Redeemed list (aggregated across co-owned vouchers) */}
+      <StaffRedeemedDialog
+        open={staffRedeemedOpen}
+        onOpenChange={setStaffRedeemedOpen}
+        vouchers={vouchers.filter((v: any) => v.viewer_role === "co-owner")}
+      />
     </View>
   );
 };
