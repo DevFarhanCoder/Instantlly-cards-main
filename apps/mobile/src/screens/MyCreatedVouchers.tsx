@@ -29,6 +29,7 @@ import { Skeleton } from "../components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { ContactVoucherAdminModal } from "../components/ContactVoucherAdminModal";
 import { useAuth } from "../hooks/useAuth";
+import { applyVoucherOrder, loadVoucherOrder, saveVoucherOrder } from "../lib/voucherOrder";
 import { format, isValid } from "date-fns";
 import { useIconColor, useColors } from "../theme/colors";
 import { toast } from "../lib/toast";
@@ -207,6 +208,15 @@ const MyCreatedVouchers = () => {
   const [updateStatus] = useUpdateVoucherStatusMutation();
   const [deleteVoucher, { isLoading: isDeleting }] = useDeleteVoucherMutation();
   const [ownerTransfer] = useOwnerTransferVoucherMutation();
+
+  // Ranking state
+  const [menuVoucher, setMenuVoucher] = useState<any>(null);
+  const [rankingMenuOpen, setRankingMenuOpen] = useState<string | number | false>(false);
+  const [rankingInputs, setRankingInputs] = useState<Record<string, string>>({});
+  const [voucherOrder, setVoucherOrder] = useState<string[]>([]);
+
+  // Apply voucher ordering
+  const orderedVouchers = applyVoucherOrder(vouchers, voucherOrder);
 
   // Role-aware queries — only fired when we actually need them.
   const ownsAny = vouchers.some((v: any) => (v.viewer_role ?? "owner") === "owner");
@@ -472,9 +482,36 @@ const MyCreatedVouchers = () => {
     navigation.navigate("VoucherCreate", { voucherId: id });
   };
 
-  const [menuVoucher, setMenuVoucher] = useState<any>(null);
-
   const showVoucherMenu = (v: any) => setMenuVoucher(v);
+
+  // Load voucher order on mount
+  useEffect(() => {
+    loadVoucherOrder().then((order) => {
+      setVoucherOrder(order);
+    });
+  }, []);
+
+  const moveVoucherToRank = useCallback((id: string | number, rank: number) => {
+    const ids = vouchers.map((v) => String(v.id));
+    const idx = ids.indexOf(String(id));
+    if (idx < 0) return;
+    const clampedRank = Math.max(1, Math.min(rank, ids.length));
+    const newPosition = clampedRank - 1;
+    const next = ids.slice();
+    next.splice(idx, 1);
+    next.splice(newPosition, 0, String(id));
+    setVoucherOrder(next);
+    saveVoucherOrder(next);
+    setRankingInputs((prev) => ({ ...prev, [String(id)]: String(clampedRank) }));
+    toast.success(`Moved to rank ${clampedRank}`);
+  }, [vouchers]);
+
+  const resetVoucherOrder = useCallback(async () => {
+    setVoucherOrder([]);
+    setRankingInputs({});
+    await saveVoucherOrder([]);
+    toast.success("Ranking reset to default");
+  }, []);
 
   const handleDelete = (v: any) => {
     const hasClaims = (v.claimed_count || 0) > 0;
@@ -725,7 +762,7 @@ const MyCreatedVouchers = () => {
             </View>
           ) : (
             <View className="gap-3">
-              {vouchers.map((v: any) => {
+              {orderedVouchers.map((v: any) => {
                 // Role-based gating. Owner sees everything; co-owner sees a
                 // compact 2-per-row action set (no Edit/Claims/3-dots); scanner
                 // sees ONLY the Scan button.
@@ -2376,6 +2413,75 @@ const MyCreatedVouchers = () => {
         userName={user?.name}
       />
 
+      {/* Ranking modal */}
+      <Modal
+        visible={!!rankingMenuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRankingMenuOpen(false)}
+      >
+        <Pressable
+          className="flex-1 items-center justify-center bg-black/40 px-8"
+          onPress={() => setRankingMenuOpen(false)}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()} className="w-full">
+            <View className="bg-card rounded-2xl overflow-hidden p-6 gap-4">
+              <View>
+                <Text className="text-lg font-semibold text-foreground mb-2">Set Display Rank</Text>
+                <Text className="text-sm text-muted-foreground mb-4">
+                  Enter a rank (1-{orderedVouchers.length}) to change this voucher's display position
+                </Text>
+              </View>
+              <View className="gap-2">
+                <Text className="text-xs font-medium text-muted-foreground">Current Position: {
+                  orderedVouchers.findIndex((v) => String(v.id) === String(rankingMenuOpen)) + 1 || "—"
+                }</Text>
+                <TextInput
+                  className="border border-border rounded-lg px-4 py-3 text-foreground"
+                  placeholder="Enter new rank"
+                  keyboardType="number-pad"
+                  value={rankingInputs[String(rankingMenuOpen)] || ""}
+                  onChangeText={(text) => {
+                    setRankingInputs((prev) => ({ ...prev, [String(rankingMenuOpen)]: text }));
+                  }}
+                />
+              </View>
+              <View className="gap-2 flex-row">
+                <Pressable
+                  className="flex-1 bg-primary rounded-lg py-3"
+                  onPress={() => {
+                    const rank = parseInt(rankingInputs[String(rankingMenuOpen)] || "1", 10);
+                    if (!isNaN(rank) && rankingMenuOpen) {
+                      moveVoucherToRank(rankingMenuOpen, rank);
+                      setRankingMenuOpen(false);
+                    } else {
+                      toast.error("Please enter a valid rank");
+                    }
+                  }}
+                >
+                  <Text className="text-center text-primary-foreground font-semibold">Apply</Text>
+                </Pressable>
+                <Pressable
+                  className="flex-1 bg-muted rounded-lg py-3"
+                  onPress={() => setRankingMenuOpen(false)}
+                >
+                  <Text className="text-center text-foreground font-semibold">Cancel</Text>
+                </Pressable>
+              </View>
+              <Pressable
+                className="py-3 border border-destructive rounded-lg"
+                onPress={async () => {
+                  await resetVoucherOrder();
+                  setRankingMenuOpen(false);
+                }}
+              >
+                <Text className="text-center text-destructive font-semibold text-sm">Reset All Ranks</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Voucher options bottom sheet */}
       <Modal
         visible={!!menuVoucher}
@@ -2434,6 +2540,16 @@ const MyCreatedVouchers = () => {
                 }}
               >
                 <Text className="text-base text-center text-destructive font-semibold">Delete</Text>
+              </Pressable>
+              <Pressable
+                className="py-4 px-6 border-t border-border"
+                onPress={() => {
+                  const v = menuVoucher;
+                  setMenuVoucher(null);
+                  setRankingMenuOpen(v?.id);
+                }}
+              >
+                <Text className="text-base text-center text-primary font-semibold">Set Display Rank</Text>
               </Pressable>
               <Pressable
                 className="py-4 px-6 border-t border-border"
