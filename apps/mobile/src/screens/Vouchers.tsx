@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { Dimensions, Modal, Platform, Pressable, Image, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { ChevronDown, ChevronRight, Clock, Filter, MapPin, Search, Ticket, Users, X } from "lucide-react-native";
@@ -11,6 +11,7 @@ import { PinchZoomImage } from "../components/PinchZoomImage";
 import { voucherCategories } from "../data/categories";
 import { useVouchers, type Voucher } from "../hooks/useVouchers";
 import { useAppLocation } from "../contexts/LocationContext";
+import { applyVoucherOrder, loadVoucherOrder } from "../lib/voucherOrder";
 import { cn, formatINR } from "../lib/utils";
 import { colors as staticColors, useColors } from "../theme/colors";
 import { differenceInDays, isValid } from "date-fns";
@@ -50,6 +51,14 @@ const Vouchers = () => {
   // Always fetch all vouchers; we partition into nearby + others below.
   const { data: vouchers = [], isLoading, isFetching, refetch: refetchVouchers } = useVouchers({ nearMe: false });
   const [bannerVoucher, setBannerVoucher] = useState<Voucher | null>(null);
+  const [voucherOrder, setVoucherOrder] = useState<string[]>([]);
+
+  // Load voucher order on mount
+  useEffect(() => {
+    loadVoucherOrder().then((order) => {
+      setVoucherOrder(order);
+    });
+  }, []);
 
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -58,16 +67,18 @@ const Vouchers = () => {
   }, [refetchVouchers]);
 
   const filteredVouchers = useMemo(
-    () =>
-      vouchers.filter((v) => {
+    () => {
+      const filtered = vouchers.filter((v) => {
         const matchesSearch =
           !searchQuery ||
           v.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           (v.subtitle || "").toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = !selectedCategory || v.category === selectedCategory;
         return matchesSearch && matchesCategory;
-      }),
-    [vouchers, searchQuery, selectedCategory]
+      });
+      return applyVoucherOrder(filtered, voucherOrder);
+    },
+    [vouchers, searchQuery, selectedCategory, voucherOrder]
   );
 
   const featuredVouchers = filteredVouchers.filter((v) => v.is_popular);
