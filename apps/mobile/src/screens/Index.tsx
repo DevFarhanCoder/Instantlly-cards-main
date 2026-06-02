@@ -46,6 +46,7 @@ import { useUserLocation, getDistanceKm, formatDistance } from "../hooks/useUser
 import { useTrendingBusinesses } from "../hooks/useTrendingBusinesses";
 import { useDealOfTheDay } from "../hooks/useDealOfTheDay";
 import { useVouchers } from "../hooks/useVouchers";
+import { useDirectoryCards } from "../hooks/useDirectoryCards";
 import { formatINR } from "../lib/utils";
 import { useCredits } from "../contexts/CreditsContext";
 import { supabase, SUPABASE_CONFIG_OK } from "../integrations/supabase/client";
@@ -563,37 +564,27 @@ const AIRecommendations = ({
   userLocation: any;
   navigate: any;
 }) => {
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["ai-recommendations", user?.id, favoriteIds.length],
-    queryFn: async () => {
-      if (!SUPABASE_CONFIG_OK) return [];
-      const { data: fnData, error: fnError } = await supabase.functions.invoke(
-        "ai-recommendations",
-        {
-          body: {
-            userId: user.id,
-            favoriteIds,
-            location: userLocation
-              ? { lat: userLocation.latitude, lng: userLocation.longitude }
-              : null,
-            recentCategories: [],
-          },
-        }
-      );
-      if (fnError) throw fnError;
-      return fnData?.recommendations || [];
-    },
-    enabled: !!user && SUPABASE_CONFIG_OK,
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  });
+  // Use backend directory cards instead of Supabase function
+  const { data: allCards = [], isLoading } = useDirectoryCards();
+
+  // Show a random selection of featured cards as recommendations
+  const recommendations = useMemo(() => {
+    if (!allCards || allCards.length === 0) return [];
+    
+    // Prioritize featured/popular cards
+    const featured = allCards
+      .filter((c: any) => c.is_popular || c._source === 'promotion')
+      .slice(0, 6);
+    
+    return featured.length > 0 ? featured : allCards.slice(0, 6);
+  }, [allCards]);
 
   if (isLoading) {
     return (
       <View className="px-4 mt-4">
         <View className="flex-row items-center gap-2 mb-3">
           <Sparkles size={16} color={colors.primary} />
-          <Text className="text-sm font-bold text-foreground">AI Recommendations</Text>
+          <Text className="text-sm font-bold text-foreground">Recommended for You</Text>
           <View style={{ flex: 1, alignItems: "flex-end" }}>
             <ActivityIndicator size="small" color={colors.mutedForeground} />
           </View>
@@ -609,7 +600,7 @@ const AIRecommendations = ({
     );
   }
 
-  if (!data || data.length === 0 || error) return null;
+  if (!recommendations || recommendations.length === 0) return null;
 
   return (
     <View className="px-4 mt-4">
@@ -619,13 +610,17 @@ const AIRecommendations = ({
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View className="flex-row gap-3">
-          {data.map((rec: any, i: number) => {
-            const card = rec.card;
+          {recommendations.map((card: any) => {
             if (!card) return null;
+            // Build proper directory ID format
+            const cardId = card._source === 'promotion'
+              ? `promo-${card._numericId || card.id}`
+              : `card-${card._numericId || card.id}`;
+            
             return (
               <Pressable
-                key={card.id}
-                onPress={() => navigate.navigate("BusinessDetail", { id: card.id })}
+                key={cardId}
+                onPress={() => navigate.navigate("BusinessDetail", { id: cardId })}
                 className="w-56 rounded-xl border border-primary/20 bg-primary/5 p-3.5"
               >
                 <View className="flex-row items-center gap-2.5 mb-2">
@@ -645,13 +640,15 @@ const AIRecommendations = ({
                     </Text>
                   </View>
                 </View>
-                <Text className="text-[11px] text-muted-foreground" numberOfLines={2}>
-                  {rec.reason}
-                </Text>
-                {card.location && (
+                {card.description && (
+                  <Text className="text-[11px] text-muted-foreground" numberOfLines={2}>
+                    {card.description}
+                  </Text>
+                )}
+                {card.city && (
                   <View className="mt-2 flex-row items-center gap-1">
                     <MapPin size={12} color={colors.mutedForeground} />
-                    <Text className="text-[10px] text-muted-foreground">{card.location}</Text>
+                    <Text className="text-[10px] text-muted-foreground">{card.city}</Text>
                   </View>
                 )}
               </Pressable>
