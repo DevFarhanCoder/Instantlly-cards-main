@@ -30,6 +30,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/
 import { ContactVoucherAdminModal } from "../components/ContactVoucherAdminModal";
 import { useAuth } from "../hooks/useAuth";
 import { applyVoucherOrder, loadVoucherOrder, saveVoucherOrder } from "../lib/voucherOrder";
+import { isVoucherAdmin as isVoucherAdminUser } from "../lib/voucherAdmin";
 import { format, isValid } from "date-fns";
 import { useIconColor, useColors } from "../theme/colors";
 import { toast } from "../lib/toast";
@@ -249,9 +250,7 @@ const MyCreatedVouchers = () => {
   const [transferLoading, setTransferLoading] = useState(false);
 
   // Transfer-to-Friend (Rajesh Modi only) state
-  const RAJESH_MODI_PHONE = "9867477227";
-  const normalizedUserPhone = (user?.phone || "").replace(/\D/g, "");
-  const isRajeshModi = normalizedUserPhone.endsWith(RAJESH_MODI_PHONE);
+  const isRajeshModi = isVoucherAdminUser(user as any);
   const [friendVoucher, setFriendVoucher] = useState<any | null>(null);
   const [friendPhone, setFriendPhone] = useState("");
   const friendPhoneDigits = friendPhone.replace(/\D/g, "");
@@ -768,6 +767,7 @@ const MyCreatedVouchers = () => {
                 // sees ONLY the Scan button.
                 const viewerRole = v.viewer_role ?? "owner";
                 const isOwnerViewer = viewerRole === "owner";
+                const canManageVoucher = isOwnerViewer || isRajeshModi;
                 const isCoOwner = viewerRole === "co-owner";
                 const isScanner = viewerRole === "scanner";
                 return (
@@ -807,7 +807,7 @@ const MyCreatedVouchers = () => {
                               {v.status}
                             </Text>
                           </View>
-                          {isOwnerViewer && (
+                          {canManageVoucher && (
                             <Pressable onPress={() => showVoucherMenu(v)} hitSlop={8}>
                               <MoreVertical size={16} color="#6a7181" />
                             </Pressable>

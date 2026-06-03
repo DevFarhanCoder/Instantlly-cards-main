@@ -171,7 +171,7 @@ const BottomNav = () => {
     dispatch(setActiveRole(role));
     await SecureStore.setItemAsync('activeRole', role);
     setMoreOpen(false);
-    navigation.navigate(role === 'business' ? 'BusinessDashboard' : 'Home');
+    navigation.navigate('Home');
   };
 
   const totalPending = useMemo(() => {

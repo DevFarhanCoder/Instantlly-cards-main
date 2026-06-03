@@ -2,10 +2,11 @@ import { baseApi } from './baseApi';
 
 export const vouchersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    listVouchers: builder.query<{ data: any[]; page: number }, { page?: number; city?: string; pincode?: string }>({
-      query: ({ page = 1, city, pincode } = {}) => {
+    listVouchers: builder.query<{ data: any[]; page: number }, { page?: number; limit?: number; city?: string; pincode?: string }>({
+      query: ({ page = 1, limit = 500, city, pincode } = {}) => {
         const params = new URLSearchParams();
         params.set('page', String(page));
+        params.set('limit', String(limit));
         if (city) params.set('city', city);
         if (pincode) params.set('pincode', pincode);
         return `/vouchers?${params.toString()}`;

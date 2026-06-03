@@ -49,7 +49,7 @@ const Vouchers = () => {
   const { city: userCity, state: userState, isLoading: locationLoading, isManual, permissionDenied } = useAppLocation();
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   // Always fetch all vouchers; we partition into nearby + others below.
-  const { data: vouchers = [], isLoading, isFetching, refetch: refetchVouchers } = useVouchers({ nearMe: false });
+  const { data: vouchers = [], isLoading, isFetching, refetch: refetchVouchers } = useVouchers({ nearMe: false, limit: 200 });
   const [bannerVoucher, setBannerVoucher] = useState<Voucher | null>(null);
   const [voucherOrder, setVoucherOrder] = useState<string[]>([]);
 
@@ -96,6 +96,7 @@ const Vouchers = () => {
     }
     return { nearbyVouchers: nearby, otherVouchers: others };
   }, [filteredVouchers, userCity]);
+  const hasNearbyVouchers = nearbyVouchers.length > 0;
 
   const [selectedVoucher, setSelectedVoucher] = useState<(typeof filteredVouchers)[0] | null>(null);
 
@@ -274,7 +275,15 @@ const Vouchers = () => {
               </View>
             ) : (
               <View className="gap-3">
-                {filteredVouchers.map((d) => (
+                {hasNearbyVouchers && (
+                  <View className="mb-1">
+                    <Text className="text-sm font-semibold text-foreground">
+                      Available In {userCity}
+                    </Text>
+                  </View>
+                )}
+
+                {(hasNearbyVouchers ? nearbyVouchers : filteredVouchers).map((d) => (
                   <Pressable
                     key={d.id}
                     className="relative flex-row gap-3 overflow-hidden rounded-xl bg-card shadow-sm"
@@ -317,6 +326,59 @@ const Vouchers = () => {
                     </View>
                   </Pressable>
                 ))}
+
+                {hasNearbyVouchers && otherVouchers.length > 0 && (
+                  <>
+                    <View className="mt-2 mb-1">
+                      <Text className="text-sm font-semibold text-muted-foreground">
+                        Other Vouchers
+                      </Text>
+                    </View>
+                    {otherVouchers.map((d) => (
+                      <Pressable
+                        key={`other-${d.id}`}
+                        className="relative flex-row gap-3 overflow-hidden rounded-xl bg-card shadow-sm"
+                        onPress={() => setSelectedVoucher(d)}
+                      >
+                        <View className="h-24 w-24 items-center justify-center bg-white overflow-hidden rounded-l-xl">
+                          {/* show logo (image_url) on the card; banner shows in the preview modal */}
+                          {(d as any).image_url ? (
+                            <Image source={{ uri: (d as any).image_url }} style={{ width: "100%", height: "100%" }} resizeMode="contain" />
+                          ) : (d as any).banner_url ? (
+                            <Image source={{ uri: (d as any).banner_url }} style={{ width: "100%", height: "100%" }} resizeMode="contain" />
+                          ) : (
+                            <Text className="text-4xl">{emojiImages[d.category] || "🎁"}</Text>
+                          )}
+                        </View>
+                        <View className="flex-1 py-3 pr-4">
+                          <View className="mb-1 flex-row items-center gap-1.5">
+                            {d.discount_label && (
+                              <Badge className="bg-primary/10 text-primary border-none text-[10px]">
+                                <Text className="text-[10px] font-semibold text-primary" numberOfLines={1}>
+                                  {d.discount_label} with code
+                                </Text>
+                              </Badge>
+                            )}
+                          </View>
+                          <Text className="text-sm font-semibold text-foreground">
+                            {d.title}
+                          </Text>
+                          <View className="mt-1 flex-row items-center gap-2">
+                            <Text className="text-sm font-bold text-primary">
+                              ₹{formatINR(d.original_price)}
+                            </Text>
+                          </View>
+                        </View>
+                        <View className="absolute bottom-2 right-2 flex-row items-center gap-1">
+                          <Clock size={12} color="#6a7181" />
+                          <Text className="text-[10px] text-muted-foreground">
+                            {getExpiryLabel(d.expires_at)}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    ))}
+                  </>
+                )}
               </View>
             )}
           </View>
