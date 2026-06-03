@@ -348,6 +348,7 @@ const UnifiedScanner = () => {
       navigation.navigate("ChooseListingType");
     } else {
       toast.success("Switched to customer mode");
+      navigation.navigate("Home");
     }
   };
 

@@ -177,11 +177,12 @@ const mapVoucher = (v: any): Voucher => {
   };
 };
 
-export function useVouchers(opts?: { nearMe?: boolean }) {
+export function useVouchers(opts?: { nearMe?: boolean; limit?: number }) {
   const { city } = useAppLocation();
   const nearMe = opts?.nearMe ?? true;
+  const limit = opts?.limit ?? 200;
   const result = useListVouchersQuery(
-    { page: 1, city: nearMe && city ? city : undefined },
+    { page: 1, limit, city: nearMe && city ? city : undefined },
     { refetchOnMountOrArgChange: true }
   );
   return {
